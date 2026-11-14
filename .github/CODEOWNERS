@@ -1,0 +1,8 @@
+* @biznesemarket
+
+# Домен и расчеты — обязательное ревью владельца продукта
+/packages/domain/ @biznesemarket
+/docs/02-domain/ @biznesemarket
+/.github/ @biznesemarket
+/LICENSE @biznesemarket
+/SECURITY.md @biznesemarket

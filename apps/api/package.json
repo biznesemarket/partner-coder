@@ -1,0 +1,22 @@
+{
+  "name": "@partner-coder/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@partner-coder/config": "workspace:*",
+    "@partner-coder/contracts": "workspace:*",
+    "@partner-coder/domain": "workspace:*",
+    "fastify": "^5.2.1"
+  }
+}

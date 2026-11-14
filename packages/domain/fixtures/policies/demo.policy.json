@@ -1,0 +1,116 @@
+{
+  "meta": {
+    "schema_version": "1.0",
+    "policy_version": 1,
+    "tenant_id": "demo",
+    "project_id": "demo-project",
+    "approved_by": "director",
+    "effective_from": "2026-11-01T00:00:00+03:00"
+  },
+  "project": {
+    "name": "Демо-проект",
+    "forge": "github",
+    "repo": "demo/partner-coder",
+    "timezone": "Europe/Moscow",
+    "default_branch": "main"
+  },
+  "economics": {
+    "valuation_rub": 10000000,
+    "rate_rub_per_hour": 500,
+    "currency": "RUB",
+    "pool_pct": 30,
+    "founder_floor_pct": 70,
+    "cash_share_pct": 0,
+    "cash_payment_schedule": "monthly",
+    "revaluation_notice_days": 3,
+    "pool_info_pct": 80,
+    "pool_warn_pct": 90
+  },
+  "time": {
+    "mode": "time_based",
+    "heartbeat_interval_sec": 30,
+    "active_window_sec": 120,
+    "presence_window_sec": 600,
+    "idle_timeout_sec": 300,
+    "max_clock_skew_sec": 300,
+    "k_supervised": 1.0,
+    "k_autonomous": 0.2,
+    "daily_cap_hours": 12,
+    "autonomous_paid_cap_hours": 2.0,
+    "k_quality_default": 1.0,
+    "manual_only_policy": "track_only",
+    "require_task_link": true
+  },
+  "day": {
+    "close_at": "00:00",
+    "late_grace_hours": 24,
+    "dispute_window_days": 3,
+    "digest_hour": 9,
+    "digest_channels": ["agent", "email"]
+  },
+  "vesting": {
+    "enabled": true,
+    "months": 48,
+    "cliff_months": 12,
+    "active_month_rule": "paid_hours",
+    "active_month_min_paid_hours": 20,
+    "active_month_min_amount_rub": 10000,
+    "cash_vesting": false,
+    "acceleration": "single_trigger_100",
+    "control_change_threshold_pct": 50,
+    "inactive_pause_months": 3
+  },
+  "versions": {
+    "rate": [
+      {
+        "effective_from": "2026-11-01T00:00:00+03:00",
+        "value": 500,
+        "reason": "Стартовая ставка часа работы с ИИ-агентом",
+        "approved_by": "director"
+      }
+    ],
+    "valuation": [
+      {
+        "effective_from": "2026-11-01T00:00:00+03:00",
+        "value": 10000000,
+        "reason": "Стартовая оценка проекта",
+        "approved_by": "director",
+        "adr_ref": "ADR-0016"
+      }
+    ]
+  },
+  "identity": {
+    "max_accounts_per_forge": 1,
+    "require_proof": true,
+    "exception_approvers": ["director"],
+    "exception_min_reason_len": 20,
+    "wip_scope": "person"
+  },
+  "quality": {
+    "enabled": false,
+    "k_default": 1.0,
+    "k_min": 0.5,
+    "k_max": 1.3,
+    "requires_reason": true
+  },
+  "storage": {
+    "raw_events_retention_days": 90,
+    "git_anchor": "monthly",
+    "anchor_repo_path": "ledger/"
+  },
+  "legal": {
+    "enabled": false,
+    "jurisdiction": null,
+    "entity_name": null,
+    "entity_ids": null,
+    "contract_template_ref": null,
+    "newco_target_months": null,
+    "pd_consent_required": true
+  },
+  "security": {
+    "require_signed_events": true,
+    "no_output_flag_hours": 3,
+    "night_autonomous_flag_hours": 6,
+    "synthetic_input_detection": true
+  }
+}

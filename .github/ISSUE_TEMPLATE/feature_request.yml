@@ -1,0 +1,43 @@
+name: Feature request
+description: Предложить функцию или изменение
+labels: ["enhancement", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Проблема
+      description: Какую задачу пользователя решает изменение?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Предложение
+    validations:
+      required: true
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Веха
+      options:
+        - M0 Фундамент
+        - M1 Домен
+        - M2 Платформенное ядро
+        - M3 Консоль вендора
+        - M4 MCP и онбординг
+        - M5 Кабинет директора
+        - M6 Учет времени
+        - M7 Git-коннекторы
+        - M8 Дайджесты и выплаты
+        - M9 Безопасность
+        - M10 Пилот
+        - после пилота
+    validations:
+      required: true
+  - type: checkboxes
+    id: calc
+    attributes:
+      label: Влияние на расчет
+      options:
+        - label: Изменение затрагивает формулы, капы, пул или вестинг (нужен ADR)
+          required: false

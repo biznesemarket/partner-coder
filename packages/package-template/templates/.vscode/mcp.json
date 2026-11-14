@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "partner-coder": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/bin/partner-coder.exe",
+      "args": ["mcp"]
+    }
+  }
+}

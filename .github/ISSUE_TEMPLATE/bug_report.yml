@@ -1,0 +1,53 @@
+name: Bug report
+description: Сообщить о дефекте продукта
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за сообщение. **Не публикуйте** здесь секреты, токены, персональные данные и код клиентов.
+        Уязвимости безопасности — на security@partnercoder.ru (см. SECURITY.md).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Что произошло
+      description: Кратко опишите дефект и ожидаемое поведение.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги воспроизведения
+      placeholder: |
+        1. Открыть ...
+        2. Нажать ...
+        3. Увидеть ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Область
+      options:
+        - Расчет / начисления
+        - Политика / версии
+        - Онбординг / пакет
+        - MCP / агент / расширение
+        - Кабинет директора
+        - Консоль вендора
+        - Другое
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия / коммит
+    validations:
+      required: false
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Подтверждение
+      options:
+        - label: В сообщении нет секретов, токенов и персональных данных
+          required: true

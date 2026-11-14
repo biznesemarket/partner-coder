@@ -1,0 +1,42 @@
+# Зависимости
+node_modules/
+.pnpm-store/
+
+# Сборка
+dist/
+build/
+out/
+.next/
+*.tsbuildinfo
+
+# Тесты и покрытие
+coverage/
+test-results/
+playwright-report/
+
+# Окружение и секреты
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+!packages/package-template/templates/config/enrollment.key.example
+
+# Локальные данные
+data/
+tmp/
+*.log
+
+# Инструменты
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.DS_Store
+Thumbs.db
+
+# Служебные артефакты плана
+.superpowers/
+
+# Кэш Turborepo
+.turbo/

@@ -1,0 +1,10 @@
+{
+  "name": "@partner-coder/package-template",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Шаблоны zip-пакета подключения (START-HERE, AGENTS, конфиги MCP)",
+  "files": [
+    "templates"
+  ]
+}

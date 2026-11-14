@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "partner-coder": {
+      "command": "./bin/partner-coder.exe",
+      "args": ["mcp"],
+      "env": {
+        "PARTNER_CODER_PACKAGE_DIR": "."
+      }
+    }
+  }
+}

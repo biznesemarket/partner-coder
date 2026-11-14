@@ -1,0 +1,558 @@
+{
+  "version": 1,
+  "source": "docs/02-domain/golden-tests.md",
+  "note": "Локальные времена интервалов задаются в часовом поясе проекта; раннер переводит их в UTC. Деньги — копейки, доля — единицы 1e-6 (330 = 0,0330 %).",
+  "scenarios": [
+    {
+      "id": "T-01",
+      "kind": "day",
+      "title": "День со всеми классами времени",
+      "source": "time-accounting §13 (T-01), calculator-spec §7",
+      "input": {
+        "date": "2026-11-16",
+        "sessions": [
+          {
+            "id": "s-1",
+            "membershipId": "dev-1",
+            "taskRef": "PC-1",
+            "branch": "feat/day",
+            "localIntervals": [
+              { "class": "active_human", "from": "00:00", "to": "04:00" },
+              { "class": "supervised_agent", "from": "04:00", "to": "06:00" },
+              { "class": "autonomous_agent", "from": "06:00", "to": "09:00" },
+              { "class": "idle", "from": "09:00", "to": "10:00" }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "paidSeconds": 23760,
+        "amountKopecks": "330000",
+        "cashKopecks": "0",
+        "equityKopecks": "330000",
+        "shareBp": "330",
+        "classes": {
+          "activeSeconds": 14400,
+          "supervisedSeconds": 7200,
+          "autonomousSeconds": 2160,
+          "idleSeconds": 3600
+        },
+        "caps": { "dailyApplied": false, "autonomousApplied": false },
+        "flags": []
+      }
+    },
+    {
+      "id": "T-02",
+      "kind": "day",
+      "title": "Ночной автономный прогон 8 ч",
+      "source": "time-accounting §13 (T-02)",
+      "input": {
+        "date": "2026-11-16",
+        "sessions": [
+          {
+            "id": "s-2",
+            "membershipId": "dev-1",
+            "taskRef": "PC-2",
+            "branch": "feat/night",
+            "localIntervals": [{ "class": "autonomous_agent", "from": "00:00", "to": "08:00" }]
+          }
+        ]
+      },
+      "expect": {
+        "paidSeconds": 5760,
+        "amountKopecks": "80000",
+        "shareBp": "80",
+        "flags": []
+      }
+    },
+    {
+      "id": "T-03",
+      "kind": "day",
+      "title": "Дневной кап 12 ч",
+      "source": "time-accounting §13 (T-03)",
+      "input": {
+        "date": "2026-11-16",
+        "sessions": [
+          {
+            "id": "s-3",
+            "membershipId": "dev-1",
+            "taskRef": "PC-3",
+            "branch": "feat/cap",
+            "localIntervals": [
+              { "class": "active_human", "from": "00:00", "to": "10:00" },
+              { "class": "supervised_agent", "from": "10:00", "to": "14:00" }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "paidSeconds": 43200,
+        "amountKopecks": "600000",
+        "shareBp": "600",
+        "classes": {
+          "activeSeconds": 36000,
+          "supervisedSeconds": 7200,
+          "autonomousSeconds": 0,
+          "idleSeconds": 0
+        },
+        "caps": { "dailyApplied": true, "autonomousApplied": false },
+        "flags": ["cap_applied"]
+      }
+    },
+    {
+      "id": "T-04",
+      "kind": "day",
+      "title": "Union параллельных сессий",
+      "source": "time-accounting §13 (T-04)",
+      "input": {
+        "date": "2026-11-16",
+        "sessions": [
+          {
+            "id": "s-4a",
+            "membershipId": "dev-1",
+            "taskRef": "PC-4",
+            "branch": "feat/a",
+            "localIntervals": [{ "class": "active_human", "from": "10:00", "to": "12:00" }]
+          },
+          {
+            "id": "s-4b",
+            "membershipId": "dev-1",
+            "taskRef": "PC-4",
+            "branch": "feat/b",
+            "localIntervals": [{ "class": "active_human", "from": "11:00", "to": "13:00" }]
+          }
+        ]
+      },
+      "expect": {
+        "paidSeconds": 10800,
+        "amountKopecks": "150000",
+        "shareBp": "150",
+        "flags": []
+      }
+    },
+    {
+      "id": "T-05",
+      "kind": "days",
+      "title": "Сессия через полночь режется по суткам",
+      "source": "time-accounting §13 (T-05)",
+      "input": {
+        "dates": ["2026-11-16", "2026-11-17"],
+        "sessions": [
+          {
+            "id": "s-5",
+            "membershipId": "dev-1",
+            "taskRef": "PC-5",
+            "branch": "feat/midnight",
+            "localIntervals": [{ "class": "active_human", "from": "22:00", "to": "02:00" }]
+          }
+        ]
+      },
+      "expect": [
+        { "date": "2026-11-16", "paidSeconds": 7200, "amountKopecks": "100000", "shareBp": "100" },
+        { "date": "2026-11-17", "paidSeconds": 7200, "amountKopecks": "100000", "shareBp": "100" }
+      ]
+    },
+    {
+      "id": "T-06",
+      "kind": "day",
+      "title": "Смена ставки внутри дня",
+      "source": "time-accounting §13 (T-06)",
+      "policyOverrides": {
+        "versions": {
+          "rate": [
+            {
+              "effective_from": "2026-11-01T00:00:00+03:00",
+              "value": 500,
+              "reason": "Стартовая ставка часа работы с ИИ-агентом",
+              "approved_by": "director"
+            },
+            {
+              "effective_from": "2026-11-16T14:00:00+03:00",
+              "value": 600,
+              "reason": "Повышение ставки по решению директора",
+              "approved_by": "director"
+            }
+          ]
+        }
+      },
+      "input": {
+        "date": "2026-11-16",
+        "sessions": [
+          {
+            "id": "s-6",
+            "membershipId": "dev-1",
+            "taskRef": "PC-6",
+            "branch": "feat/rate",
+            "localIntervals": [{ "class": "active_human", "from": "09:00", "to": "15:00" }]
+          }
+        ]
+      },
+      "expect": {
+        "paidSeconds": 21600,
+        "amountKopecks": "310000",
+        "shareBp": "310",
+        "flags": []
+      }
+    },
+    {
+      "id": "T-07",
+      "kind": "day",
+      "title": "Простой 20 минут не оплачивается",
+      "source": "time-accounting §13 (T-07)",
+      "input": {
+        "date": "2026-11-16",
+        "sessions": [
+          {
+            "id": "s-7",
+            "membershipId": "dev-1",
+            "taskRef": "PC-7",
+            "branch": "feat/idle",
+            "localIntervals": [{ "class": "idle", "from": "10:00", "to": "10:20" }]
+          }
+        ]
+      },
+      "expect": {
+        "paidSeconds": 0,
+        "amountKopecks": "0",
+        "shareBp": "0",
+        "classes": {
+          "activeSeconds": 0,
+          "supervisedSeconds": 0,
+          "autonomousSeconds": 0,
+          "idleSeconds": 1200
+        },
+        "flags": []
+      }
+    },
+    {
+      "id": "T-08",
+      "kind": "day",
+      "title": "Offline 3 ч, загрузка через 5 ч: компенсация в грейсе",
+      "source": "time-accounting §13 (T-08), §7",
+      "input": {
+        "date": "2026-11-16",
+        "sessions": [
+          {
+            "id": "s-8",
+            "membershipId": "dev-1",
+            "taskRef": "PC-8",
+            "branch": "feat/offline",
+            "localIntervals": [
+              {
+                "class": "active_human",
+                "from": "00:00",
+                "to": "03:00",
+                "receivedAt": "2026-11-16T05:00:00Z"
+              }
+            ]
+          }
+        ],
+        "previous": {
+          "amountKopecks": "0",
+          "paidSeconds": 0,
+          "inputHash": "prior-close-without-late-events",
+          "effectiveAmountKopecks": "0"
+        }
+      },
+      "expect": {
+        "paidSeconds": 10800,
+        "amountKopecks": "150000",
+        "adjustmentKopecks": "150000",
+        "idempotent": false,
+        "flags": []
+      }
+    },
+    {
+      "id": "T-09",
+      "kind": "day",
+      "title": "Offline 30 ч: за пределами грейса",
+      "source": "time-accounting §13 (T-09)",
+      "input": {
+        "date": "2026-11-16",
+        "sessions": [
+          {
+            "id": "s-9",
+            "membershipId": "dev-1",
+            "taskRef": "PC-9",
+            "branch": "feat/late",
+            "localIntervals": [
+              {
+                "class": "active_human",
+                "from": "00:00",
+                "to": "03:00",
+                "receivedAt": "2026-11-17T06:00:00Z"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "paidSeconds": 0,
+        "amountKopecks": "0",
+        "trackedSeconds": 10800,
+        "flags": ["late_arrival", "late_rejected"]
+      }
+    },
+    {
+      "id": "T-10",
+      "kind": "day",
+      "title": "Работа без агента: учтено, но не оплачено",
+      "source": "time-accounting §13 (T-10), §5",
+      "input": {
+        "date": "2026-11-16",
+        "sessions": [
+          {
+            "id": "s-10",
+            "membershipId": "dev-1",
+            "taskRef": "PC-10",
+            "branch": "feat/manual",
+            "localIntervals": [
+              {
+                "class": "active_human",
+                "from": "00:00",
+                "to": "04:00",
+                "source": "manual"
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "paidSeconds": 0,
+        "amountKopecks": "0",
+        "trackedSeconds": 14400,
+        "flags": ["manual_track_only"]
+      }
+    },
+    {
+      "id": "T-11",
+      "kind": "day",
+      "title": "Коэффициент качества 1,1",
+      "source": "time-accounting §13 (T-11)",
+      "input": {
+        "date": "2026-11-16",
+        "sessions": [
+          {
+            "id": "s-11",
+            "membershipId": "dev-1",
+            "taskRef": "PC-11",
+            "branch": "feat/quality",
+            "localIntervals": [
+              { "class": "active_human", "from": "00:00", "to": "04:00" },
+              { "class": "supervised_agent", "from": "04:00", "to": "06:00" },
+              { "class": "autonomous_agent", "from": "06:00", "to": "09:00" },
+              { "class": "idle", "from": "09:00", "to": "10:00" }
+            ]
+          }
+        ],
+        "quality": { "kQuality": "1.1", "reason": "Квартальная премия за качество" }
+      },
+      "expect": {
+        "paidSeconds": 23760,
+        "amountKopecks": "363000",
+        "shareBp": "363",
+        "flags": []
+      }
+    },
+    {
+      "id": "T-12",
+      "kind": "day",
+      "title": "Автономный кап 2 ч",
+      "source": "time-accounting §13 (T-12)",
+      "input": {
+        "date": "2026-11-16",
+        "sessions": [
+          {
+            "id": "s-12",
+            "membershipId": "dev-1",
+            "taskRef": "PC-12",
+            "branch": "feat/auto-cap",
+            "localIntervals": [{ "class": "autonomous_agent", "from": "00:00", "to": "12:00" }]
+          }
+        ]
+      },
+      "expect": {
+        "paidSeconds": 7200,
+        "amountKopecks": "100000",
+        "shareBp": "100",
+        "caps": { "dailyApplied": false, "autonomousApplied": true },
+        "flags": ["autonomous_cap_applied"]
+      }
+    },
+    {
+      "id": "E-01",
+      "kind": "day",
+      "title": "Дневное начисление и доля",
+      "source": "equity-model §9 (E-01)",
+      "input": {
+        "date": "2026-11-16",
+        "sessions": [
+          {
+            "id": "s-e1",
+            "membershipId": "dev-1",
+            "taskRef": "PC-1",
+            "branch": "feat/day",
+            "localIntervals": [
+              { "class": "active_human", "from": "00:00", "to": "04:00" },
+              { "class": "supervised_agent", "from": "04:00", "to": "06:00" },
+              { "class": "autonomous_agent", "from": "06:00", "to": "09:00" },
+              { "class": "idle", "from": "09:00", "to": "10:00" }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "paidSeconds": 23760,
+        "amountKopecks": "330000",
+        "shareBp": "330"
+      }
+    },
+    {
+      "id": "E-02",
+      "kind": "month",
+      "title": "22 дня по 6,6 оплачиваемых часов",
+      "source": "equity-model §9 (E-02)",
+      "input": {
+        "startDate": "2026-11-01",
+        "days": 22,
+        "sessions": [
+          {
+            "id": "s-e2",
+            "membershipId": "dev-1",
+            "taskRef": "PC-E2",
+            "branch": "feat/month",
+            "localIntervals": [
+              { "class": "active_human", "from": "00:00", "to": "04:00" },
+              { "class": "supervised_agent", "from": "04:00", "to": "06:00" },
+              { "class": "autonomous_agent", "from": "06:00", "to": "09:00" }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "daysClosed": 22,
+        "paidSeconds": 522720,
+        "paidHours": "145.20",
+        "amountKopecks": "7260000",
+        "shareBp": "7260",
+        "activeMonth": true
+      }
+    },
+    {
+      "id": "E-03",
+      "kind": "month",
+      "title": "12 оплачиваемых часов: месяц не активен",
+      "source": "equity-model §9 (E-03)",
+      "input": {
+        "startDate": "2026-11-16",
+        "days": 1,
+        "sessions": [
+          {
+            "id": "s-e3",
+            "membershipId": "dev-1",
+            "taskRef": "PC-E3",
+            "branch": "feat/short-month",
+            "localIntervals": [{ "class": "active_human", "from": "00:00", "to": "12:00" }]
+          }
+        ]
+      },
+      "expect": {
+        "daysClosed": 1,
+        "paidSeconds": 43200,
+        "paidHours": "12.00",
+        "amountKopecks": "600000",
+        "shareBp": "600",
+        "activeMonth": false
+      }
+    },
+    {
+      "id": "E-04",
+      "kind": "valuation",
+      "title": "Переоценка меняет отображаемую долю, не рубли",
+      "source": "equity-model §9 (E-04), §3",
+      "input": {
+        "equityKopecks": "10000000",
+        "valuationsKopecks": ["1000000000", "2000000000"]
+      },
+      "expect": { "sharesBp": ["10000", "5000"] }
+    },
+    {
+      "id": "E-05",
+      "kind": "pool",
+      "title": "Пул исчерпан: день в pending, доля не растет",
+      "source": "equity-model §9 (E-05), §4",
+      "input": {
+        "date": "2026-11-16",
+        "accruedEquityKopecks": "300000000",
+        "sessions": [
+          {
+            "id": "s-e5",
+            "membershipId": "dev-1",
+            "taskRef": "PC-E5",
+            "branch": "feat/pool",
+            "localIntervals": [
+              { "class": "active_human", "from": "00:00", "to": "04:00" },
+              { "class": "supervised_agent", "from": "04:00", "to": "06:00" },
+              { "class": "autonomous_agent", "from": "06:00", "to": "09:00" }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "amountKopecks": "330000",
+        "equityKopecks": "330000",
+        "shareBp": "0",
+        "poolPending": true,
+        "pendingEquityKopecks": "330000",
+        "poolUsedBp": "10011",
+        "flags": ["pending"]
+      }
+    },
+    {
+      "id": "E-06",
+      "kind": "day",
+      "title": "Денежная доля 20 %",
+      "source": "equity-model §9 (E-06), §2",
+      "note": "Доля дня считается от equity, а не от amount (equity-model §3: V_person = Σ equity_day).",
+      "policyOverrides": { "economics": { "cash_share_pct": 20 } },
+      "input": {
+        "date": "2026-11-16",
+        "sessions": [
+          {
+            "id": "s-e6",
+            "membershipId": "dev-1",
+            "taskRef": "PC-E6",
+            "branch": "feat/cash",
+            "localIntervals": [
+              { "class": "active_human", "from": "00:00", "to": "04:00" },
+              { "class": "supervised_agent", "from": "04:00", "to": "06:00" },
+              { "class": "autonomous_agent", "from": "06:00", "to": "09:00" }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "amountKopecks": "330000",
+        "cashKopecks": "66000",
+        "equityKopecks": "264000",
+        "shareBp": "264"
+      }
+    },
+    {
+      "id": "E-07",
+      "kind": "vesting",
+      "title": "12 активных месяцев из 48",
+      "source": "equity-model §9 (E-07)",
+      "input": { "activeMonths": 12, "months": 48, "cliffMonths": 12, "shareBp": "100000" },
+      "expect": { "fraction": "1/4", "vestedShareBp": "25000" }
+    },
+    {
+      "id": "E-08",
+      "kind": "vesting",
+      "title": "8 активных месяцев при клиффе 12",
+      "source": "equity-model §9 (E-08)",
+      "input": { "activeMonths": 8, "months": 48, "cliffMonths": 12, "shareBp": "100000" },
+      "expect": { "fraction": "0/1", "vestedShareBp": "0" }
+    }
+  ]
+}
