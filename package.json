@@ -16,13 +16,19 @@
     "clean": "turbo run clean",
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,md,yml,yaml}\"",
+    "changeset": "changeset",
+    "commitlint": "commitlint",
     "lint": "eslint .",
     "test": "vitest run",
     "test:golden": "vitest run packages/domain/src/golden.test.ts",
     "test:watch": "vitest",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "version": "changeset version"
   },
   "devDependencies": {
+    "@changesets/cli": "^3.0.3",
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
     "@eslint/js": "^9.20.0",
     "@types/node": "^22.13.0",
     "eslint": "^9.20.0",
