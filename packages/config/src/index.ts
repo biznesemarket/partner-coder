@@ -18,4 +18,4 @@ export const LIMITS = {
   idempotencyTtlHours: 24,
 } as const;
 
-export * from "./env";
+export * from "./env.js";

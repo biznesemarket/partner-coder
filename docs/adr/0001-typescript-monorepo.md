@@ -22,9 +22,10 @@ VS Code-расширения. Контракты между ними меняю�
   (`apps/ide-extension`).
 - Общие пакеты: `domain` (чистое ядро), `contracts` (Zod/OpenAPI), `db`
   (Drizzle), `ui`, `config`, `testing`, `package-template`.
-- Пакеты экспортируют исходники (`exports: "./src/index.ts"`); сборка
-  приложений отвечает за бандлинг. Это убирает двойную сборку при разработке
-  и гарантирует, что тесты гоняют тот же код, что и приложения.
+- Пакеты собираются в `dist` и экспортируют его (`exports` → `dist/index.js`,
+  `dist/index.d.ts`); `turbo` собирает зависимости перед typecheck и build.
+- Тесты работают с исходниками через alias в `vitest.config.ts`, поэтому
+  `pnpm test` не требует предварительной сборки и проверяет тот же код.
 - Тесты: Vitest, fast-check, Playwright; lint — ESLint 9 + typescript-eslint;
   форматирование — Prettier.
 

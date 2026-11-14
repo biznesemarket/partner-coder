@@ -10,7 +10,7 @@
 
 ```bash
 pnpm install
-cp .env.example .env
+cp .env.example .env   # Windows PowerShell: Copy-Item .env.example .env
 ```
 
 `packages/config/src/env.ts` валидирует окружение через Zod: сервис не
@@ -39,7 +39,7 @@ pnpm check         # всё вместе: prettier + lint + typecheck + тест
 pnpm build         # turbo build
 ```
 
-Ожидаемый результат: `Tests 59 passed`, все golden-сценарии совпадают точно.
+Ожидаемый результат: `Tests 66 passed`, все 20 golden-сценариев совпадают точно.
 
 ## 5. API (скелет)
 
