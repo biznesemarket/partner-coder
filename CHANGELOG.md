@@ -56,8 +56,10 @@
 - Обновлены зависимости с известными уязвимостями: `vitest` 4.1.12
   (устраняет critical `tinypool` и moderate `@vitest/mocker`), `nodemailer`
   10.5.0 (high/moderate advisories), `zod` 4.6.7 во всех пакетах (high);
-  `z.record` и defaults переведены на API Zod 4. Остались три moderate
-  транзитивных advisory в tooling-цепочках OTel GCP detector и drizzle-kit.
+  `z.record` и defaults переведены на API Zod 4.
+- `pnpm.overrides` поднимают `glob` до 14.0.6 и `esbuild` до 0.28.2,
+  закрывая оставшиеся moderate advisories транзитивных tooling-цепочек
+  OTel GCP detector и drizzle-kit; `pnpm audit --prod` показывает 0.
 
 ### Notes
 
