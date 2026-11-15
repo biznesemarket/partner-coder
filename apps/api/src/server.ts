@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance } from "fastify";
+import rateLimit from "@fastify/rate-limit";
 import { randomUUID } from "node:crypto";
 
 import type { ErrorEnvelope } from "@partner-coder/contracts";
@@ -70,6 +71,13 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
       return safe ?? randomUUID();
     },
     bodyLimit: 256 * 1024,
+  });
+
+  void server.register(rateLimit, {
+    global: true,
+    max: 300,
+    timeWindow: "1 minute",
+    allowList: (request) => request.url === "/healthz" || request.url === "/readyz",
   });
 
   const startedAt = Date.now();

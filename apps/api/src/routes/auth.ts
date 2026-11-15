@@ -136,7 +136,10 @@ export function registerAuthRoutes(server: FastifyInstance, runtime: AuthRuntime
 
   server.post(
     "/v1/tenant/invitations",
-    { preHandler: [guards.authenticate, guards.permission("invitation", "create")] },
+    {
+      config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
+      preHandler: [guards.authenticate, guards.permission("invitation", "create")],
+    },
     async (request, reply) => {
       const identity = request.auth!;
       const input = parseBody(invitationCreateSchema, request.body);

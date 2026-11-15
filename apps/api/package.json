@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.7.25",
+    "@fastify/rate-limit": "^11.2.2",
     "@partner-coder/config": "workspace:*",
     "@partner-coder/contracts": "workspace:*",
     "@partner-coder/db": "workspace:*",
