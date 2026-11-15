@@ -14,9 +14,17 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.7.25",
     "@partner-coder/config": "workspace:*",
     "@partner-coder/contracts": "workspace:*",
+    "@partner-coder/db": "workspace:*",
     "@partner-coder/domain": "workspace:*",
-    "fastify": "^5.2.1"
+    "better-auth": "^1.7.25",
+    "fastify": "^5.2.1",
+    "nodemailer": "^7.0.13",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^7.0.12"
   }
 }

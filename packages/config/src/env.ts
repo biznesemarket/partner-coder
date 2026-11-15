@@ -20,6 +20,8 @@ export const envSchema = z.object({
 
   DATABASE_URL: z.string().min(1, "DATABASE_URL обязателен"),
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
+  /** Логин роли partner_coder_auth; пусто — используется DATABASE_URL. */
+  AUTH_DATABASE_URL: optionalString,
 
   API_PORT: z.coerce.number().int().min(1).max(65_535).default(4000),
   API_BASE_URL: z.string().url(),
