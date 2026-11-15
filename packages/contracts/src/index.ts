@@ -38,3 +38,4 @@ export const idempotencyHeader = "idempotency-key";
 export const requestIdHeader = "x-request-id";
 
 export const CONTRACTS_VERSION = "0.1.0";
+export * from "./authz.js";
