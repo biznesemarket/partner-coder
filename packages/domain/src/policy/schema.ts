@@ -137,7 +137,7 @@ const identitySchema = z
     exception_min_reason_len: z.number().int().min(0).default(20),
     wip_scope: z.enum(["person", "project"]).default("person"),
   })
-  .default({});
+  .prefault({});
 
 const storageSchema = z
   .object({
@@ -145,33 +145,33 @@ const storageSchema = z
     git_anchor: z.enum(["daily", "monthly"]).default("monthly"),
     anchor_repo_path: z.string().min(1).default("ledger/"),
   })
-  .default({});
+  .prefault({});
 
 const legalSchema = z
   .object({
     enabled: z.boolean().default(false),
     jurisdiction: z.string().nullable().default(null),
     entity_name: z.string().nullable().default(null),
-    entity_ids: z.record(z.string()).nullable().default(null),
+    entity_ids: z.record(z.string(), z.string()).nullable().default(null),
     contract_template_ref: z.string().nullable().default(null),
     newco_target_months: z.number().int().min(0).nullable().default(null),
     pd_consent_required: z.boolean().default(true),
   })
-  .default({});
+  .prefault({});
 
 export const policyDocumentSchema = z.object({
   meta: metaSchema,
   project: projectSchema,
   economics: economicsSchema,
   time: timeSchema,
-  day: daySchema.default({}),
-  vesting: vestingSchema.default({}),
+  day: daySchema.prefault({}),
+  vesting: vestingSchema.prefault({}),
   versions: versionsSchema,
   identity: identitySchema,
-  quality: qualitySchema.default({}),
+  quality: qualitySchema.prefault({}),
   storage: storageSchema,
   legal: legalSchema,
-  security: securitySchema.default({}),
+  security: securitySchema.prefault({}),
 });
 
 export type PolicyDocument = z.infer<typeof policyDocumentSchema>;

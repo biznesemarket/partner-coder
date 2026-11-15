@@ -42,7 +42,7 @@ export const envSchema = z
     S3_BUCKET: z.string().min(1),
     S3_ACCESS_KEY: z.string().min(1),
     S3_SECRET_KEY: z.string().min(1),
-    S3_FORCE_PATH_STYLE: booleanFromString.default("true"),
+    S3_FORCE_PATH_STYLE: booleanFromString.prefault("true"),
 
     SMTP_HOST: z.string().min(1),
     SMTP_PORT: z.coerce.number().int().min(1).max(65_535).default(1025),

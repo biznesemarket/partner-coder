@@ -46,6 +46,14 @@
   `/openapi.json` и генерация типов клиента; tenant-маршруты проектов и закрытых
   дней; staging-чек-лист и ADR-0011.
 
+### Security
+
+- Обновлены зависимости с известными уязвимостями: `vitest` 4.1.12
+  (устраняет critical `tinypool` и moderate `@vitest/mocker`), `nodemailer`
+  10.5.0 (high/moderate advisories), `zod` 4.6.7 во всех пакетах (high);
+  `z.record` и defaults переведены на API Zod 4. Остались три moderate
+  транзитивных advisory в tooling-цепочках OTel GCP detector и drizzle-kit.
+
 ### Notes
 
 - Лицензия — source-available; финальный текст за юристом.
