@@ -29,9 +29,13 @@
   PostgreSQL в CI.
 - M2.2: Better Auth (email OTP и magic link, хеширование OTP/magic-link
   токенов), роль `partner_coder_auth` и auth-таблицы; приглашения с TTL,
-  хешем и одной активацией; device-токены `pcd_…` с хешем, ротацией и
-  отзывом; матрица авторизации director/developer/finance/support; Fastify
-  middleware, отказы в аудите; E2E-тест входа, приглашения и device-токена.
+  HMAC-хешем и одной активацией; device-токены `pcd_…` с хешем, TTL,
+  привязкой к устройству, ротацией/каскадным отзывом и self-service
+  ограничениями; матрица авторизации director/developer/finance/support и
+  правило выдачи ролей; блокировка suspended/archived tenant; стартовая
+  проверка разделения ролей БД; Fastify middleware, отказы в аудите отдельной
+  транзакцией; E2E-тест входа, выбора tenant, приглашения, device-токена,
+  suspension и эскалации роли.
 
 ### Notes
 

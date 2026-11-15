@@ -137,6 +137,20 @@ export function isTenantRole(value: string): value is TenantRole {
   return (tenantRoles as readonly string[]).includes(value);
 }
 
+/**
+ * Кто какие роли может выдавать приглашением. Director — любые; support —
+ * только developer. Иначе support мог бы выдать себе director/finance.
+ */
+export function canAssignRole(actorRole: TenantRole, targetRole: TenantRole): boolean {
+  if (actorRole === "director") {
+    return true;
+  }
+  if (actorRole === "support") {
+    return targetRole === "developer";
+  }
+  return false;
+}
+
 /** Проверяет ролевое право без tenant-контекста. */
 export function can(role: TenantRole, resource: AuthzResource, action: AuthzAction): boolean {
   const set = allowedSets[role]?.[resource];

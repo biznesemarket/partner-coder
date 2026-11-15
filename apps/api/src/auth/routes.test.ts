@@ -14,6 +14,7 @@ const membership: UserMembership = {
   tenantName: "Демо",
   tenantSlug: "demo",
   tenantTimezone: "Europe/Moscow",
+  tenantStatus: "active",
   joinedAt: new Date("2026-11-01T00:00:00Z"),
 };
 
@@ -100,6 +101,59 @@ describe("API authz middleware", () => {
     await server.close();
   });
 
+  it("support не может выдать приглашением director", async () => {
+    const supportMembership: UserMembership = { ...membership, role: "support" };
+    let audited = 0;
+    const server = buildServer({
+      authRuntime: fakeRuntime(
+        identity({
+          memberships: [supportMembership],
+          activeMembership: supportMembership,
+        }),
+        { onTransaction: () => (audited += 1) },
+      ),
+    });
+    const response = await server.inject({
+      method: "POST",
+      url: "/v1/tenant/invitations",
+      payload: { email: "new@example.com", role: "director" },
+    });
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toMatchObject({ error: { code: "role_assignment_denied" } });
+    expect(audited).toBe(1);
+    await server.close();
+  });
+
+  it("device-токен не получает tenant-маршруты", async () => {
+    const device = identity({
+      kind: "device",
+      email: null,
+      name: null,
+      sessionId: null,
+      deviceTokenId: "55555555-5555-4555-8555-555555555555",
+      deviceScope: "agent",
+    });
+    const server = buildServer({ authRuntime: fakeRuntime(device) });
+    const response = await server.inject({ method: "GET", url: "/v1/tenant/overview" });
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toMatchObject({ error: { code: "device_scope_denied" } });
+    await server.close();
+  });
+
+  it("некорректный JSON отдает 400, а не 500", async () => {
+    const server = buildServer({ authRuntime: fakeRuntime(identity()) });
+    const response = await server.inject({
+      method: "POST",
+      url: "/v1/auth/tenant",
+      headers: { "content-type": "application/json" },
+      payload: "{",
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: { code: "FST_ERR_CTP_INVALID_JSON_BODY" },
+    });
+    await server.close();
+  });
   it("не дает выбрать чужой tenant", async () => {
     const server = buildServer({ authRuntime: fakeRuntime(identity()) });
     const response = await server.inject({

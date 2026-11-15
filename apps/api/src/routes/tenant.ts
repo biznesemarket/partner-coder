@@ -13,7 +13,7 @@ import {
 } from "@partner-coder/db";
 
 import { ApiError } from "../errors.js";
-import { createGuards } from "../auth/guard.js";
+import { auditAuthorizationDenied, createGuards } from "../auth/guard.js";
 import type { AuthIdentity, AuthRuntime } from "../auth/runtime.js";
 import { parseBody, parseParams } from "./validation.js";
 
@@ -74,7 +74,9 @@ export function registerTenantRoutes(server: FastifyInstance, runtime: AuthRunti
 
   server.post(
     "/v1/me/devices",
-    { preHandler: [guards.authenticate, guards.permission("device", "create")] },
+    {
+      preHandler: [guards.authenticate, guards.permission("device", "create"), guards.sessionOnly],
+    },
     async (request, reply) => {
       const identity = request.auth!;
       if (!identity.activeMembership) {
@@ -84,6 +86,7 @@ export function registerTenantRoutes(server: FastifyInstance, runtime: AuthRunti
       const issued = await issueDeviceToken(runtime.db, {
         tenantId: identity.activeTenantId!,
         actorUserId: identity.userId,
+        actorMembershipId: identity.activeMembership.membershipId,
         membershipId: identity.activeMembership.membershipId,
         ...(input.label === undefined ? {} : { label: input.label }),
         scope: input.scope,
@@ -102,6 +105,8 @@ export function registerTenantRoutes(server: FastifyInstance, runtime: AuthRunti
   async function assertCanManageDevice(
     requestTokenId: string,
     identity: AuthIdentity,
+    allowCrossMembership: boolean,
+    requestId: string,
   ): Promise<void> {
     const membershipId = await getDeviceTokenMembership(
       runtime.db,
@@ -111,24 +116,36 @@ export function registerTenantRoutes(server: FastifyInstance, runtime: AuthRunti
     if (!membershipId) {
       throw new ApiError(404, "device_token_not_found", "Токен не найден");
     }
-    if (
-      identity.activeMembership?.role !== "director" &&
-      membershipId !== identity.activeMembership?.membershipId
-    ) {
-      throw new ApiError(403, "forbidden", "Можно управлять только своими устройствами");
+    if (!allowCrossMembership && membershipId !== identity.activeMembership?.membershipId) {
+      await auditAuthorizationDenied(
+        runtime.db,
+        identity,
+        "device",
+        "update",
+        "device_ownership_denied",
+        requestId,
+      );
+      throw new ApiError(
+        403,
+        "device_token_forbidden",
+        "Ротация доступна только владельцу device-токена",
+      );
     }
   }
 
   server.post(
     "/v1/me/devices/:id/rotate",
-    { preHandler: [guards.authenticate, guards.permission("device", "update")] },
+    {
+      preHandler: [guards.authenticate, guards.permission("device", "update"), guards.sessionOnly],
+    },
     async (request) => {
       const identity = request.auth!;
       const { id } = parseParams(deviceParamsSchema, request.params);
-      await assertCanManageDevice(id, identity);
+      await assertCanManageDevice(id, identity, false, request.id);
       const issued = await rotateDeviceToken(runtime.db, {
         tenantId: identity.activeTenantId!,
         actorUserId: identity.userId,
+        actorMembershipId: identity.activeMembership!.membershipId,
         tokenId: id,
       });
       return {
@@ -146,11 +163,18 @@ export function registerTenantRoutes(server: FastifyInstance, runtime: AuthRunti
     async (request, reply) => {
       const identity = request.auth!;
       const { id } = parseParams(deviceParamsSchema, request.params);
-      await assertCanManageDevice(id, identity);
+      await assertCanManageDevice(
+        id,
+        identity,
+        identity.activeMembership?.role === "director",
+        request.id,
+      );
       const revoked = await revokeDeviceToken(runtime.db, {
         tenantId: identity.activeTenantId!,
         actorUserId: identity.userId,
+        actorMembershipId: identity.activeMembership!.membershipId,
         tokenId: id,
+        allowCrossMembership: identity.activeMembership!.role === "director",
       });
       if (!revoked) {
         throw new ApiError(404, "device_token_not_found", "Токен не найден");

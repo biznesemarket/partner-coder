@@ -46,7 +46,9 @@
   `auth_invitation_by_token_hash` (минимум полей, владелец — worker).
 - Better Auth работает под ролью `partner_coder_auth`, которая видит только
   `users`, `auth_sessions`, `auth_accounts`, `auth_verifications` и будущие
-  таблицы 2FA/passkeys. API-роль не имеет грантов на auth-таблицы.
+  таблицы 2FA/passkeys. API-роль имеет RLS-доступ к своим `users`/
+  `auth_sessions`, но не имеет грантов на `auth_accounts`,
+  `auth_verifications`, `auth_two_factors`, `auth_passkeys`.
 - `auth_sessions.token` хранит токен Better Auth (дизайн библиотеки),
   `token_hash` — устаревшая колонка для совместимости. OTP и magic-link
   токены хранятся хешами в `auth_verifications`.
@@ -56,6 +58,11 @@
   проверяет email аутентифицированного пользователя и создает членство.
 - `auth_sessions.active_tenant_id` — выбранное пространство; API принимает
   tenant только из сессии/токена и проверяет активное членство.
+- `auth_user_memberships` возвращает статус tenant; `suspended`/`archived`
+  не дают активного контекста. `auth_device_by_token_hash` проверяет статус
+  пользователя, членства, tenant и (если задан) активного устройства.
+- Приглашение выдает роль по правилу: director — любую, support — только
+  developer; повторная активация существующего членства запрещена.
 - Аудит пишется через `app_audit()`; actor берется из `app.user_id`, прямой
   INSERT в `tenant_audit_events` у API-роли отсутствует.
 - `idempotency_keys`: tenant-ключи через `app.tenant_id`, vendor-ключи

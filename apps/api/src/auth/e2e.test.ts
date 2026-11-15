@@ -173,6 +173,41 @@ describe("E2E: статус пользователя", () => {
   });
 });
 
+describe("E2E: эскалация роли", () => {
+  it("support не может пригласить director, отказ попадает в аудит", async () => {
+    const userId = randomUUID();
+    const email = `support-${randomUUID()}@example.com`;
+    await database.pool.query(
+      `insert into users (id, email, name, status, email_verified)
+       values ($1, $2, 'Поддержка', 'active', true)`,
+      [userId, email],
+    );
+    await database.pool.query(
+      `insert into memberships (tenant_id, user_id, role, status, joined_at)
+       values ($1, $2, 'support', 'active', now())`,
+      [tenant.tenantId, userId],
+    );
+
+    const cookies = await signIn(email);
+    const response = await server.inject({
+      method: "POST",
+      url: "/v1/tenant/invitations",
+      headers: { host, cookie: cookies },
+      payload: { email: `target-${randomUUID()}@example.com`, role: "director" },
+    });
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toMatchObject({ error: { code: "role_assignment_denied" } });
+
+    const audit = await database.pool.query<{ reason: string }>(
+      `select after->>'reason' as reason
+         from tenant_audit_events
+        where tenant_id = $1 and action = 'authz.denied' and entity = 'invitation:create'
+        order by chain_seq desc limit 1`,
+      [tenant.tenantId],
+    );
+    expect(audit.rows[0]?.reason).toBe("role_denied");
+  });
+});
 describe("E2E: приглашение и device token через API", () => {
   it("директор приглашает разработчика, тот принимает приглашение", async () => {
     const director = await database.pool.query<{ email: string }>(
@@ -255,8 +290,9 @@ describe("E2E: приглашение и device token через API", () => {
       payload: { label: "E2E", scope: "agent" },
     });
     expect(issued.statusCode).toBe(201);
-    const issuedBody = issued.json<{ id: string; token: string }>();
+    const issuedBody = issued.json<{ id: string; token: string; expiresAt: string }>();
     expect(issuedBody.token).toMatch(/^pcd_/);
+    expect(issuedBody.expiresAt).toBeTruthy();
 
     const deviceMe = await server.inject({
       method: "GET",

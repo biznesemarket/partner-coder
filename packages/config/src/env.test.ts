@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { EnvValidationError, parseEnv } from "./env.js";
+import { EnvValidationError, parseEnv, parseList } from "./env.js";
 
 const validEnv = {
   NODE_ENV: "test",
@@ -36,6 +36,27 @@ describe("валидация окружения", () => {
       expect(issues.join("\n")).toMatch(/DATABASE_URL/);
       expect(issues.join("\n")).toMatch(/AUTH_SECRET/);
     }
+  });
+
+  it("вне local требует отдельный AUTH_DATABASE_URL и не принимает пример секрета", () => {
+    try {
+      parseEnv({
+        ...validEnv,
+        APP_ENV: "staging",
+        AUTH_SECRET: "local-dev-only-change-me-0123456789abcdef",
+      });
+      expect.unreachable("ожидалась ошибка валидации");
+    } catch (error) {
+      expect(error).toBeInstanceOf(EnvValidationError);
+      const issues = (error as EnvValidationError).issues.join("\\n");
+      expect(issues).toMatch(/AUTH_DATABASE_URL/);
+      expect(issues).toMatch(/AUTH_SECRET/);
+    }
+  });
+
+  it("разбирает списки заголовков и прокси через запятую", () => {
+    expect(parseList(" x-real-ip, ,x-forwarded-for ")).toEqual(["x-real-ip", "x-forwarded-for"]);
+    expect(parseList(undefined)).toEqual([]);
   });
 
   it("пустая строка в опциональном поле становится undefined", () => {

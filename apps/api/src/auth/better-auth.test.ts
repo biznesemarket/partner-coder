@@ -1,11 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 
 import { createTestDatabase, type TestDatabase } from "../../../../packages/db/test/helpers.js";
 import { createAuth } from "./config.js";
 import { MemoryMailer } from "./mailer.js";
 
+const authSecret = "test-secret-test-secret-test-secret-1234";
 let database: TestDatabase;
 let mailer: MemoryMailer;
 
@@ -21,7 +22,7 @@ afterAll(async () => {
 function buildAuth() {
   return createAuth({
     db: database.db,
-    secret: "test-secret-test-secret-test-secret-1234",
+    secret: authSecret,
     baseURL: "http://localhost:4000",
     webBaseURL: "http://localhost:3000",
     sessionTtlHours: 12,
@@ -49,8 +50,12 @@ describe("Better Auth: email OTP", () => {
       [`%${email}%`],
     );
     expect(verification.rows[0]?.value).not.toBe(otpMessage?.otp);
-    expect(verification.rows[0]?.value.length).toBeGreaterThan(32);
-    expect(verification.rows[0]?.value.startsWith(otpMessage!.otp)).toBe(false);
+    expect(verification.rows[0]?.value).not.toBe(
+      createHash("sha256").update(otpMessage!.otp).digest("hex"),
+    );
+    expect(verification.rows[0]?.value).toBe(
+      `${createHmac("sha256", authSecret).update(otpMessage!.otp).digest("hex")}:0`,
+    );
 
     const signedIn = await auth.api.signInEmailOTP({
       body: { email, otp: otpMessage!.otp },

@@ -39,7 +39,12 @@ function pickActiveMembership(
   memberships: readonly UserMembership[],
   preferredTenantId: string | null,
 ): UserMembership | null {
-  const active = memberships.filter((membership) => membership.status === "active");
+  const active = memberships.filter(
+    (membership) =>
+      membership.status === "active" &&
+      membership.tenantStatus !== "suspended" &&
+      membership.tenantStatus !== "archived",
+  );
   if (preferredTenantId) {
     const preferred = active.find((membership) => membership.tenantId === preferredTenantId);
     if (preferred) {

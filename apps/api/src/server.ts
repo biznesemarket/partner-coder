@@ -11,18 +11,37 @@ import { registerTenantRoutes } from "./routes/tenant.js";
 
 export { ApiError } from "./errors.js";
 
+function fastifyClientError(
+  error: unknown,
+): { readonly statusCode: number; readonly code: string } | null {
+  const statusCode = (error as { statusCode?: unknown }).statusCode;
+  if (typeof statusCode !== "number" || statusCode < 400 || statusCode >= 500) {
+    return null;
+  }
+  const code = (error as { code?: unknown }).code;
+  return {
+    statusCode,
+    code: typeof code === "string" && code.length > 0 ? code : "bad_request",
+  };
+}
+
 function authServiceStatus(code: AuthServiceError["code"]): number {
   switch (code) {
     case "invitation_not_found":
+    case "device_not_found":
     case "device_token_not_found":
     case "membership_not_found":
       return 404;
     case "invitation_used":
+    case "membership_exists":
       return 409;
     case "invitation_expired":
       return 410;
     case "invitation_email_mismatch":
+    case "role_assignment_denied":
     case "membership_inactive":
+    case "tenant_inactive":
+    case "device_token_forbidden":
       return 403;
     case "device_token_revoked":
     case "device_token_expired":
@@ -46,7 +65,9 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
     logger: options.logger ?? false,
     genReqId: (request) => {
       const incoming = request.headers["x-request-id"];
-      return typeof incoming === "string" && incoming.length > 0 ? incoming : randomUUID();
+      const safe =
+        typeof incoming === "string" && /^[A-Za-z0-9._:-]{1,128}$/.test(incoming) ? incoming : null;
+      return safe ?? randomUUID();
     },
     bodyLimit: 256 * 1024,
   });
@@ -62,6 +83,7 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
   });
 
   server.setErrorHandler((error, request, reply) => {
+    const clientError = fastifyClientError(error);
     const statusCode = (() => {
       if (error instanceof ApiError) {
         return error.statusCode;
@@ -69,13 +91,22 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
       if (error instanceof AuthServiceError) {
         return authServiceStatus(error.code);
       }
-      return 500;
+      return clientError?.statusCode ?? 500;
     })();
-    const isPublic = error instanceof ApiError || error instanceof AuthServiceError;
+    const isPublic =
+      error instanceof ApiError || error instanceof AuthServiceError || clientError !== null;
     const payload: ErrorEnvelope = {
       error: {
-        code: isPublic ? error.code : "internal_error",
-        message: isPublic ? error.message : "Внутренняя ошибка. Попробуйте позже.",
+        code: isPublic
+          ? error instanceof ApiError || error instanceof AuthServiceError
+            ? error.code
+            : clientError!.code
+          : "internal_error",
+        message: isPublic
+          ? error instanceof ApiError || error instanceof AuthServiceError
+            ? error.message
+            : "Некорректный запрос"
+          : "Внутренняя ошибка. Попробуйте позже.",
         requestId: request.id,
         ...(error instanceof ApiError && error.details ? { details: error.details } : {}),
       },

@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 
 import type { Database } from "../client.js";
-import type { MembershipRole, MembershipStatus } from "./errors.js";
+import type { MembershipRole, MembershipStatus, TenantStatus } from "./errors.js";
 
 export interface UserMembership {
   readonly membershipId: string;
@@ -11,6 +11,7 @@ export interface UserMembership {
   readonly tenantName: string;
   readonly tenantSlug: string;
   readonly tenantTimezone: string;
+  readonly tenantStatus: TenantStatus;
   readonly joinedAt: Date | null;
 }
 
@@ -20,7 +21,7 @@ export async function listUserMemberships(
 ): Promise<readonly UserMembership[]> {
   const result = await db.execute(
     sql`select membership_id, tenant_id, role, status, tenant_name, tenant_slug,
-               tenant_timezone, joined_at
+               tenant_timezone, tenant_status, joined_at
           from auth_user_memberships(${userId})`,
   );
   return result.rows.map((raw) => {
@@ -32,6 +33,7 @@ export async function listUserMemberships(
       tenant_name: string;
       tenant_slug: string;
       tenant_timezone: string;
+      tenant_status: TenantStatus;
       joined_at: Date | string | null;
     };
     return {
@@ -42,6 +44,7 @@ export async function listUserMemberships(
       tenantName: row.tenant_name,
       tenantSlug: row.tenant_slug,
       tenantTimezone: row.tenant_timezone,
+      tenantStatus: row.tenant_status,
       joinedAt: row.joined_at ? new Date(row.joined_at) : null,
     };
   });

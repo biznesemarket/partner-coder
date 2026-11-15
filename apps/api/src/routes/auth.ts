@@ -12,8 +12,10 @@ import {
   setSessionActiveTenant,
 } from "@partner-coder/db";
 
+import { canAssignRole } from "@partner-coder/contracts";
+
 import { ApiError } from "../errors.js";
-import { createGuards } from "../auth/guard.js";
+import { auditAuthorizationDenied, createGuards } from "../auth/guard.js";
 import type { AuthRuntime } from "../auth/runtime.js";
 import { parseBody, parseParams } from "./validation.js";
 
@@ -97,7 +99,11 @@ export function registerAuthRoutes(server: FastifyInstance, runtime: AuthRuntime
     const identity = request.auth!;
     const { tenantId } = parseBody(tenantIdSchema, request.body);
     const membership = identity.memberships.find(
-      (item) => item.tenantId === tenantId && item.status === "active",
+      (item) =>
+        item.tenantId === tenantId &&
+        item.status === "active" &&
+        item.tenantStatus !== "suspended" &&
+        item.tenantStatus !== "archived",
     );
     if (!membership) {
       throw new ApiError(403, "cross_tenant_denied", "Доступ к другому пространству запрещен");
@@ -134,9 +140,26 @@ export function registerAuthRoutes(server: FastifyInstance, runtime: AuthRuntime
     async (request, reply) => {
       const identity = request.auth!;
       const input = parseBody(invitationCreateSchema, request.body);
+      const actorRole = identity.activeMembership!.role;
+      if (!canAssignRole(actorRole, input.role)) {
+        await auditAuthorizationDenied(
+          runtime.db,
+          identity,
+          "invitation",
+          "create",
+          "role_denied",
+          request.id,
+        );
+        throw new ApiError(
+          403,
+          "role_assignment_denied",
+          "Нельзя выдать приглашением роль выше своей",
+        );
+      }
       const created = await createInvitation(runtime.db, {
         tenantId: identity.activeTenantId!,
         actorUserId: identity.userId,
+        actorRole: identity.activeMembership!.role,
         email: input.email,
         role: input.role,
         ...(input.ttlMinutes === undefined ? {} : { ttlMinutes: input.ttlMinutes }),
@@ -172,7 +195,7 @@ export function registerAuthRoutes(server: FastifyInstance, runtime: AuthRuntime
   server.get("/v1/public/invitations/:token", async (request) => {
     const { token } = parseParams(tokenParamsSchema, request.params);
     const invitation = await inspectInvitation(runtime.db, token);
-    const expired = invitation.expiresAt.getTime() <= Date.now();
+    const expired = invitation.status === "pending" && invitation.expiresAt.getTime() <= Date.now();
     return {
       tenantName: invitation.tenantName,
       email: maskEmail(invitation.email),
@@ -189,6 +212,9 @@ export function registerAuthRoutes(server: FastifyInstance, runtime: AuthRuntime
       const identity = request.auth!;
       if (identity.kind !== "session" || !identity.email) {
         throw new ApiError(403, "session_required", "Принятие приглашения требует веб-сессии");
+      }
+      if (!identity.emailVerified) {
+        throw new ApiError(403, "email_not_verified", "Email не подтвержден");
       }
       const { token } = parseParams(tokenParamsSchema, request.params);
       const accepted = await acceptInvitation(runtime.db, {

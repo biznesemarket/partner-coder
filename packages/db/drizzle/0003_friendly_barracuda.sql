@@ -99,7 +99,9 @@ CREATE INDEX "auth_verifications_identifier_idx" ON "auth_verifications" USING b
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_recipient_membership_fk" FOREIGN KEY ("tenant_id","recipient_user_id") REFERENCES "public"."memberships"("tenant_id","user_id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "auth_sessions_legacy_token_uq" ON "auth_sessions" USING btree ("token_hash") WHERE "auth_sessions"."token_hash" is not null;--> statement-breakpoint
 CREATE INDEX "auth_sessions_active_tenant_idx" ON "auth_sessions" USING btree ("active_tenant_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "auth_sessions_token_uq" ON "auth_sessions" USING btree ("token");-- M2.2: глобальный контур аутентификации. Better Auth работает под отдельной
+CREATE UNIQUE INDEX "auth_sessions_token_uq" ON "auth_sessions" USING btree ("token");--> statement-breakpoint
+
+-- M2.2: глобальный контур аутентификации. Better Auth работает под отдельной
 -- ролью, у которой нет доступа к тенантским данным; API-роль не видит секреты.
 DO $$
 BEGIN
@@ -190,6 +192,7 @@ RETURNS TABLE (
   tenant_name text,
   tenant_slug text,
   tenant_timezone text,
+  tenant_status tenant_status,
   joined_at timestamptz
 )
 LANGUAGE sql
@@ -197,7 +200,7 @@ STABLE
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
-  SELECT m.id, m.tenant_id, m.role, m.status, t.name, t.slug, t.timezone, m.joined_at
+  SELECT m.id, m.tenant_id, m.role, m.status, t.name, t.slug, t.timezone, t.status, m.joined_at
     FROM memberships m
     JOIN tenants t ON t.id = m.tenant_id
    WHERE m.user_id = p_user_id
@@ -214,6 +217,7 @@ RETURNS TABLE (
   membership_role membership_role,
   membership_status membership_status,
   user_status user_status,
+  tenant_status tenant_status,
   scope text,
   expires_at timestamptz,
   revoked_at timestamptz
@@ -224,11 +228,22 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
   SELECT dt.id, dt.tenant_id, dt.membership_id, m.user_id, m.role, m.status, u.status,
-         dt.scope, dt.expires_at, dt.revoked_at
+         t.status, dt.scope, dt.expires_at, dt.revoked_at
     FROM device_tokens dt
     JOIN memberships m ON m.id = dt.membership_id AND m.tenant_id = dt.tenant_id
     JOIN users u ON u.id = m.user_id
+    JOIN tenants t ON t.id = dt.tenant_id
    WHERE dt.token_hash = p_token_hash
+     AND (
+       dt.device_id IS NULL OR EXISTS (
+         SELECT 1 FROM devices d
+          WHERE d.id = dt.device_id
+            AND d.tenant_id = dt.tenant_id
+            AND d.membership_id = dt.membership_id
+            AND d.status = 'active'
+            AND d.revoked_at IS NULL
+       )
+     )
    LIMIT 1
 $$;--> statement-breakpoint
 
@@ -240,14 +255,15 @@ RETURNS TABLE (
   role membership_role,
   status invitation_status,
   expires_at timestamptz,
-  tenant_name text
+  tenant_name text,
+  tenant_status tenant_status
 )
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
-  SELECT i.id, i.tenant_id, i.email, i.role, i.status, i.expires_at, t.name
+  SELECT i.id, i.tenant_id, i.email, i.role, i.status, i.expires_at, t.name, t.status
     FROM invitations i
     JOIN tenants t ON t.id = i.tenant_id
    WHERE i.token_hash = p_token_hash

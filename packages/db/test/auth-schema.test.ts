@@ -97,11 +97,19 @@ describe("схема аутентификации M2.2", () => {
   });
 
   it("не дает API-роли читать Better Auth-секреты", async () => {
-    await expect(
-      asRole(testDb.pool, API_ROLE, async (client) => {
-        await client.query("select * from auth_accounts");
-      }),
-    ).rejects.toSatisfy((error: unknown) => isPgError(error, "42501"));
+    for (const table of [
+      "auth_accounts",
+      "auth_verifications",
+      "auth_two_factors",
+      "auth_passkeys",
+    ]) {
+      await expect(
+        asRole(testDb.pool, API_ROLE, async (client) => {
+          await client.query(`select * from ${table}`);
+        }),
+        table,
+      ).rejects.toSatisfy((error: unknown) => isPgError(error, "42501"));
+    }
   });
 
   it("изолирует device_tokens по tenant и запрещает ссылку на чужое membership", async () => {

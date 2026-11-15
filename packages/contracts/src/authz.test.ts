@@ -5,6 +5,7 @@ import {
   authzResources,
   authorize,
   can,
+  canAssignRole,
   tenantRoles,
   type AuthzAction,
   type AuthzResource,
@@ -114,6 +115,28 @@ describe("матрица authz: роль × ресурс × действие", (
       }
     }
   }
+});
+
+describe("выдача ролей приглашением", () => {
+  it("director может выдать любую роль", () => {
+    for (const role of tenantRoles) {
+      expect(canAssignRole("director", role), role).toBe(true);
+    }
+  });
+
+  it("support может выдать только developer", () => {
+    expect(canAssignRole("support", "developer")).toBe(true);
+    expect(canAssignRole("support", "director")).toBe(false);
+    expect(canAssignRole("support", "finance")).toBe(false);
+    expect(canAssignRole("support", "support")).toBe(false);
+  });
+
+  it("developer и finance не выдают роли", () => {
+    for (const role of tenantRoles) {
+      expect(canAssignRole("developer", role), role).toBe(false);
+      expect(canAssignRole("finance", role), role).toBe(false);
+    }
+  });
 });
 
 describe("авторизация с tenant-контекстом", () => {

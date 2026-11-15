@@ -89,10 +89,13 @@ await withTenantContext(db, { tenantId, userId }, async (tx) => {
 ## Аутентификация и приглашения
 
 - `src/auth/invitations.ts`: `createInvitation` (сырой токен возвращается один
-  раз, в БД SHA-256), `acceptInvitation` (проверка email, членство, аудит),
-  `revokeInvitation`, `inspectInvitation`.
+  раз, в БД SHA-256; director выдает любую роль, support — только developer),
+  `acceptInvitation` (проверка email, запрет повторной активации членства,
+  аудит отказа отдельной транзакцией), `revokeInvitation`, `inspectInvitation`.
 - `src/auth/device-tokens.ts`: выпуск, аутентификация, ротация и отзыв
-  `pcd_…`-токенов; в БД только хеш.
+  `pcd_…`-токенов; в БД только хеш, TTL по умолчанию 90 дней, ротация
+  self-service с сохранением срока, каскадный отзыв по `rotated_from`,
+  проверка статуса устройства и tenant.
 - `src/auth/identity.ts`: членства пользователя через
   `auth_user_memberships`; `findUserByEmail`.
 - `src/auth/tenant-data.ts`: активный tenant сессии, список приглашений и

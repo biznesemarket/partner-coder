@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
@@ -24,6 +24,8 @@ export interface CreateAuthOptions {
   readonly mailer: AuthMailer;
   /** В тестах можно отключить in-memory rate limit. */
   readonly rateLimitEnabled?: boolean;
+  readonly ipAddressHeaders?: readonly string[];
+  readonly trustedProxies?: readonly string[];
 }
 
 /**
@@ -51,6 +53,18 @@ export function createAuth(options: CreateAuthOptions) {
       database: {
         generateId: () => randomUUID(),
       },
+      ...((options.ipAddressHeaders?.length ?? 0) > 0 || (options.trustedProxies?.length ?? 0) > 0
+        ? {
+            ipAddress: {
+              ...(options.ipAddressHeaders && options.ipAddressHeaders.length > 0
+                ? { ipAddressHeaders: [...options.ipAddressHeaders] }
+                : {}),
+              ...(options.trustedProxies && options.trustedProxies.length > 0
+                ? { trustedProxies: [...options.trustedProxies] }
+                : {}),
+            },
+          }
+        : {}),
     },
     user: {
       additionalFields: {
@@ -64,12 +78,6 @@ export function createAuth(options: CreateAuthOptions) {
           type: "string",
           required: false,
           defaultValue: "ru-RU",
-          input: false,
-        },
-        authProvider: {
-          type: "string",
-          required: false,
-          defaultValue: "email-otp",
           input: false,
         },
       },
@@ -94,7 +102,9 @@ export function createAuth(options: CreateAuthOptions) {
       emailOTP({
         otpLength: 6,
         expiresIn: 10 * 60,
-        storeOTP: "hashed",
+        storeOTP: {
+          hash: async (otp) => createHmac("sha256", options.secret).update(otp).digest("hex"),
+        },
         async sendVerificationOTP({ email, otp, type }) {
           await options.mailer.sendOtp({ email, otp, type });
         },
