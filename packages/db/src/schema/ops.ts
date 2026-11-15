@@ -21,8 +21,8 @@ import {
   notificationStatus,
   repoFactKind,
 } from "./enums.js";
+import { memberships, tenants, users } from "./identity.js";
 import { projects } from "./projects.js";
-import { tenants, users } from "./identity.js";
 
 export const gitIntegrations = pgTable(
   "git_integrations",
@@ -127,6 +127,11 @@ export const notifications = pgTable(
     index("notifications_status_next_idx").on(t.status, t.nextAttemptAt),
     index("notifications_tenant_created_idx").on(t.tenantId, t.createdAt),
     check("notifications_attempts_chk", sql`${t.attempts} >= 0`),
+    foreignKey({
+      name: "notifications_recipient_membership_fk",
+      columns: [t.tenantId, t.recipientUserId],
+      foreignColumns: [memberships.tenantId, memberships.userId],
+    }).onDelete("restrict"),
   ],
 );
 

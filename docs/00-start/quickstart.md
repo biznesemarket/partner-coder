@@ -32,6 +32,10 @@ pnpm seed         # демо-вендор, клиент, проект, 3 раз�
 
 Если нужен только PostgreSQL: `docker compose ... up -d postgres`.
 
+Письма входа (OTP и magic link) локально видны в Mailpit. В staging/prod
+`AUTH_DATABASE_URL` должен указывать на логин роли `partner_coder_auth`;
+локально можно не задавать — Better Auth использует `DATABASE_URL`.
+
 ## 4. Проверки
 
 ```bash
@@ -44,19 +48,21 @@ pnpm check         # всё вместе: prettier + lint + typecheck + тест
 pnpm build         # turbo build
 ```
 
-Ожидаемый результат: `Tests 90 passed`, все 20 golden-сценариев совпадают
+Ожидаемый результат: `Tests 578 passed`, все 20 golden-сценариев совпадают
 точно. Интеграционные тесты создают отдельные БД, поэтому PostgreSQL должен
 быть запущен; в CI он поднимается сервисом GitHub Actions.
 
-## 5. API (скелет)
+## 5. API
 
 ```bash
 pnpm --filter @partner-coder/api dev
 curl http://localhost:4000/healthz
 ```
 
-Отвечает `{ "status": "ok", "version": "0.0.1", … }`. Тенантные маршруты,
-аутентификация и RLS появятся в M2.
+Отвечает `{ "status": "ok", "version": "0.0.1", … }`. В M2.2 работают
+`/api/auth/*` (Better Auth: OTP, magic link), `/v1/auth/me`,
+`/v1/auth/tenant`, приглашения, device-токены и tenant-маршруты; см.
+`docs/03-architecture/api.md`.
 
 ## 6. Что читать дальше
 

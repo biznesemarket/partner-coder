@@ -6,3 +6,4 @@ export * from "./projects.js";
 export * from "./ops.js";
 export * from "./audit.js";
 export * from "./idempotency.js";
+export * from "./auth.js";

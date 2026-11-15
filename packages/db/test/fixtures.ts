@@ -25,13 +25,13 @@ export async function seedVendorBase(pool: Pool): Promise<VendorBase> {
   const planId = randomUUID();
   await pool.query(
     `insert into vendor_users (id, email, name, role, status)
-     values ($1, 'vendor@example.com', 'Вендор', 'superadmin', 'active')`,
-    [vendorUserId],
+     values ($1, $2, 'Вендор', 'superadmin', 'active')`,
+    [vendorUserId, `vendor-${vendorUserId}@example.com`],
   );
   await pool.query(
     `insert into plans (id, code, name, price_kopecks, period, seats_limit, projects_limit)
-     values ($1, 'demo', 'Демо', 100000, 'month', 10, 10)`,
-    [planId],
+     values ($1, $2, 'Демо', 100000, 'month', 10, 10)`,
+    [planId, `demo-${planId.slice(0, 8)}`],
   );
   return { vendorUserId, planId };
 }
@@ -58,6 +58,7 @@ export async function seedTenant(
     rate: randomUUID(),
     valuation: randomUUID(),
     device: randomUUID(),
+    deviceToken: randomUUID(),
     session: randomUUID(),
     heartbeat: randomUUID(),
     interval: randomUUID(),
@@ -88,7 +89,7 @@ export async function seedTenant(
   await pool.query(
     `insert into contracts (id, customer_id, plan_id, number, starts_on, status)
      values ($1, $2, $3, $4, '2026-11-01', 'active')`,
-    [ids.contract, ids.customer, base.planId, `C-${suffix}`],
+    [ids.contract, ids.customer, base.planId, `C-${suffix}-${ids.contract.slice(0, 8)}`],
   );
   await pool.query(
     `insert into subscriptions (id, customer_id, contract_id, status, period_start, period_end, seats, projects_limit)
@@ -98,7 +99,7 @@ export async function seedTenant(
   await pool.query(
     `insert into invoices (id, customer_id, contract_id, number, issued_on, due_on, amount_kopecks, status)
      values ($1, $2, $3, $4, '2026-11-01', '2026-11-10', 100000, 'paid')`,
-    [ids.invoice, ids.customer, ids.contract, `INV-${suffix}`],
+    [ids.invoice, ids.customer, ids.contract, `INV-${suffix}-${ids.invoice.slice(0, 8)}`],
   );
   await pool.query(
     `insert into payments (id, invoice_id, paid_on, amount_kopecks, method, recorded_by)
@@ -108,7 +109,13 @@ export async function seedTenant(
   await pool.query(
     `insert into provisioning_packages (id, customer_id, token_hash, token_prefix, version, status, expires_at, created_by)
      values ($1, $2, $3, $4, '0.1.0', 'issued', '2026-12-01T00:00:00Z', $5)`,
-    [ids.package, ids.customer, `token-${suffix}`, `pc_${suffix}`, base.vendorUserId],
+    [
+      ids.package,
+      ids.customer,
+      `token-${suffix}-${ids.package.slice(0, 8)}`,
+      `pc_${suffix}`,
+      base.vendorUserId,
+    ],
   );
   await pool.query(
     `insert into onboarding_sessions (id, customer_id, package_id, state, progress_bp)
@@ -118,17 +125,31 @@ export async function seedTenant(
   await pool.query(
     `insert into tenants (id, customer_id, name, slug, timezone, status)
      values ($1, $2, $3, $4, 'Europe/Moscow', 'active')`,
-    [ids.tenant, ids.customer, `Tenant ${suffix.toUpperCase()}`, `tenant-${suffix}`],
+    [
+      ids.tenant,
+      ids.customer,
+      `Tenant ${suffix.toUpperCase()}`,
+      `tenant-${suffix}-${ids.tenant.slice(0, 8)}`,
+    ],
   );
   await pool.query(
     `insert into users (id, email, name, status)
      values ($1, $2, $3, 'active')`,
-    [ids.user, `user-${suffix}@example.com`, `Пользователь ${suffix.toUpperCase()}`],
+    [
+      ids.user,
+      `user-${suffix}-${ids.user.slice(0, 8)}@example.com`,
+      `Пользователь ${suffix.toUpperCase()}`,
+    ],
   );
   await pool.query(
-    `insert into auth_sessions (id, user_id, token_hash, expires_at)
-     values ($1, $2, $3, '2026-12-01T00:00:00Z')`,
-    [ids.authSession, ids.user, `session-${suffix}`],
+    `insert into auth_sessions (id, user_id, token_hash, token, expires_at)
+     values ($1, $2, $3, $4, '2026-12-01T00:00:00Z')`,
+    [
+      ids.authSession,
+      ids.user,
+      `session-${suffix}-${ids.authSession}`,
+      `token-${suffix}-${ids.authSession}`,
+    ],
   );
   await pool.query(
     `insert into memberships (id, tenant_id, user_id, role, status, display_name, joined_at)
@@ -138,7 +159,12 @@ export async function seedTenant(
   await pool.query(
     `insert into projects (id, tenant_id, name, forge, repo, timezone, status)
      values ($1, $2, $3, 'github', $4, 'Europe/Moscow', 'active')`,
-    [ids.project, ids.tenant, `Проект ${suffix.toUpperCase()}`, `demo/${suffix}`],
+    [
+      ids.project,
+      ids.tenant,
+      `Проект ${suffix.toUpperCase()}`,
+      `demo/${suffix}-${ids.project.slice(0, 8)}`,
+    ],
   );
   await pool.query(
     `insert into project_members (tenant_id, project_id, membership_id, role)
@@ -163,7 +189,18 @@ export async function seedTenant(
   await pool.query(
     `insert into devices (id, tenant_id, membership_id, public_key, name, os, status, last_seen)
      values ($1, $2, $3, $4, 'Ноутбук', 'Windows', 'active', '2026-11-01T00:00:00Z')`,
-    [ids.device, ids.tenant, ids.membership, `key-${suffix}`],
+    [ids.device, ids.tenant, ids.membership, `key-${suffix}-${ids.device}`],
+  );
+  await pool.query(
+    `insert into device_tokens (id, tenant_id, membership_id, device_id, token_hash, token_prefix, scope)
+     values ($1, $2, $3, $4, $5, 'pcd_demo', 'agent')`,
+    [
+      ids.deviceToken,
+      ids.tenant,
+      ids.membership,
+      ids.device,
+      ids.deviceToken.replace(/-/g, "").padEnd(64, "0"),
+    ],
   );
   await pool.query(
     `insert into work_sessions (id, tenant_id, project_id, membership_id, device_id, task_ref, branch, status, started_at)
@@ -230,30 +267,42 @@ export async function seedTenant(
     [
       ids.invitation,
       ids.tenant,
-      `invite-${suffix}@example.com`,
-      `invite-token-${suffix}`,
+      `invite-${suffix}-${ids.invitation.slice(0, 8)}@example.com`,
+      `invite-token-${suffix}-${ids.invitation.slice(0, 8)}`,
       ids.user,
     ],
   );
   await pool.query(
     `insert into git_integrations (id, tenant_id, project_id, provider, installation_id, repo, webhook_secret_hash, status)
      values ($1, $2, $3, 'github', $4, $5, $6, 'active')`,
-    [ids.integration, ids.tenant, ids.project, `inst-${suffix}`, `demo/${suffix}`, `wh-${suffix}`],
+    [
+      ids.integration,
+      ids.tenant,
+      ids.project,
+      `inst-${suffix}-${ids.integration.slice(0, 8)}`,
+      `demo/${suffix}-${ids.project.slice(0, 8)}`,
+      `wh-${suffix}`,
+    ],
   );
   await pool.query(
     `insert into connector_events (id, tenant_id, provider, delivery_id, event_type, project_id, payload_meta)
      values ($1, $2, 'github', $3, 'push', $4, '{}'::jsonb)`,
-    [ids.connectorEvent, ids.tenant, `delivery-${suffix}`, ids.project],
+    [
+      ids.connectorEvent,
+      ids.tenant,
+      `delivery-${suffix}-${ids.connectorEvent.slice(0, 8)}`,
+      ids.project,
+    ],
   );
   await pool.query(
     `insert into repo_facts (id, tenant_id, project_id, kind, ref, task_ref, branch, occurred_at, payload_meta)
      values ($1, $2, $3, 'commit', $4, 'TASK-1', 'main', '2026-11-01T09:00:00Z', '{}'::jsonb)`,
-    [ids.repoFact, ids.tenant, ids.project, `commit-${suffix}`],
+    [ids.repoFact, ids.tenant, ids.project, `commit-${suffix}-${ids.repoFact.slice(0, 8)}`],
   );
   await pool.query(
     `insert into notifications (id, tenant_id, recipient_user_id, recipient, channel, kind, status, payload)
      values ($1, $2, $3, $4, 'email', 'digest', 'pending', '{}'::jsonb)`,
-    [ids.notification, ids.tenant, ids.user, `user-${suffix}@example.com`],
+    [ids.notification, ids.tenant, ids.user, `user-${suffix}-${ids.user.slice(0, 8)}@example.com`],
   );
   await pool.query(
     `insert into digest_runs (id, tenant_id, date_local, status)
@@ -278,7 +327,7 @@ export async function seedTenant(
   await pool.query(
     `insert into idempotency_keys (id, tenant_id, scope, key, request_hash, expires_at)
      values ($1, $2, 'POST /v1/tenant/test', $3, $4, '2026-12-01T00:00:00Z')`,
-    [ids.idempotency, ids.tenant, `key-${suffix}`, "f".repeat(64)],
+    [ids.idempotency, ids.tenant, `key-${suffix}-${ids.idempotency.slice(0, 8)}`, "f".repeat(64)],
   );
 
   return {

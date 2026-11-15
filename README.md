@@ -15,7 +15,8 @@ SaaS-платформа, которая превращает время рабо
 | M0 — фундамент репозитория | каркас, стандарты, CI, ADR, спецификации, compose              |
 | M1 — доменное ядро         | политика, время, экономика, калькулятор, вестинг, golden-тесты |
 | M2.1 — платформенное ядро  | схема, RLS, append-only, аудит, идемпотентность, seed          |
-| M2.2–M11                   | см. `docs/05-process/development-process.md` и мега-план       |
+| M2.2 — аутентификация      | Better Auth, OTP/magic link, роли, приглашения, device-токены  |
+| M2.3–M11                   | см. `docs/05-process/development-process.md` и мега-план       |
 
 Доменное ядро покрыто golden-тестами T-01…T-12 и E-01…E-08: числа зафиксированы
 до копейки и до единицы доли.
@@ -42,7 +43,7 @@ pnpm test:golden   # только golden-тесты домена
 
 ```text
 apps/
-  api/            Fastify API (health, конверт ошибок; тенантные маршруты — M2+)
+  api/            Fastify API (health, auth, приглашения, tenant-маршруты)
   web/            Next.js кабинеты (каркас — M5)
   worker/         pg-boss задания (каркас — M2.3)
   mcp/            локальный MCP-сервер (каркас — M4)
@@ -51,7 +52,7 @@ packages/
   domain/         чистое доменное ядро и golden-тесты
   contracts/      Zod-схемы API и MCP
   config/         конфигурация и валидация окружения
-  db/             Drizzle-схема, миграции, RLS, аудит (M2.1)
+  db/             Drizzle-схема, миграции, RLS, аудит, auth-сервисы
   ui/             общие компоненты (M5)
   testing/        фабрики и утилиты тестов
   package-template/ шаблоны пакета подключения (M4)
