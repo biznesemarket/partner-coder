@@ -1,8 +1,8 @@
 # @partner-coder/db — схема, миграции, RLS, аудит
 
-Пакет реализует платформенное ядро M2.1: PostgreSQL-схему вендорского и
-тенантского контуров, RLS, append-only журналы, хеш-цепочку аудита и
-идемпотентность.
+Пакет реализует платформенное ядро M2.1–M2.2: PostgreSQL-схему вендорского,
+тенантского и auth-контуров, RLS, append-only журналы, хеш-цепочку аудита,
+идемпотентность, приглашения и device-токены.
 
 ## Команды
 
@@ -29,13 +29,15 @@ pnpm seed
 src/schema/
   enums.ts        pgEnum для закрытых доменных множеств
   vendor.ts       vendor_users … onboarding_sessions, vendor_audit_events
-  identity.ts     users, auth_sessions, tenants, memberships, devices, invitations
+  identity.ts     users, auth_sessions, tenants, memberships, devices, device_tokens, invitations
+  auth.ts         Better Auth: auth_accounts, auth_verifications, 2FA/passkeys
   projects.ts     projects, политика, версии, сессии, дни, споры, выплаты
   ops.ts          git-интеграции, вебхуки, уведомления, дайджесты
   audit.ts        tenant_audit_events, tenant_audit_anchors
   idempotency.ts  idempotency_keys
 src/client.ts     пул, Drizzle, tenant-контекст транзакции
 src/idempotency.ts withIdempotency()
+src/auth/         приглашения, device-токены, членства, tenant-данные
 drizzle/          SQL-миграции и снапшоты
 test/             интеграционные тесты на реальном PostgreSQL
 ```
@@ -50,6 +52,7 @@ test/             интеграционные тесты на реальном 
 | `partner_coder_api`    | API тенантского контура                      | включен     |
 | `partner_coder_vendor` | вендорская консоль, только вендорский контур | не нужен    |
 | `partner_coder_worker` | доверенные задания (закрытие дня, якоря)     | `BYPASSRLS` |
+| `partner_coder_auth`   | Better Auth: users, сессии, OTP/аккаунты     | включен     |
 
 Роли создаются миграцией как `NOLOGIN`-группы. Логин для приложения
 провижинится отдельно и получает членство в нужной роли. Пароли и секреты в
@@ -70,13 +73,33 @@ await withTenantContext(db, { tenantId, userId }, async (tx) => {
 ```
 
 - `tenants` использует `id = app.tenant_id`; `users` — членство в текущем
-  tenant и `app.user_id`; `auth_sessions` — только `app.user_id`. Создание
-  пользователя и разрешение сессии — через `SECURITY DEFINER` функции
-  `auth_user_by_email` и `auth_session_by_token`.
+  tenant и `app.user_id`; `auth_sessions` — только `app.user_id`. Вход и
+  выбор tenant используют `SECURITY DEFINER` функции `auth_user_by_email`,
+  `auth_user_memberships`, `auth_device_by_token_hash`,
+  `auth_invitation_by_token_hash`.
+- `device_tokens` — тенантская таблица с теми же политиками и составными FK,
+  что и остальные дочерние таблицы.
+- Better Auth-таблицы не видны API-роли; `partner_coder_auth` не видит
+  тенантские данные.
 - Аудит пишется через `app_audit()`; actor берется из `app.user_id`.
 - Без `app.tenant_id` политика не пропускает ни одной строки.
 - Вендорская роль не читает тенантские таблицы; вендорский доступ к сырым
   heartbeat запрещен на уровне прав.
+
+## Аутентификация и приглашения
+
+- `src/auth/invitations.ts`: `createInvitation` (сырой токен возвращается один
+  раз, в БД SHA-256), `acceptInvitation` (проверка email, членство, аудит),
+  `revokeInvitation`, `inspectInvitation`.
+- `src/auth/device-tokens.ts`: выпуск, аутентификация, ротация и отзыв
+  `pcd_…`-токенов; в БД только хеш.
+- `src/auth/identity.ts`: членства пользователя через
+  `auth_user_memberships`; `findUserByEmail`.
+- `src/auth/tenant-data.ts`: активный tenant сессии, список приглашений и
+  команды, сводка tenant для API.
+- `src/auth/audit.ts`: единая запись через `app_audit()`.
+- OTP/magic-link живут в `auth_verifications` только в виде хешей; сам вход
+  настраивается в `apps/api/src/auth/config.ts`.
 
 ## Append-only и аудит
 

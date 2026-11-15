@@ -27,8 +27,14 @@
   через `Idempotency-Key`; детерминированный seed (вендор, клиент, проект,
   политика, 3 разработчика, 5 закрытых дней); интеграционные тесты на
   PostgreSQL в CI.
+- M2.2: Better Auth (email OTP и magic link, хеширование OTP/magic-link
+  токенов), роль `partner_coder_auth` и auth-таблицы; приглашения с TTL,
+  хешем и одной активацией; device-токены `pcd_…` с хешем, ротацией и
+  отзывом; матрица авторизации director/developer/finance/support; Fastify
+  middleware, отказы в аудите; E2E-тест входа, приглашения и device-токена.
 
 ### Notes
 
 - Лицензия — source-available; финальный текст за юристом.
-- M2.2–M11 не реализованы: см. `docs/05-process/development-process.md`.
+- Passkeys/2FA: схема готова, плагины включаются позже.
+- M2.3–M11 не реализованы: см. `docs/05-process/development-process.md`.

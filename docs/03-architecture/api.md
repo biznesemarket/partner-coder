@@ -28,8 +28,8 @@
 - Идемпотентность: `Idempotency-Key` для мутаций, `event_id` для heartbeat,
   `delivery_id` для вебхуков.
 - Пагинация курсорная (`cursor`, `limit`), лимиты и квоты на tenant/IP/device.
-- Аутентификация: cookie-сессии для web, Bearer для агента, подпись Ed25519
-  для heartbeat, HMAC для вебхуков.
+- Аутентификация: Better Auth (email OTP, magic link), cookie-сессии для web,
+  Bearer `pcd_…` для агента, подпись Ed25519 для heartbeat, HMAC для вебхуков.
 - CSRF, secure cookies, CSP, HSTS, rate limiting, ограничение размера тела
   (256 КБ), строгие security-заголовки.
 
@@ -45,6 +45,27 @@
 | `/v1/onboarding/*` | состояние, ответы, проверка git, приглашения, завершение                   |
 | `/v1/hooks/*`      | GitHub, GitLab, Gitea/Forgejo                                              |
 | `/v1/public/*`     | health, plans, legal, status                                               |
+
+### 2.1 Реализовано в M2.2
+
+| Маршрут                                   | Назначение                                              |
+| ----------------------------------------- | ------------------------------------------------------- |
+| `/api/auth/*`                             | Better Auth: OTP, magic link, сессии, выход             |
+| `GET /v1/auth/me`                         | профиль, членства, активный tenant                      |
+| `POST /v1/auth/tenant`                    | выбор активного tenant из своих членств                 |
+| `GET/POST /v1/tenant/invitations`         | список и создание приглашений                           |
+| `DELETE /v1/tenant/invitations/:id`       | отзыв приглашения                                       |
+| `GET /v1/public/invitations/:token`       | публичная информация о приглашении (email замаскирован) |
+| `POST /v1/auth/invitations/:token/accept` | принятие приглашения аутентифицированным пользователем  |
+| `GET/POST /v1/me/devices`                 | список и выпуск device-токенов                          |
+| `POST /v1/me/devices/:id/rotate`          | ротация device-токена                                   |
+| `DELETE /v1/me/devices/:id`               | отзыв device-токена                                     |
+| `GET /v1/tenant/overview`                 | tenant, участники, проекты, закрытые дни                |
+| `GET /v1/tenant/members`                  | команда tenant (RLS + users)                            |
+
+Все `/v1/tenant/*` и `/v1/me/*` проходят middleware аутентификации и матрицу
+прав; отказ пишется в аудит. Публичный маршрут приглашения не раскрывает
+полный email и не показывает хеш токена.
 
 ## 3. Идемпотентность и ошибки
 
