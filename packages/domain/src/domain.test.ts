@@ -19,6 +19,7 @@ import {
   vestingFraction,
   zonedTimeToUtcMs,
   parseLocalDate,
+  policyDocumentSchema,
   type PolicyDocument,
   type ProjectPolicy,
   calculateDay,
@@ -117,6 +118,30 @@ describe("union интервалов", () => {
 });
 
 describe("политика", () => {
+  it("заполняет необязательные разделы значениями по умолчанию", () => {
+    const minimal = structuredClone(demoDoc) as Record<string, unknown>;
+    for (const section of [
+      "day",
+      "vesting",
+      "quality",
+      "security",
+      "identity",
+      "storage",
+      "legal",
+    ]) {
+      delete minimal[section];
+    }
+
+    const parsed = policyDocumentSchema.parse(minimal);
+    expect(parsed.day.close_at).toBe("00:00");
+    expect(parsed.vesting.months).toBe(48);
+    expect(parsed.quality.enabled).toBe(false);
+    expect(parsed.security.require_signed_events).toBe(true);
+    expect(parsed.identity.max_accounts_per_forge).toBe(1);
+    expect(parsed.storage.raw_events_retention_days).toBe(90);
+    expect(parsed.legal.enabled).toBe(false);
+  });
+
   it("V-02: версии должны возрастать", () => {
     const broken = structuredClone(demoDoc);
     broken.versions.rate.push({

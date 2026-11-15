@@ -9,7 +9,7 @@ export const errorEnvelopeSchema = z.object({
   error: z.object({
     code: z.string().min(1),
     message: z.string().min(1),
-    details: z.record(z.unknown()).optional(),
+    details: z.record(z.string(), z.unknown()).optional(),
     requestId: z.string().min(1),
   }),
 });
@@ -19,7 +19,7 @@ export const healthSchema = z.object({
   status: z.enum(["ok", "degraded"]),
   version: z.string(),
   uptimeSeconds: z.number().nonnegative(),
-  checks: z.record(z.enum(["ok", "fail", "skip"])),
+  checks: z.record(z.string(), z.enum(["ok", "fail", "skip"])),
 });
 export type Health = z.infer<typeof healthSchema>;
 
