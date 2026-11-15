@@ -14,7 +14,8 @@ SaaS-платформа, которая превращает время рабо
 | -------------------------- | -------------------------------------------------------------- |
 | M0 — фундамент репозитория | каркас, стандарты, CI, ADR, спецификации, compose              |
 | M1 — доменное ядро         | политика, время, экономика, калькулятор, вестинг, golden-тесты |
-| M2–M11                     | см. `docs/05-process/development-process.md` и мега-план       |
+| M2.1 — платформенное ядро  | схема, RLS, append-only, аудит, идемпотентность, seed          |
+| M2.2–M11                   | см. `docs/05-process/development-process.md` и мега-план       |
 
 Доменное ядро покрыто golden-тестами T-01…T-12 и E-01…E-08: числа зафиксированы
 до копейки и до единицы доли.
@@ -28,9 +29,11 @@ TypeScript MCP-сервер, PostgreSQL 17 с RLS, Drizzle, Zod, Vitest, Playwri
 
 ```bash
 pnpm install
-pnpm check          # prettier + eslint + typecheck + тесты
-pnpm test:golden    # только golden-тесты домена
 docker compose -f deploy/compose/docker-compose.yml up -d   # PostgreSQL, Mailpit, MinIO
+pnpm db:migrate    # схема, RLS, триггеры аудита
+pnpm seed          # демо-данные: вендор, клиент, 3 разработчика, 5 дней
+pnpm check         # prettier + eslint + typecheck + тесты (нужен PostgreSQL)
+pnpm test:golden   # только golden-тесты домена
 ```
 
 Требуется Node.js ≥ 22.6 и pnpm ≥ 9.
@@ -48,7 +51,7 @@ packages/
   domain/         чистое доменное ядро и golden-тесты
   contracts/      Zod-схемы API и MCP
   config/         конфигурация и валидация окружения
-  db/             Drizzle-схема, миграции, RLS (M2.1)
+  db/             Drizzle-схема, миграции, RLS, аудит (M2.1)
   ui/             общие компоненты (M5)
   testing/        фабрики и утилиты тестов
   package-template/ шаблоны пакета подключения (M4)

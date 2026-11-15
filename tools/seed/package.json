@@ -1,5 +1,17 @@
 {
-  "private": true,
+  "name": "@partner-coder/seed",
   "version": "0.0.1",
-  "name": "@partner-coder/seed"
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "seed": "tsx src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@partner-coder/db": "workspace:*",
+    "@partner-coder/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2"
+  }
 }

@@ -40,3 +40,6 @@ Thumbs.db
 
 # Кэш Turborepo
 .turbo/
+
+# drizzle-kit drift check
+packages/db/.drift-tmp/

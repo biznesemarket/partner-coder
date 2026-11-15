@@ -61,9 +61,14 @@ branch protection и публикация пакетов — только по �
 ## 8. Проверка перед сдачей задачи
 
 ```bash
-pnpm check          # prettier + eslint + typecheck + unit/golden/property
+docker compose -f deploy/compose/docker-compose.yml up -d postgres
+pnpm db:migrate     # если менялась схема или нужен локальный API
+pnpm check          # prettier + eslint + typecheck + unit/golden/property/БД
 pnpm test:golden    # 20 golden-сценариев должны совпадать точно
 ```
+
+Интеграционные тесты БД создают отдельные базы и требуют запущенный
+PostgreSQL. В CI он поднимается сервисом GitHub Actions.
 
 Если задача меняет расчет — в PR обязательны: ADR, обновленная спецификация
 и новые golden-фикстуры в одном коммите.

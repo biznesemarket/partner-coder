@@ -23,15 +23,18 @@
 ## 2. Обязательные проверки PR
 
 ```bash
+docker compose -f deploy/compose/docker-compose.yml up -d postgres
+pnpm db:migrate
+pnpm db:check
 pnpm format:check
 pnpm lint
 pnpm typecheck
-pnpm test          # unit + golden + property
+pnpm test          # unit + golden + property + интеграционные тесты БД
 pnpm build
 ```
 
-Плюс в CI: secret scan, dependency review. Для изменений схемы БД — проверка
-миграций (M2+).
+Плюс в CI: secret scan, dependency review. Для изменений схемы БД обязательны
+миграция на чистой базе и тесты RLS/append-only/аудита.
 
 ## 3. Ветка main
 

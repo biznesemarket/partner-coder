@@ -17,7 +17,23 @@ jobs:
   check:
     name: format, lint, typecheck, test, build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: partner
+          POSTGRES_PASSWORD: partner
+          POSTGRES_DB: partner_coder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U partner -d partner_coder"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://partner:partner@localhost:5432/partner_coder
     steps:
       - uses: actions/checkout@v4
 
@@ -39,6 +55,9 @@ jobs:
 
       - name: Typecheck
         run: pnpm typecheck
+
+      - name: Migrations and drift check
+        run: pnpm db:migrate && pnpm db:check
 
       - name: Unit, golden и property-тесты
         run: pnpm test

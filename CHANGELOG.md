@@ -20,8 +20,15 @@
   модель угроз, процесс разработки и quality gates.
 - CI: install, format, lint, typecheck, тесты, build; CodeQL; Dependabot.
 - Docker Compose: PostgreSQL 17, Mailpit, MinIO; `.env.example`.
+- M2.1: Drizzle-схема вендорского и тенантского контуров (40 таблиц),
+  миграции, ограничения и индексы; RLS-роли `partner_coder_api`,
+  `partner_coder_vendor`, `partner_coder_worker`; `SET LOCAL app.tenant_id`;
+  append-only триггеры; хеш-цепочка аудита и дневные якоря; идемпотентность
+  через `Idempotency-Key`; детерминированный seed (вендор, клиент, проект,
+  политика, 3 разработчика, 5 закрытых дней); интеграционные тесты на
+  PostgreSQL в CI.
 
 ### Notes
 
 - Лицензия — source-available; финальный текст за юристом.
-- M2–M11 не реализованы: см. `docs/05-process/development-process.md`.
+- M2.2–M11 не реализованы: см. `docs/05-process/development-process.md`.
