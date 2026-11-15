@@ -5,10 +5,11 @@
 
 ## 1. Порядок чтения перед задачей
 
-1. `docs/01-product/vision.md` — что за продукт и для кого.
-2. `docs/02-domain/time-accounting.md` и `docs/02-domain/economics.md` — ядро расчета.
-3. Задача (issue) и её критерии приемки.
-4. `docs/05-process/development-process.md` — как работать с ветками, тестами и ревью.
+1. `docs/index.md` — карта документации.
+2. `docs/01-product/vision.md` — что за продукт и для кого.
+3. `docs/02-domain/time-accounting.md` и `docs/02-domain/economics.md` — ядро расчета.
+4. Задача (issue) и её критерии приемки.
+5. `docs/05-process/development-process.md` — как работать с ветками, тестами и ревью.
 
 ## 2. Жесткие запреты
 
