@@ -5,11 +5,14 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Client, Pool, type PoolClient } from "pg";
 
+import * as schema from "../src/schema/index.js";
+
 const migrationsFolder = fileURLToPath(new URL("../drizzle", import.meta.url));
 
 export const API_ROLE = "partner_coder_api";
 export const VENDOR_ROLE = "partner_coder_vendor";
 export const WORKER_ROLE = "partner_coder_worker";
+export const AUTH_ROLE = "partner_coder_auth";
 
 export function databaseUrl(): string {
   try {
@@ -47,7 +50,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
 
   const url = urlWithDatabase(base, name);
   const pool = new Pool({ connectionString: url, max: 5 });
-  const db = drizzle(pool);
+  const db = drizzle(pool, { schema });
   await migrate(db, { migrationsFolder });
 
   return {

@@ -1,9 +1,9 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   foreignKey,
   index,
-  inet,
   pgTable,
   text,
   timestamp,
@@ -12,7 +12,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import { createdAt, jsonObject, tenantId, updatedAt, uuidPk } from "./columns.js";
+import { createdAt, inetAddress, jsonObject, tenantId, updatedAt, uuidPk } from "./columns.js";
 import {
   deviceStatus,
   invitationStatus,
@@ -32,6 +32,8 @@ export const users = pgTable(
     authProvider: text("auth_provider").notNull().default("magic_link"),
     status: userStatus("status").notNull().default("invited"),
     locale: text("locale").notNull().default("ru-RU"),
+    emailVerified: boolean("email_verified").notNull().default(false),
+    image: text("image"),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true, precision: 3 }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -49,17 +51,25 @@ export const authSessions = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
-    tokenHash: text("token_hash").notNull(),
+    /** Better Auth хранит токен сессии в БД и ищет по нему; legacy-колонка ниже не используется. */
+    token: text("token").notNull(),
+    tokenHash: text("token_hash"),
+    activeTenantId: uuid("active_tenant_id"),
     expiresAt: timestamp("expires_at", { withTimezone: true, precision: 3 }).notNull(),
-    ip: inet("ip"),
+    ipAddress: inetAddress("ip"),
     userAgent: text("user_agent"),
     revokedAt: timestamp("revoked_at", { withTimezone: true, precision: 3 }),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true, precision: 3 }),
     createdAt: createdAt(),
+    updatedAt: updatedAt(),
   },
   (t) => [
-    uniqueIndex("auth_sessions_token_uq").on(t.tokenHash),
+    uniqueIndex("auth_sessions_token_uq").on(t.token),
+    uniqueIndex("auth_sessions_legacy_token_uq")
+      .on(t.tokenHash)
+      .where(sql`${t.tokenHash} is not null`),
     index("auth_sessions_user_idx").on(t.userId, t.expiresAt),
+    index("auth_sessions_active_tenant_idx").on(t.activeTenantId),
   ],
 );
 
@@ -155,5 +165,49 @@ export const invitations = pgTable(
     uniqueIndex("invitations_token_uq").on(t.tokenHash),
     index("invitations_tenant_email_idx").on(t.tenantId, sql`lower(${t.email})`),
     check("invitations_email_chk", sql`${t.email} ~ '^[^@[:space:]]+@[^@[:space:]]+$'`),
+  ],
+);
+
+export const deviceTokens = pgTable(
+  "device_tokens",
+  {
+    id: uuidPk(),
+    tenantId: tenantId().references(() => tenants.id, { onDelete: "restrict" }),
+    membershipId: uuid("membership_id").notNull(),
+    deviceId: uuid("device_id"),
+    tokenHash: text("token_hash").notNull(),
+    tokenPrefix: text("token_prefix").notNull(),
+    scope: text("scope").notNull().default("agent"),
+    label: text("label"),
+    expiresAt: timestamp("expires_at", { withTimezone: true, precision: 3 }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true, precision: 3 }),
+    rotatedFrom: uuid("rotated_from"),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true, precision: 3 }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("device_tokens_hash_uq").on(t.tokenHash),
+    unique("device_tokens_tenant_id_uq").on(t.tenantId, t.id),
+    index("device_tokens_membership_idx").on(t.membershipId, t.revokedAt),
+    index("device_tokens_tenant_idx").on(t.tenantId),
+    check("device_tokens_hash_chk", sql`${t.tokenHash} ~ '^[0-9a-f]{64}$'`),
+    check("device_tokens_prefix_chk", sql`length(${t.tokenPrefix}) between 4 and 16`),
+    check("device_tokens_scope_chk", sql`length(${t.scope}) between 1 and 32`),
+    foreignKey({
+      name: "device_tokens_membership_tenant_fk",
+      columns: [t.tenantId, t.membershipId],
+      foreignColumns: [memberships.tenantId, memberships.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "device_tokens_device_tenant_fk",
+      columns: [t.tenantId, t.deviceId],
+      foreignColumns: [devices.tenantId, devices.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "device_tokens_rotated_tenant_fk",
+      columns: [t.tenantId, t.rotatedFrom],
+      foreignColumns: [t.tenantId, t.id],
+    }).onDelete("restrict"),
   ],
 );

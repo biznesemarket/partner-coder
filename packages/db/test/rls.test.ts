@@ -40,6 +40,7 @@ const tenantTables = [
   "tenant_audit_events",
   "tenant_audit_anchors",
   "idempotency_keys",
+  "device_tokens",
 ] as const;
 
 const appendOnlyTables = new Set([
@@ -259,8 +260,8 @@ describe("RLS и роли БД", () => {
           [userId, email],
         );
         await client.query(
-          `insert into auth_sessions (user_id, token_hash, expires_at)
-           values ($1, $2, '2026-12-01T00:00:00Z')`,
+          `insert into auth_sessions (user_id, token, token_hash, expires_at)
+           values ($1, $2, $2, '2026-12-01T00:00:00Z')`,
           [userId, tokenHash],
         );
         const byEmail = await client.query<{ id: string; email: string }>(

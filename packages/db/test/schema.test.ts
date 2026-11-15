@@ -3,13 +3,18 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestDatabase, type TestDatabase } from "./helpers.js";
 
 const expectedTables = [
+  "auth_accounts",
+  "auth_passkeys",
   "auth_sessions",
+  "auth_two_factors",
+  "auth_verifications",
   "connector_events",
   "contracts",
   "customers",
   "day_adjustments",
   "day_flags",
   "day_records",
+  "device_tokens",
   "devices",
   "digest_runs",
   "disputes",
@@ -61,6 +66,7 @@ const tenantScopedTables = [
   "disputes",
   "payout_batches",
   "payout_items",
+  "device_tokens",
   "devices",
   "invitations",
   "git_integrations",
