@@ -35,12 +35,13 @@ describe("схема аутентификации M2.2", () => {
     const tables = await testDb.pool.query<{ table_name: string }>(
       `select table_name from information_schema.tables
         where table_schema = 'public'
-          and table_name in ('auth_accounts','auth_verifications','auth_two_factors','auth_passkeys','device_tokens')
+          and table_name in ('auth_accounts','auth_verifications','auth_two_factors','auth_passkeys','auth_rate_limits','device_tokens')
         order by table_name`,
     );
     expect(tables.rows.map((row) => row.table_name)).toEqual([
       "auth_accounts",
       "auth_passkeys",
+      "auth_rate_limits",
       "auth_two_factors",
       "auth_verifications",
       "device_tokens",
@@ -110,6 +111,51 @@ describe("схема аутентификации M2.2", () => {
         table,
       ).rejects.toSatisfy((error: unknown) => isPgError(error, "42501"));
     }
+  });
+
+  it("изолирует таблицы rate limit по ролям", async () => {
+    await expect(
+      asRole(testDb.pool, API_ROLE, async (client) => {
+        await client.query("select * from auth_rate_limits");
+      }),
+    ).rejects.toSatisfy((error: unknown) => isPgError(error, "42501"));
+
+    await expect(
+      asRole(testDb.pool, AUTH_ROLE, async (client) => {
+        await client.query("select * from email_rate_limits");
+      }),
+    ).rejects.toSatisfy((error: unknown) => isPgError(error, "42501"));
+
+    await asRole(testDb.pool, AUTH_ROLE, async (client) => {
+      await client.query(
+        "insert into auth_rate_limits (key, count, last_request) values ('203.0.113.1|/sign-in', 1, 1)",
+      );
+      const row = await client.query<{ count: number }>(
+        "select count from auth_rate_limits where key = '203.0.113.1|/sign-in'",
+      );
+      expect(row.rows[0]?.count).toBe(1);
+    });
+
+    await asRole(testDb.pool, API_ROLE, async (client) => {
+      await client.query(
+        `insert into email_rate_limits (key, count, window_started_at)
+         values ('rate@example.com', 2, now())`,
+      );
+      const row = await client.query<{ count: number }>(
+        "select count from email_rate_limits where key = 'rate@example.com'",
+      );
+      expect(row.rows[0]?.count).toBe(2);
+    });
+
+    const grants = await testDb.pool.query<{
+      auth_delete: boolean;
+      email_delete: boolean;
+    }>(
+      `select
+         has_table_privilege('partner_coder_worker', 'auth_rate_limits', 'DELETE') as auth_delete,
+         has_table_privilege('partner_coder_worker', 'email_rate_limits', 'DELETE') as email_delete`,
+    );
+    expect(grants.rows[0]).toEqual({ auth_delete: true, email_delete: true });
   });
 
   it("изолирует device_tokens по tenant и запрещает ссылку на чужое membership", async () => {

@@ -19,6 +19,10 @@
 `AUTH_SECRET` (>= 32 байт), `API_BASE_URL`, `WEB_BASE_URL`,
 `AUTH_TRUSTED_PROXIES`, `SMTP_*`, `S3_*`.
 
+Rate limit: вне local по умолчанию используется общий PostgreSQL-store;
+`RATE_LIMIT_STORAGE=database` можно задать явно, `memory` — только для
+диагностики на одном инстансе (ADR-0012).
+
 Наблюдаемость: `SENTRY_DSN`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `LOG_LEVEL=info`.
 Метрики: `METRICS_TOKEN` (если `/metrics` доступен не только из private
 network). Worker: `WORKER_METRICS_PORT=4100`, cron-переменные
@@ -37,6 +41,9 @@ network). Worker: `WORKER_METRICS_PORT=4100`, cron-переменные
    создается миграцией/администратором заранее).
 4. Retention-функция `retention_delete_heartbeats` принадлежит
    `partner_coder_retention`; worker получает только `EXECUTE`.
+5. Миграция `0005` создает `auth_rate_limits` (только auth-роль) и
+   `email_rate_limits` (API-роль + worker для очистки); проверить гранты
+   после переноса ролей на managed PostgreSQL.
 
 ## Порядок выката
 
@@ -68,5 +75,6 @@ curl -fsS https://staging-api.partnercoder.ru/metrics | head
 ## Ограничения
 
 - Пока не выбран хостинг, workflow staging не включен.
-- Общий rate-limit store для нескольких API-инстансов — M6.
+- Общий rate-limit store включен вне local (ADR-0012); глобальный лимит
+  Fastify остается на инстанс, распределенный edge/WAF — при выборе хостинга.
 - Сертификат подписи Windows и GitHub App не входят в staging.

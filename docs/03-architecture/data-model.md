@@ -9,11 +9,12 @@
 
 ## 1. Контуры
 
-| Контур | Таблицы                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Вендор | `vendor_users`, `customers`, `plans`, `contracts`, `subscriptions`, `invoices`, `payments`, `provisioning_packages`, `onboarding_sessions`, `vendor_audit_events`, `vendor_audit_anchors`                                                                                                                                                                                                                                                                                                              |
-| Tenant | `users`, `auth_sessions`, `tenants`, `memberships`, `projects`, `project_members`, `policies`, `rate_versions`, `valuation_versions`, `work_sessions`, `heartbeats`, `intervals`, `day_records`, `day_adjustments`, `day_flags`, `disputes`, `payout_batches`, `payout_items`, `devices`, `device_tokens`, `invitations`, `git_integrations`, `connector_events`, `repo_facts`, `notifications`, `digest_runs`, `monthly_snapshots`, `tenant_audit_events`, `tenant_audit_anchors`, `idempotency_keys` |
-| Auth   | `auth_accounts`, `auth_verifications`, `auth_two_factors`, `auth_passkeys` (глобальные, доступ только у `partner_coder_auth`)                                                                                                                                                                                                                                                                                                                                                                          |
+| Контур     | Таблицы                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Вендор     | `vendor_users`, `customers`, `plans`, `contracts`, `subscriptions`, `invoices`, `payments`, `provisioning_packages`, `onboarding_sessions`, `vendor_audit_events`, `vendor_audit_anchors`                                                                                                                                                                                                                                                                                                              |
+| Tenant     | `users`, `auth_sessions`, `tenants`, `memberships`, `projects`, `project_members`, `policies`, `rate_versions`, `valuation_versions`, `work_sessions`, `heartbeats`, `intervals`, `day_records`, `day_adjustments`, `day_flags`, `disputes`, `payout_batches`, `payout_items`, `devices`, `device_tokens`, `invitations`, `git_integrations`, `connector_events`, `repo_facts`, `notifications`, `digest_runs`, `monthly_snapshots`, `tenant_audit_events`, `tenant_audit_anchors`, `idempotency_keys` |
+| Auth       | `auth_accounts`, `auth_verifications`, `auth_two_factors`, `auth_passkeys`, `auth_rate_limits` (глобальные, доступ только у `partner_coder_auth`)                                                                                                                                                                                                                                                                                                                                                      |
+| Rate limit | `email_rate_limits` (глобальная, доступ у `partner_coder_api` и worker)                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 Схема и миграции — `packages/db/src/schema` и `packages/db/drizzle`.
 Домен не зависит от БД; `packages/db` импортирует `@partner-coder/domain`.
@@ -52,6 +53,10 @@
 - `auth_sessions.token` хранит токен Better Auth (дизайн библиотеки),
   `token_hash` — устаревшая колонка для совместимости. OTP и magic-link
   токены хранятся хешами в `auth_verifications`.
+- `auth_rate_limits` — общий лимит Better Auth (`key`, `count`,
+  `last_request`); `email_rate_limits` — общий per-email лимит OTP/magic-link
+  (`key`, `count`, `window_started_at`). Таблицы не tenant-ские; worker
+  удаляет окна старше суток (ADR-0012).
 - `device_tokens` — тенантская таблица: SHA-256-хеш секрета, scope, TTL,
   отзыв и `rotated_from`; сырой токен показывается один раз при выпуске.
 - `invitations.token_hash` — SHA-256, TTL и одна активация; принятие
@@ -112,6 +117,9 @@ pnpm test:db
 - Миграция `0003` добавляет Better Auth-таблицы, `device_tokens`, роль
   `partner_coder_auth`, auth-функции и RLS. Роли `NOLOGIN`; логины создаются
   при провижининге окружения.
+- Миграция `0005` добавляет `auth_rate_limits` и `email_rate_limits` с
+  раздельными грантами и RLS (ADR-0012); worker получил DELETE для чистки
+  просроченных окон.
 - CI поднимает PostgreSQL 17, применяет миграции на чистой БД, проверяет
   журнал и запускает интеграционные тесты.
 - Интеграционные тесты создают отдельные БД, поэтому `vitest` запускает

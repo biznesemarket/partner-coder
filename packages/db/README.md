@@ -30,7 +30,8 @@ src/schema/
   enums.ts        pgEnum для закрытых доменных множеств
   vendor.ts       vendor_users … onboarding_sessions, vendor_audit_events
   identity.ts     users, auth_sessions, tenants, memberships, devices, device_tokens, invitations
-  auth.ts         Better Auth: auth_accounts, auth_verifications, 2FA/passkeys
+  auth.ts         Better Auth: auth_accounts, auth_verifications, 2FA/passkeys, rate limit
+  rate-limit.ts   email_rate_limits: общий per-email лимит OTP/magic-link
   projects.ts     projects, политика, версии, сессии, дни, споры, выплаты
   ops.ts          git-интеграции, вебхуки, уведомления, дайджесты
   audit.ts        tenant_audit_events, tenant_audit_anchors
@@ -104,6 +105,10 @@ await withTenantContext(db, { tenantId, userId }, async (tx) => {
 - `src/auth/audit.ts`: единая запись через `app_audit()`.
 - OTP/magic-link живут в `auth_verifications` только в виде хешей; сам вход
   настраивается в `apps/api/src/auth/config.ts`.
+- Общий rate limit (ADR-0012): `auth_rate_limits` пишет auth-роль для Better
+  Auth, `email_rate_limits` — API-роль для per-email лимита OTP/magic-link.
+  Worker удаляет окна старше суток; таблицы не tenant-ские и не видны чужим
+  контурам.
 
 ## Append-only и аудит
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { EnvValidationError, parseEnv, parseList } from "./env.js";
+import { EnvValidationError, parseEnv, parseList, resolveRateLimitStorage } from "./env.js";
 
 const validEnv = {
   NODE_ENV: "test",
@@ -76,5 +76,15 @@ describe("валидация окружения", () => {
   it("пустая строка в опциональном поле становится undefined", () => {
     const env = parseEnv({ ...validEnv, TELEGRAM_BOT_TOKEN: "" });
     expect(env.TELEGRAM_BOT_TOKEN).toBeUndefined();
+  });
+
+  it("выбирает общий rate limit store вне local", () => {
+    expect(parseEnv({ ...validEnv, RATE_LIMIT_STORAGE: "" }).RATE_LIMIT_STORAGE).toBeUndefined();
+    expect(resolveRateLimitStorage({ APP_ENV: "local" })).toBe("memory");
+    expect(resolveRateLimitStorage({ APP_ENV: "staging" })).toBe("database");
+    expect(resolveRateLimitStorage({ APP_ENV: "prod" })).toBe("database");
+    expect(resolveRateLimitStorage({ APP_ENV: "staging", RATE_LIMIT_STORAGE: "memory" })).toBe(
+      "memory",
+    );
   });
 });

@@ -92,6 +92,7 @@
 | `0009-db-roles-rls-audit.md`             | Роли БД, RLS, append-only и хеш-цепочка аудита.           |
 | `0010-better-auth-and-authz.md`          | Better Auth, приглашения, device-токены и матрица прав.   |
 | `0011-worker-jobs-observability.md`      | pg-boss, закрытие дня, якоря, retention и наблюдаемость.  |
+| `0012-shared-rate-limit-store.md`        | Общий rate-limit store в PostgreSQL для нескольких API.   |
 
 ## Вне `docs/`
 

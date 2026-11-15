@@ -227,4 +227,26 @@ describe("API authz middleware", () => {
     expect(otherEmail.statusCode).not.toBe(429);
     await server.close();
   });
+
+  it("использует внедренный общий store для per-email лимита", async () => {
+    const seen: string[] = [];
+    const server = buildServer({
+      authRuntime: fakeRuntime(identity()),
+      emailRateLimitStore: {
+        async consume(email) {
+          seen.push(email);
+          return false;
+        },
+      },
+    });
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/auth/sign-in/email-otp",
+      payload: { email: "shared@example.com" },
+    });
+    expect(response.statusCode).toBe(429);
+    expect(response.json()).toMatchObject({ error: { code: "email_rate_limited" } });
+    expect(seen).toEqual(["shared@example.com"]);
+    await server.close();
+  });
 });

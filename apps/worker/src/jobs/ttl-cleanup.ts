@@ -11,6 +11,8 @@ export interface TtlCleanupOptions {
 export interface TtlCleanupResult {
   readonly idempotencyKeys: number;
   readonly authVerifications: number;
+  readonly authRateLimits: number;
+  readonly emailRateLimits: number;
   readonly authSessionsExpired: number;
   readonly authSessionsSuspendedUser: number;
   readonly activeTenantsCleared: number;
@@ -43,6 +45,18 @@ export async function runTtlCleanup(
   const verifications = await db.execute(sql`
     delete from auth_verifications
      where expires_at < now() - make_interval(days => ${options.verificationRetentionDays})
+  `);
+
+  // Окна rate limit короткие (минуты); сутки — запас для нескольких инстансов
+  // и ручной диагностики. Счетчики не являются аудитными данными.
+  const authRateLimits = await db.execute(sql`
+    delete from auth_rate_limits
+     where last_request < floor(extract(epoch from now() - interval '1 day') * 1000)::bigint
+  `);
+
+  const emailRateLimits = await db.execute(sql`
+    delete from email_rate_limits
+     where window_started_at < now() - interval '1 day'
   `);
 
   const expiredSessions = await db.execute(sql`
@@ -100,6 +114,8 @@ export async function runTtlCleanup(
   return {
     idempotencyKeys: affected(idempotency.rowCount),
     authVerifications: affected(verifications.rowCount),
+    authRateLimits: affected(authRateLimits.rowCount),
+    emailRateLimits: affected(emailRateLimits.rowCount),
     authSessionsExpired: affected(expiredSessions.rowCount),
     authSessionsSuspendedUser: affected(suspendedUserSessions.rowCount),
     activeTenantsCleared: affected(clearedTenants.rowCount),

@@ -14,7 +14,7 @@ import { canAssignRole } from "@partner-coder/contracts";
 
 import { ApiError } from "../errors.js";
 import { auditAuthorizationDenied, createGuards } from "../auth/guard.js";
-import { EmailRateLimiter } from "../auth/email-rate-limit.js";
+import { EmailRateLimiter, type EmailRateLimitStore } from "../auth/email-rate-limit.js";
 import type { AuthRuntime } from "../auth/runtime.js";
 import {
   invitationCreateSchema,
@@ -38,18 +38,25 @@ const EMAIL_RATE_LIMITED_PATHS = new Set([
   "/api/auth/sign-in/magic-link",
 ]);
 
+export interface AuthRouteOptions {
+  readonly emailRateLimit?: number | false;
+  /** Общий store (PostgreSQL); без него используется memory-лимитер. */
+  readonly emailRateLimitStore?: EmailRateLimitStore;
+}
+
 export function registerAuthRoutes(
   server: FastifyInstance,
   runtime: AuthRuntime,
-  options: { readonly emailRateLimit?: number | false } = {},
+  options: AuthRouteOptions = {},
 ): void {
   const guards = createGuards(runtime);
-  const emailLimiter =
+  const emailLimiter: EmailRateLimitStore | null =
     options.emailRateLimit === false
       ? null
-      : new EmailRateLimiter({
+      : (options.emailRateLimitStore ??
+        new EmailRateLimiter({
           ...(options.emailRateLimit === undefined ? {} : { limit: options.emailRateLimit }),
-        });
+        }));
 
   server.route({
     method: ["GET", "POST"],
@@ -58,7 +65,7 @@ export function registerAuthRoutes(
       const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
       if (EMAIL_RATE_LIMITED_PATHS.has(url.pathname)) {
         const email = (request.body as { email?: unknown } | undefined)?.email;
-        if (emailLimiter && typeof email === "string" && !emailLimiter.consume(email)) {
+        if (emailLimiter && typeof email === "string" && !(await emailLimiter.consume(email))) {
           throw new ApiError(
             429,
             "email_rate_limited",

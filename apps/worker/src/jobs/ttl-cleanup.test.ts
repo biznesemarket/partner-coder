@@ -58,6 +58,16 @@ describe("TTL-очистка и отзыв при suspension", () => {
       [expiredSession, tenantA.userId, `expired-${expiredSession}`],
     );
     await testDb.pool.query(
+      `insert into auth_rate_limits (key, count, last_request)
+       values ('old-ip', 1, $1), ('fresh-ip', 1, $2)`,
+      [Date.now() - 2 * 86_400_000, Date.now()],
+    );
+    await testDb.pool.query(
+      `insert into email_rate_limits (key, count, window_started_at)
+       values ('old@example.com', 1, now() - interval '2 days'),
+              ('fresh@example.com', 1, now())`,
+    );
+    await testDb.pool.query(
       `insert into device_tokens
          (id, tenant_id, membership_id, token_hash, token_prefix, expires_at)
        values ($1, $2, $3, $4, 'pcd_tst', now() - interval '1 day')`,
@@ -131,6 +141,8 @@ describe("TTL-очистка и отзыв при suspension", () => {
     expect(result).toMatchObject({
       idempotencyKeys: 1,
       authVerifications: 1,
+      authRateLimits: 1,
+      emailRateLimits: 1,
       authSessionsExpired: 1,
     });
 
@@ -148,6 +160,16 @@ describe("TTL-очистка и отзыв при suspension", () => {
       expiredSession,
     ]);
     expect(session.rowCount).toBe(0);
+
+    const authRateLimits = await testDb.pool.query<{ key: string }>(
+      "select key from auth_rate_limits order by key",
+    );
+    expect(authRateLimits.rows.map((row) => row.key)).toEqual(["fresh-ip"]);
+
+    const emailRateLimits = await testDb.pool.query<{ key: string }>(
+      "select key from email_rate_limits order by key",
+    );
+    expect(emailRateLimits.rows.map((row) => row.key)).toEqual(["fresh@example.com"]);
 
     const device = await testDb.pool.query<{ revoked_at: string | null }>(
       "select revoked_at from device_tokens where id = $1",

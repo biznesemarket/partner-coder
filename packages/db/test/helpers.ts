@@ -71,6 +71,11 @@ export async function createTestDatabase(): Promise<TestDatabase> {
   };
 }
 
+/** Дополнительный пул к тестовой БД: имитация второго API-инстанса. */
+export function createPoolForDatabase(database: TestDatabase, max = 2): Pool {
+  return new Pool({ connectionString: database.url, max });
+}
+
 export interface SqlClient {
   query<T extends Record<string, unknown> = Record<string, unknown>>(
     text: string,

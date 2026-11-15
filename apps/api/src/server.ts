@@ -11,6 +11,7 @@ import { ApiError } from "./errors.js";
 import type { AuthRuntime } from "./auth/runtime.js";
 import { createHttpMetrics } from "./metrics.js";
 import { buildOpenApiDocument } from "./openapi/index.js";
+import type { EmailRateLimitStore } from "./auth/email-rate-limit.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerTenantRoutes } from "./routes/tenant.js";
 
@@ -63,6 +64,7 @@ export interface BuildServerOptions {
   readonly appEnv?: string;
   readonly apiBaseUrl?: string;
   readonly emailRateLimit?: number | false;
+  readonly emailRateLimitStore?: EmailRateLimitStore;
   readonly onError?: (error: unknown, request: FastifyRequest) => void;
 }
 
@@ -220,11 +222,12 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
   server.get("/readyz", async () => ({ status: "ok" as const }));
 
   if (options.authRuntime) {
-    registerAuthRoutes(
-      server,
-      options.authRuntime,
-      options.emailRateLimit === undefined ? {} : { emailRateLimit: options.emailRateLimit },
-    );
+    registerAuthRoutes(server, options.authRuntime, {
+      ...(options.emailRateLimit === undefined ? {} : { emailRateLimit: options.emailRateLimit }),
+      ...(options.emailRateLimitStore === undefined
+        ? {}
+        : { emailRateLimitStore: options.emailRateLimitStore }),
+    });
     registerTenantRoutes(server, options.authRuntime);
   }
 
