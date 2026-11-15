@@ -80,9 +80,11 @@ tenant-маршруты ему закрыты, выпуск/ротация до�
   длительности; в prod закрывается `METRICS_TOKEN` или сетевым allowlist.
 - `/openapi.json` собирается из Zod-схем; типы клиента генерируются командой
   `pnpm --filter @partner-coder/api openapi:types`.
-- Rate limit: global 300/min, создание приглашения 20/min, OTP/magic-link —
-  per-email 5/min в памяти инстанса, Better Auth — собственный in-memory лимит.
-  Общий store для нескольких инстансов — следующий шаг (M6).
+- Rate limit: global 300/min на инстанс, создание приглашения 20/min,
+  OTP/magic-link — per-email 5/min, Better Auth — собственный лимит.
+  Вне local оба лимита хранятся в PostgreSQL (`auth_rate_limits`,
+  `email_rate_limits`) и общие для всех API-инстансов; local использует
+  memory. Выбор переопределяется `RATE_LIMIT_STORAGE` (ADR-0012).
 - Security-заголовки: CSP `default-src 'none'`, `frame-ancestors 'none'`,
   HSTS вне local, `x-content-type-options`, `referrer-policy`.
 

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   check,
   index,
@@ -83,6 +84,29 @@ export const authTwoFactors = pgTable(
     index("auth_two_factors_user_idx").on(t.userId),
     index("auth_two_factors_secret_idx").on(t.secret),
     check("auth_two_factors_failed_chk", sql`${t.failedVerificationCount} >= 0`),
+  ],
+);
+
+/**
+ * Хранилище Better Auth rate limit (`rateLimit.storage = "database"`).
+ * Таблица глобальная: ключ включает IP и путь, tenant_id не нужен. Better Auth
+ * ожидает id-колонку в схеме, но id не читает; его генерирует БД, а
+ * уникальность окна обеспечивает key.
+ */
+export const authRateLimits = pgTable(
+  "auth_rate_limits",
+  {
+    id: text("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()::text`),
+    key: text("key").notNull(),
+    count: integer("count").notNull().default(0),
+    lastRequest: bigint("last_request", { mode: "number" }).notNull(),
+  },
+  (t) => [
+    uniqueIndex("auth_rate_limits_key_uq").on(t.key),
+    index("auth_rate_limits_last_request_idx").on(t.lastRequest),
+    check("auth_rate_limits_count_chk", sql`${t.count} >= 0`),
   ],
 );
 

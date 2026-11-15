@@ -6,6 +6,7 @@ import { emailOTP, magicLink } from "better-auth/plugins";
 
 import {
   authAccounts,
+  authRateLimits,
   authSessions,
   authVerifications,
   users,
@@ -22,8 +23,12 @@ export interface CreateAuthOptions {
   readonly sessionTtlHours: number;
   readonly magicLinkTtlMinutes: number;
   readonly mailer: AuthMailer;
-  /** В тестах можно отключить in-memory rate limit. */
+  /** В тестах можно отключить rate limit. */
   readonly rateLimitEnabled?: boolean;
+  /** `database` включает общий для инстансов store Better Auth. */
+  readonly rateLimitStorage?: "memory" | "database";
+  readonly rateLimitMax?: number;
+  readonly rateLimitWindowSeconds?: number;
   readonly ipAddressHeaders?: readonly string[];
   readonly trustedProxies?: readonly string[];
 }
@@ -47,6 +52,7 @@ export function createAuth(options: CreateAuthOptions) {
         session: authSessions,
         account: authAccounts,
         verification: authVerifications,
+        ...(options.rateLimitStorage === "database" ? { rateLimit: authRateLimits } : {}),
       },
     }),
     advanced: {
@@ -119,8 +125,11 @@ export function createAuth(options: CreateAuthOptions) {
     ],
     rateLimit: {
       enabled: options.rateLimitEnabled ?? true,
-      window: 60,
-      max: 20,
+      window: options.rateLimitWindowSeconds ?? 60,
+      max: options.rateLimitMax ?? 20,
+      ...(options.rateLimitStorage === "database"
+        ? { storage: "database" as const, modelName: "rateLimit" }
+        : {}),
     },
   });
 }

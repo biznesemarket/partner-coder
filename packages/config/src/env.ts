@@ -36,6 +36,11 @@ export const envSchema = z
     AUTH_TRUSTED_PROXIES: optionalString,
     SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(12),
     MAGIC_LINK_TTL_MINUTES: z.coerce.number().int().min(5).max(120).default(30),
+    /**
+     * Хранилище rate limit Better Auth и per-email лимита OTP/magic-link.
+     * Явно не задано: local — memory, staging/prod — общий database.
+     */
+    RATE_LIMIT_STORAGE: optionalString.pipe(z.enum(["memory", "database"]).optional()),
 
     S3_ENDPOINT: z.string().url(),
     S3_REGION: z.string().min(1).default("ru-central-1"),
@@ -129,4 +134,14 @@ export function parseEnv(source: Record<string, string | undefined> = process.en
     );
   }
   return result.data;
+}
+
+/**
+ * Общий store по умолчанию включается вне local: несколько API-инстансов
+ * должны видеть один счетчик OTP/magic-link. Локально достаточно memory.
+ */
+export function resolveRateLimitStorage(
+  env: Pick<Env, "APP_ENV" | "RATE_LIMIT_STORAGE">,
+): "memory" | "database" {
+  return env.RATE_LIMIT_STORAGE ?? (env.APP_ENV === "local" ? "memory" : "database");
 }

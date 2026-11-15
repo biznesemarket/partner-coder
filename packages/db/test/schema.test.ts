@@ -5,6 +5,7 @@ import { createTestDatabase, type TestDatabase } from "./helpers.js";
 const expectedTables = [
   "auth_accounts",
   "auth_passkeys",
+  "auth_rate_limits",
   "auth_sessions",
   "auth_two_factors",
   "auth_verifications",
@@ -18,6 +19,7 @@ const expectedTables = [
   "devices",
   "digest_runs",
   "disputes",
+  "email_rate_limits",
   "git_integrations",
   "heartbeats",
   "idempotency_keys",

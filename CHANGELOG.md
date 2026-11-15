@@ -45,6 +45,11 @@
   опциональные OTel/Sentry, CORS и security-заголовки; OpenAPI 3.1 из Zod-схем,
   `/openapi.json` и генерация типов клиента; tenant-маршруты проектов и закрытых
   дней; staging-чек-лист и ADR-0011.
+- M6-подготовка: общий rate-limit store в PostgreSQL (`auth_rate_limits` для
+  Better Auth и `email_rate_limits` для OTP/magic-link), атомарное окно
+  per-email, memory-fallback при сбое БД, TTL-очистка worker-ом; вне local
+  включается по умолчанию, `RATE_LIMIT_STORAGE` переопределяет выбор
+  (ADR-0012).
 
 ### Changed
 
@@ -67,6 +72,9 @@
 ### Notes
 
 - Лицензия — source-available; финальный текст за юристом.
-- Passkeys/2FA: схема готова, плагины включаются позже.
-- Общий rate-limit store и per-email лимит — M6.
+- Passkeys/2FA: схема готова; плагин 2FA Better Auth не перехватывает
+  passwordless email-OTP/magic-link, поэтому решение для вендорской консоли
+  требует отдельного дизайна (M3).
+- Общий rate-limit store внедрен (ADR-0012); глобальный лимит Fastify
+  остается на инстанс, распределенный edge/WAF — при выборе хостинга.
 - M3–M11 не реализованы: см. `docs/05-process/development-process.md`.

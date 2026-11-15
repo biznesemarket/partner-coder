@@ -1,11 +1,14 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { parseEnv, parseList } from "@partner-coder/config";
+import { pino } from "pino";
+
+import { parseEnv, parseList, resolveRateLimitStorage } from "@partner-coder/config";
 import { createDatabase, createPool } from "@partner-coder/db";
 
 import { createAuth } from "./auth/config.js";
 import { readRoleFacts, roleSeparationErrors } from "./auth/db-roles.js";
+import { DatabaseEmailRateLimiter, EmailRateLimiter } from "./auth/email-rate-limit.js";
 import { SmtpMailer } from "./auth/mailer.js";
 import { createAuthRuntime } from "./auth/runtime.js";
 import { loggerOptions } from "./logger.js";
@@ -26,6 +29,8 @@ loadEnvFile();
 
 const env = parseEnv();
 const version = "0.0.1";
+const rateLimitStorage = resolveRateLimitStorage(env);
+const logger = pino(loggerOptions(env));
 
 const { initTelemetry } = await import("./telemetry.js");
 const telemetry = await initTelemetry(env, { serviceName: "partner-coder-api", version });
@@ -57,9 +62,17 @@ const auth = createAuth({
   sessionTtlHours: env.SESSION_TTL_HOURS,
   magicLinkTtlMinutes: env.MAGIC_LINK_TTL_MINUTES,
   mailer: new SmtpMailer(env),
+  rateLimitStorage,
   ipAddressHeaders: parseList(env.AUTH_IP_HEADERS),
   trustedProxies: parseList(env.AUTH_TRUSTED_PROXIES),
 });
+
+const emailRateLimitStore =
+  rateLimitStorage === "database"
+    ? new DatabaseEmailRateLimiter(db, {
+        onError: (error) => logger.warn({ err: error }, "email_rate_limit_store_failed"),
+      })
+    : new EmailRateLimiter();
 
 const { buildServer } = await import("./server.js");
 const corsOrigins = parseList(env.API_CORS_ORIGINS ?? `${env.WEB_BASE_URL},${env.VENDOR_BASE_URL}`);
@@ -71,6 +84,7 @@ const server = buildServer({
   corsOrigins,
   apiBaseUrl: env.API_BASE_URL,
   authRuntime: createAuthRuntime({ auth, db, webBaseUrl: env.WEB_BASE_URL }),
+  emailRateLimitStore,
   onError: (error) => telemetry.captureException(error),
 });
 

@@ -29,6 +29,7 @@
     "@partner-coder/domain": "workspace:*",
     "@sentry/node": "^11.12.0",
     "better-auth": "^1.7.25",
+    "drizzle-orm": "^0.45.4",
     "fastify": "^5.2.1",
     "nodemailer": "^10.5.0",
     "pino": "^10.4.0",
