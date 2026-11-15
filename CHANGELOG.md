@@ -46,6 +46,11 @@
   `/openapi.json` и генерация типов клиента; tenant-маршруты проектов и закрытых
   дней; staging-чек-лист и ADR-0011.
 
+### Changed
+
+- GitHub Actions обновлены: `actions/checkout` и `actions/setup-node` v7,
+  `pnpm/action-setup` v6, `github/codeql-action` v4, `gitleaks-action` v3.
+
 ### Security
 
 - Обновлены зависимости с известными уязвимостями: `vitest` 4.1.12
