@@ -2,7 +2,7 @@
 
 ## 1. Требования
 
-- Node.js ≥ 22.6, pnpm ≥ 9 (ядро пакета зафиксировано в `package.json`).
+- Node.js ≥ 22.12, pnpm ≥ 9 (ядро пакета зафиксировано в `package.json`).
 - Docker Desktop (для PostgreSQL, Mailpit, S3).
 - Windows 10/11 для проверки MCP-сценариев; macOS/Linux — после пилота.
 
@@ -48,7 +48,7 @@ pnpm check         # всё вместе: prettier + lint + typecheck + тест
 pnpm build         # turbo build
 ```
 
-Ожидаемый результат: `Tests 578 passed`, все 20 golden-сценариев совпадают
+Ожидаемый результат: `Tests 635 passed`, все 20 golden-сценариев совпадают
 точно. Интеграционные тесты создают отдельные БД, поэтому PostgreSQL должен
 быть запущен; в CI он поднимается сервисом GitHub Actions.
 
