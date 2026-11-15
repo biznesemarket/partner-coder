@@ -5,12 +5,14 @@ import {
   boolean,
   check,
   date,
+  foreignKey,
   index,
   integer,
   pgTable,
   primaryKey,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -67,6 +69,7 @@ export const projects = pgTable(
   },
   (t) => [
     uniqueIndex("projects_tenant_forge_repo_uq").on(t.tenantId, t.forge, t.repo),
+    unique("projects_tenant_id_uq").on(t.tenantId, t.id),
     index("projects_tenant_status_idx").on(t.tenantId, t.status),
     check("projects_repo_len_chk", sql`length(${t.repo}) between 1 and 255`),
   ],
@@ -76,18 +79,24 @@ export const projectMembers = pgTable(
   "project_members",
   {
     tenantId: tenantId().references(() => tenants.id, { onDelete: "restrict" }),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "restrict" }),
-    membershipId: uuid("membership_id")
-      .notNull()
-      .references(() => memberships.id, { onDelete: "restrict" }),
+    projectId: uuid("project_id").notNull(),
+    membershipId: uuid("membership_id").notNull(),
     role: membershipRole("role").notNull().default("developer"),
     createdAt: createdAt(),
   },
   (t) => [
     primaryKey({ name: "project_members_pk", columns: [t.projectId, t.membershipId] }),
     index("project_members_membership_idx").on(t.membershipId),
+    foreignKey({
+      name: "project_members_project_tenant_fk",
+      columns: [t.tenantId, t.projectId],
+      foreignColumns: [projects.tenantId, projects.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "project_members_membership_tenant_fk",
+      columns: [t.tenantId, t.membershipId],
+      foreignColumns: [memberships.tenantId, memberships.id],
+    }).onDelete("restrict"),
   ],
 );
 
@@ -96,9 +105,7 @@ export const policies = pgTable(
   {
     id: uuidPk(),
     tenantId: tenantId().references(() => tenants.id, { onDelete: "restrict" }),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "restrict" }),
+    projectId: uuid("project_id").notNull(),
     version: integer("version").notNull(),
     params: jsonValue<PolicyDocument>("params"),
     effectiveFrom: timestamp("effective_from", { withTimezone: true, precision: 3 }).notNull(),
@@ -108,9 +115,15 @@ export const policies = pgTable(
   },
   (t) => [
     uniqueIndex("policies_project_version_uq").on(t.projectId, t.version),
+    unique("policies_tenant_id_uq").on(t.tenantId, t.id),
     index("policies_tenant_effective_idx").on(t.tenantId, t.effectiveFrom),
     check("policies_version_chk", sql`${t.version} >= 1`),
     check("policies_sha256_chk", sql`${t.sha256} ~ '^[0-9a-f]{64}$'`),
+    foreignKey({
+      name: "policies_project_tenant_fk",
+      columns: [t.tenantId, t.projectId],
+      foreignColumns: [projects.tenantId, projects.id],
+    }).onDelete("restrict"),
   ],
 );
 
@@ -119,9 +132,7 @@ export const rateVersions = pgTable(
   {
     id: uuidPk(),
     tenantId: tenantId().references(() => tenants.id, { onDelete: "restrict" }),
-    policyId: uuid("policy_id")
-      .notNull()
-      .references(() => policies.id, { onDelete: "restrict" }),
+    policyId: uuid("policy_id").notNull(),
     effectiveFrom: timestamp("effective_from", { withTimezone: true, precision: 3 }).notNull(),
     valueKopecks: kopecks("value_kopecks"),
     reason: text("reason").notNull(),
@@ -133,6 +144,11 @@ export const rateVersions = pgTable(
     index("rate_versions_tenant_idx").on(t.tenantId),
     check("rate_versions_value_chk", sql`${t.valueKopecks} > 0`),
     check("rate_versions_reason_chk", sql`length(${t.reason}) >= 5`),
+    foreignKey({
+      name: "rate_versions_policy_tenant_fk",
+      columns: [t.tenantId, t.policyId],
+      foreignColumns: [policies.tenantId, policies.id],
+    }).onDelete("restrict"),
   ],
 );
 
@@ -141,9 +157,7 @@ export const valuationVersions = pgTable(
   {
     id: uuidPk(),
     tenantId: tenantId().references(() => tenants.id, { onDelete: "restrict" }),
-    policyId: uuid("policy_id")
-      .notNull()
-      .references(() => policies.id, { onDelete: "restrict" }),
+    policyId: uuid("policy_id").notNull(),
     effectiveFrom: timestamp("effective_from", { withTimezone: true, precision: 3 }).notNull(),
     valueKopecks: kopecks("value_kopecks"),
     reason: text("reason").notNull(),
@@ -157,6 +171,11 @@ export const valuationVersions = pgTable(
     check("valuation_versions_value_chk", sql`${t.valueKopecks} > 0`),
     check("valuation_versions_reason_chk", sql`length(${t.reason}) >= 5`),
     check("valuation_versions_adr_chk", sql`length(${t.adrRef}) >= 1`),
+    foreignKey({
+      name: "valuation_versions_policy_tenant_fk",
+      columns: [t.tenantId, t.policyId],
+      foreignColumns: [policies.tenantId, policies.id],
+    }).onDelete("restrict"),
   ],
 );
 
@@ -165,13 +184,9 @@ export const workSessions = pgTable(
   {
     id: uuidPk(),
     tenantId: tenantId().references(() => tenants.id, { onDelete: "restrict" }),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "restrict" }),
-    membershipId: uuid("membership_id")
-      .notNull()
-      .references(() => memberships.id, { onDelete: "restrict" }),
-    deviceId: uuid("device_id").references(() => devices.id, { onDelete: "restrict" }),
+    projectId: uuid("project_id").notNull(),
+    membershipId: uuid("membership_id").notNull(),
+    deviceId: uuid("device_id"),
     taskRef: text("task_ref"),
     branch: text("branch"),
     status: workSessionStatus("status").notNull().default("active"),
@@ -181,10 +196,26 @@ export const workSessions = pgTable(
     updatedAt: updatedAt(),
   },
   (t) => [
+    unique("work_sessions_tenant_id_uq").on(t.tenantId, t.id),
     index("work_sessions_tenant_member_start_idx").on(t.tenantId, t.membershipId, t.startedAt),
     index("work_sessions_project_start_idx").on(t.projectId, t.startedAt),
     index("work_sessions_status_idx").on(t.status),
     check("work_sessions_period_chk", sql`${t.endedAt} is null or ${t.endedAt} >= ${t.startedAt}`),
+    foreignKey({
+      name: "work_sessions_project_tenant_fk",
+      columns: [t.tenantId, t.projectId],
+      foreignColumns: [projects.tenantId, projects.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "work_sessions_membership_tenant_fk",
+      columns: [t.tenantId, t.membershipId],
+      foreignColumns: [memberships.tenantId, memberships.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "work_sessions_device_tenant_fk",
+      columns: [t.tenantId, t.deviceId],
+      foreignColumns: [devices.tenantId, devices.id],
+    }).onDelete("restrict"),
   ],
 );
 
@@ -193,9 +224,7 @@ export const heartbeats = pgTable(
   {
     eventId: uuid("event_id").primaryKey(),
     tenantId: tenantId().references(() => tenants.id, { onDelete: "restrict" }),
-    sessionId: uuid("session_id")
-      .notNull()
-      .references(() => workSessions.id, { onDelete: "restrict" }),
+    sessionId: uuid("session_id").notNull(),
     seq: integer("seq").notNull(),
     class: intervalClass("class").notNull(),
     startUtc: timestamp("start_utc", { withTimezone: true, precision: 3 }).notNull(),
@@ -215,6 +244,11 @@ export const heartbeats = pgTable(
     index("heartbeats_tenant_received_idx").on(t.tenantId, t.receivedAt),
     check("heartbeats_period_chk", sql`${t.endUtc} > ${t.startUtc}`),
     check("heartbeats_seq_chk", sql`${t.seq} >= 0`),
+    foreignKey({
+      name: "heartbeats_session_tenant_fk",
+      columns: [t.tenantId, t.sessionId],
+      foreignColumns: [workSessions.tenantId, workSessions.id],
+    }).onDelete("restrict"),
   ],
 );
 
@@ -223,9 +257,7 @@ export const intervals = pgTable(
   {
     id: uuidPk(),
     tenantId: tenantId().references(() => tenants.id, { onDelete: "restrict" }),
-    sessionId: uuid("session_id")
-      .notNull()
-      .references(() => workSessions.id, { onDelete: "restrict" }),
+    sessionId: uuid("session_id").notNull(),
     class: intervalClass("class").notNull(),
     startUtc: timestamp("start_utc", { withTimezone: true, precision: 3 }).notNull(),
     endUtc: timestamp("end_utc", { withTimezone: true, precision: 3 }).notNull(),
@@ -238,6 +270,11 @@ export const intervals = pgTable(
     index("intervals_session_start_idx").on(t.sessionId, t.startUtc),
     check("intervals_period_chk", sql`${t.endUtc} > ${t.startUtc}`),
     check("intervals_seconds_chk", sql`${t.seconds} >= 0`),
+    foreignKey({
+      name: "intervals_session_tenant_fk",
+      columns: [t.tenantId, t.sessionId],
+      foreignColumns: [workSessions.tenantId, workSessions.id],
+    }).onDelete("restrict"),
   ],
 );
 
@@ -246,12 +283,8 @@ export const dayRecords = pgTable(
   {
     id: uuidPk(),
     tenantId: tenantId().references(() => tenants.id, { onDelete: "restrict" }),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "restrict" }),
-    membershipId: uuid("membership_id")
-      .notNull()
-      .references(() => memberships.id, { onDelete: "restrict" }),
+    projectId: uuid("project_id").notNull(),
+    membershipId: uuid("membership_id").notNull(),
     dateLocal: date("date_local", { mode: "string" }).notNull(),
     timezone: text("timezone").notNull(),
     paidSeconds: integer("paid_seconds").notNull(),
@@ -277,6 +310,7 @@ export const dayRecords = pgTable(
       t.membershipId,
       t.dateLocal,
     ),
+    unique("day_records_tenant_id_uq").on(t.tenantId, t.id),
     index("day_records_tenant_date_idx").on(t.tenantId, t.dateLocal),
     index("day_records_project_date_idx").on(t.projectId, t.dateLocal),
     check("day_records_paid_seconds_chk", sql`${t.paidSeconds} >= 0`),
@@ -288,6 +322,16 @@ export const dayRecords = pgTable(
     check("day_records_share_chk", sql`${t.shareBp} >= 0`),
     check("day_records_pool_used_chk", sql`${t.poolUsedBp} >= 0`),
     check("day_records_input_hash_chk", sql`${t.inputHash} ~ '^[0-9a-f]{64}$'`),
+    foreignKey({
+      name: "day_records_project_tenant_fk",
+      columns: [t.tenantId, t.projectId],
+      foreignColumns: [projects.tenantId, projects.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "day_records_membership_tenant_fk",
+      columns: [t.tenantId, t.membershipId],
+      foreignColumns: [memberships.tenantId, memberships.id],
+    }).onDelete("restrict"),
   ],
 );
 
@@ -296,9 +340,7 @@ export const dayAdjustments = pgTable(
   {
     id: uuidPk(),
     tenantId: tenantId().references(() => tenants.id, { onDelete: "restrict" }),
-    dayRecordId: uuid("day_record_id")
-      .notNull()
-      .references(() => dayRecords.id, { onDelete: "restrict" }),
+    dayRecordId: uuid("day_record_id").notNull(),
     deltaKopecks: bigint("delta_kopecks", { mode: "bigint" }).notNull(),
     reason: text("reason").notNull(),
     source: adjustmentSource("source").notNull().default("recalc"),
@@ -311,6 +353,11 @@ export const dayAdjustments = pgTable(
     index("day_adjustments_tenant_created_idx").on(t.tenantId, t.createdAt),
     check("day_adjustments_reason_chk", sql`length(${t.reason}) >= 5`),
     check("day_adjustments_input_hash_chk", sql`${t.inputHash} ~ '^[0-9a-f]{64}$'`),
+    foreignKey({
+      name: "day_adjustments_record_tenant_fk",
+      columns: [t.tenantId, t.dayRecordId],
+      foreignColumns: [dayRecords.tenantId, dayRecords.id],
+    }).onDelete("restrict"),
   ],
 );
 
@@ -319,9 +366,7 @@ export const dayFlags = pgTable(
   {
     id: uuidPk(),
     tenantId: tenantId().references(() => tenants.id, { onDelete: "restrict" }),
-    dayRecordId: uuid("day_record_id")
-      .notNull()
-      .references(() => dayRecords.id, { onDelete: "restrict" }),
+    dayRecordId: uuid("day_record_id").notNull(),
     code: text("code").notNull(),
     detail: text("detail").notNull(),
     createdAt: createdAt(),
@@ -329,6 +374,11 @@ export const dayFlags = pgTable(
   (t) => [
     uniqueIndex("day_flags_record_code_uq").on(t.dayRecordId, t.code),
     index("day_flags_tenant_code_idx").on(t.tenantId, t.code),
+    foreignKey({
+      name: "day_flags_record_tenant_fk",
+      columns: [t.tenantId, t.dayRecordId],
+      foreignColumns: [dayRecords.tenantId, dayRecords.id],
+    }).onDelete("restrict"),
   ],
 );
 
@@ -337,9 +387,7 @@ export const disputes = pgTable(
   {
     id: uuidPk(),
     tenantId: tenantId().references(() => tenants.id, { onDelete: "restrict" }),
-    dayRecordId: uuid("day_record_id")
-      .notNull()
-      .references(() => dayRecords.id, { onDelete: "restrict" }),
+    dayRecordId: uuid("day_record_id").notNull(),
     openedBy: uuid("opened_by").references(() => users.id, { onDelete: "restrict" }),
     reason: text("reason").notNull(),
     intervalRefs: jsonArray<string>("interval_refs"),
@@ -356,6 +404,11 @@ export const disputes = pgTable(
     index("disputes_tenant_status_idx").on(t.tenantId, t.status),
     index("disputes_record_idx").on(t.dayRecordId),
     check("disputes_reason_chk", sql`length(${t.reason}) >= 5`),
+    foreignKey({
+      name: "disputes_record_tenant_fk",
+      columns: [t.tenantId, t.dayRecordId],
+      foreignColumns: [dayRecords.tenantId, dayRecords.id],
+    }).onDelete("restrict"),
   ],
 );
 
@@ -373,6 +426,7 @@ export const payoutBatches = pgTable(
   },
   (t) => [
     uniqueIndex("payout_batches_tenant_period_uq").on(t.tenantId, t.period),
+    unique("payout_batches_tenant_id_uq").on(t.tenantId, t.id),
     check("payout_batches_period_chk", sql`${t.period} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'`),
   ],
 );
@@ -382,12 +436,8 @@ export const payoutItems = pgTable(
   {
     id: uuidPk(),
     tenantId: tenantId().references(() => tenants.id, { onDelete: "restrict" }),
-    batchId: uuid("batch_id")
-      .notNull()
-      .references(() => payoutBatches.id, { onDelete: "restrict" }),
-    membershipId: uuid("membership_id")
-      .notNull()
-      .references(() => memberships.id, { onDelete: "restrict" }),
+    batchId: uuid("batch_id").notNull(),
+    membershipId: uuid("membership_id").notNull(),
     amountKopecks: kopecks("amount_kopecks"),
     method: paymentMethod("method").notNull().default("bank_transfer"),
     reference: text("reference"),
@@ -398,6 +448,16 @@ export const payoutItems = pgTable(
     uniqueIndex("payout_items_batch_member_uq").on(t.batchId, t.membershipId),
     index("payout_items_tenant_idx").on(t.tenantId),
     check("payout_items_amount_chk", sql`${t.amountKopecks} >= 0`),
+    foreignKey({
+      name: "payout_items_batch_tenant_fk",
+      columns: [t.tenantId, t.batchId],
+      foreignColumns: [payoutBatches.tenantId, payoutBatches.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "payout_items_membership_tenant_fk",
+      columns: [t.tenantId, t.membershipId],
+      foreignColumns: [memberships.tenantId, memberships.id],
+    }).onDelete("restrict"),
   ],
 );
 

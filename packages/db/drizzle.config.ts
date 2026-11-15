@@ -1,7 +1,9 @@
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "drizzle-kit";
 
 try {
-  process.loadEnvFile();
+  process.loadEnvFile(fileURLToPath(new URL("../../.env", import.meta.url)));
 } catch {
   // `.env` отсутствует в CI: используется DATABASE_URL из окружения.
 }

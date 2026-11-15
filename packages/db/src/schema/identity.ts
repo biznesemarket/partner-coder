@@ -1,11 +1,13 @@
 import { sql } from "drizzle-orm";
 import {
   check,
+  foreignKey,
   index,
   inet,
   pgTable,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -101,6 +103,7 @@ export const memberships = pgTable(
   },
   (t) => [
     uniqueIndex("memberships_tenant_user_uq").on(t.tenantId, t.userId),
+    unique("memberships_tenant_id_uq").on(t.tenantId, t.id),
     index("memberships_tenant_role_idx").on(t.tenantId, t.role),
     index("memberships_user_idx").on(t.userId),
   ],
@@ -111,9 +114,7 @@ export const devices = pgTable(
   {
     id: uuidPk(),
     tenantId: tenantId().references(() => tenants.id, { onDelete: "restrict" }),
-    membershipId: uuid("membership_id")
-      .notNull()
-      .references(() => memberships.id, { onDelete: "restrict" }),
+    membershipId: uuid("membership_id").notNull(),
     publicKey: text("public_key").notNull(),
     name: text("name").notNull(),
     os: text("os").notNull(),
@@ -125,8 +126,14 @@ export const devices = pgTable(
   },
   (t) => [
     uniqueIndex("devices_public_key_uq").on(t.publicKey),
+    unique("devices_tenant_id_uq").on(t.tenantId, t.id),
     index("devices_membership_idx").on(t.membershipId, t.status),
     index("devices_tenant_idx").on(t.tenantId),
+    foreignKey({
+      name: "devices_membership_tenant_fk",
+      columns: [t.tenantId, t.membershipId],
+      foreignColumns: [memberships.tenantId, memberships.id],
+    }).onDelete("restrict"),
   ],
 );
 

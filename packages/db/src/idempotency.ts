@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, lt, sql } from "drizzle-orm";
 
 import type { Database, DbTransaction } from "./client.js";
 import { idempotencyKeys } from "./schema/index.js";
@@ -69,6 +69,10 @@ export async function withIdempotency<T>(
       eq(idempotencyKeys.scope, input.scope),
       eq(idempotencyKeys.key, input.key),
     );
+
+    await tx
+      .delete(idempotencyKeys)
+      .where(and(keyWhere, lt(idempotencyKeys.expiresAt, new Date())));
 
     const run = async (keyId: string): Promise<IdempotencyOutcome<T>> => {
       const result = await operation(tx);

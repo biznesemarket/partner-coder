@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   check,
   date,
+  foreignKey,
   index,
   jsonb,
   pgTable,
@@ -28,9 +29,7 @@ export const gitIntegrations = pgTable(
   {
     id: uuidPk(),
     tenantId: tenantId().references(() => tenants.id, { onDelete: "restrict" }),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "restrict" }),
+    projectId: uuid("project_id").notNull(),
     provider: forge("provider").notNull(),
     installationId: text("installation_id").notNull(),
     repo: text("repo").notNull(),
@@ -42,6 +41,11 @@ export const gitIntegrations = pgTable(
   (t) => [
     uniqueIndex("git_integrations_project_provider_uq").on(t.tenantId, t.projectId, t.provider),
     index("git_integrations_tenant_status_idx").on(t.tenantId, t.status),
+    foreignKey({
+      name: "git_integrations_project_tenant_fk",
+      columns: [t.tenantId, t.projectId],
+      foreignColumns: [projects.tenantId, projects.id],
+    }).onDelete("restrict"),
   ],
 );
 
@@ -53,18 +57,22 @@ export const connectorEvents = pgTable(
     provider: forge("provider").notNull(),
     deliveryId: text("delivery_id").notNull(),
     eventType: text("event_type").notNull(),
-    projectId: uuid("project_id").references(() => projects.id, { onDelete: "restrict" }),
+    projectId: uuid("project_id"),
     payloadMeta: jsonObject<Record<string, unknown>>("payload_meta"),
     receivedAt: timestamp("received_at", { withTimezone: true, precision: 3 })
       .notNull()
       .defaultNow(),
-    processedAt: timestamp("processed_at", { withTimezone: true, precision: 3 }),
     createdAt: createdAt(),
   },
   (t) => [
-    uniqueIndex("connector_events_delivery_uq").on(t.deliveryId),
+    uniqueIndex("connector_events_provider_delivery_uq").on(t.provider, t.deliveryId),
     index("connector_events_tenant_received_idx").on(t.tenantId, t.receivedAt),
     index("connector_events_project_idx").on(t.projectId),
+    foreignKey({
+      name: "connector_events_project_tenant_fk",
+      columns: [t.tenantId, t.projectId],
+      foreignColumns: [projects.tenantId, projects.id],
+    }).onDelete("restrict"),
   ],
 );
 
@@ -73,9 +81,7 @@ export const repoFacts = pgTable(
   {
     id: uuidPk(),
     tenantId: tenantId().references(() => tenants.id, { onDelete: "restrict" }),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "restrict" }),
+    projectId: uuid("project_id").notNull(),
     kind: repoFactKind("kind").notNull(),
     ref: text("ref").notNull(),
     taskRef: text("task_ref"),
@@ -89,6 +95,11 @@ export const repoFacts = pgTable(
     index("repo_facts_project_task_idx").on(t.projectId, t.taskRef),
     index("repo_facts_tenant_occurred_idx").on(t.tenantId, t.occurredAt),
     check("repo_facts_ref_len_chk", sql`length(${t.ref}) between 1 and 512`),
+    foreignKey({
+      name: "repo_facts_project_tenant_fk",
+      columns: [t.tenantId, t.projectId],
+      foreignColumns: [projects.tenantId, projects.id],
+    }).onDelete("restrict"),
   ],
 );
 

@@ -1,5 +1,5 @@
 {
-  "id": "09766543-718f-4d18-921f-15618c60c4ee",
+  "id": "094e2c00-8cc1-4bd4-9255-b8be2ba60d67",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1070,6 +1070,10 @@
         "vendor_audit_anchors_count_chk": {
           "name": "vendor_audit_anchors_count_chk",
           "value": "\"vendor_audit_anchors\".\"event_count\" >= 0"
+        },
+        "vendor_audit_anchors_hash_chk": {
+          "name": "vendor_audit_anchors_hash_chk",
+          "value": "\"vendor_audit_anchors\".\"last_hash\" ~ '^[0-9a-f]{64}$'"
         }
       },
       "isRLSEnabled": false
@@ -1139,6 +1143,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "chain_seq": {
+          "name": "chain_seq",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp (3) with time zone",
@@ -1159,6 +1169,21 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "vendor_audit_events_seq_uq": {
+          "name": "vendor_audit_events_seq_uq",
+          "columns": [
+            {
+              "expression": "chain_seq",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -1218,7 +1243,20 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "vendor_audit_events_hash_chk": {
+          "name": "vendor_audit_events_hash_chk",
+          "value": "\"vendor_audit_events\".\"hash\" ~ '^[0-9a-f]{64}$'"
+        },
+        "vendor_audit_events_prev_hash_chk": {
+          "name": "vendor_audit_events_prev_hash_chk",
+          "value": "\"vendor_audit_events\".\"prev_hash\" is null or \"vendor_audit_events\".\"prev_hash\" ~ '^[0-9a-f]{64}$'"
+        },
+        "vendor_audit_events_seq_chk": {
+          "name": "vendor_audit_events_seq_chk",
+          "value": "\"vendor_audit_events\".\"chain_seq\" >= 1"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.vendor_users": {
@@ -1582,18 +1620,24 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "devices_membership_id_memberships_id_fk": {
-          "name": "devices_membership_id_memberships_id_fk",
+        "devices_membership_tenant_fk": {
+          "name": "devices_membership_tenant_fk",
           "tableFrom": "devices",
           "tableTo": "memberships",
-          "columnsFrom": ["membership_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["tenant_id", "membership_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "devices_tenant_id_uq": {
+          "name": "devices_tenant_id_uq",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "id"]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -1884,7 +1928,13 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "memberships_tenant_id_uq": {
+          "name": "memberships_tenant_id_uq",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "id"]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -2235,21 +2285,21 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "day_adjustments_day_record_id_day_records_id_fk": {
-          "name": "day_adjustments_day_record_id_day_records_id_fk",
-          "tableFrom": "day_adjustments",
-          "tableTo": "day_records",
-          "columnsFrom": ["day_record_id"],
-          "columnsTo": ["id"],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
         "day_adjustments_approved_by_users_id_fk": {
           "name": "day_adjustments_approved_by_users_id_fk",
           "tableFrom": "day_adjustments",
           "tableTo": "users",
           "columnsFrom": ["approved_by"],
           "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "day_adjustments_record_tenant_fk": {
+          "name": "day_adjustments_record_tenant_fk",
+          "tableFrom": "day_adjustments",
+          "tableTo": "day_records",
+          "columnsFrom": ["tenant_id", "day_record_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -2366,12 +2416,12 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "day_flags_day_record_id_day_records_id_fk": {
-          "name": "day_flags_day_record_id_day_records_id_fk",
+        "day_flags_record_tenant_fk": {
+          "name": "day_flags_record_tenant_fk",
           "tableFrom": "day_flags",
           "tableTo": "day_records",
-          "columnsFrom": ["day_record_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["tenant_id", "day_record_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -2608,27 +2658,33 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "day_records_project_id_projects_id_fk": {
-          "name": "day_records_project_id_projects_id_fk",
+        "day_records_project_tenant_fk": {
+          "name": "day_records_project_tenant_fk",
           "tableFrom": "day_records",
           "tableTo": "projects",
-          "columnsFrom": ["project_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["tenant_id", "project_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "day_records_membership_id_memberships_id_fk": {
-          "name": "day_records_membership_id_memberships_id_fk",
+        "day_records_membership_tenant_fk": {
+          "name": "day_records_membership_tenant_fk",
           "tableFrom": "day_records",
           "tableTo": "memberships",
-          "columnsFrom": ["membership_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["tenant_id", "membership_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "day_records_tenant_id_uq": {
+          "name": "day_records_tenant_id_uq",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "id"]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "day_records_paid_seconds_chk": {
@@ -2813,15 +2869,6 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "disputes_day_record_id_day_records_id_fk": {
-          "name": "disputes_day_record_id_day_records_id_fk",
-          "tableFrom": "disputes",
-          "tableTo": "day_records",
-          "columnsFrom": ["day_record_id"],
-          "columnsTo": ["id"],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
         "disputes_opened_by_users_id_fk": {
           "name": "disputes_opened_by_users_id_fk",
           "tableFrom": "disputes",
@@ -2837,6 +2884,15 @@
           "tableTo": "users",
           "columnsFrom": ["resolved_by"],
           "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "disputes_record_tenant_fk": {
+          "name": "disputes_record_tenant_fk",
+          "tableFrom": "disputes",
+          "tableTo": "day_records",
+          "columnsFrom": ["tenant_id", "day_record_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -3016,12 +3072,12 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "heartbeats_session_id_work_sessions_id_fk": {
-          "name": "heartbeats_session_id_work_sessions_id_fk",
+        "heartbeats_session_tenant_fk": {
+          "name": "heartbeats_session_tenant_fk",
           "tableFrom": "heartbeats",
           "tableTo": "work_sessions",
-          "columnsFrom": ["session_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["tenant_id", "session_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -3159,12 +3215,12 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "intervals_session_id_work_sessions_id_fk": {
-          "name": "intervals_session_id_work_sessions_id_fk",
+        "intervals_session_tenant_fk": {
+          "name": "intervals_session_tenant_fk",
           "tableFrom": "intervals",
           "tableTo": "work_sessions",
-          "columnsFrom": ["session_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["tenant_id", "session_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -3378,7 +3434,13 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "payout_batches_tenant_id_uq": {
+          "name": "payout_batches_tenant_id_uq",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "id"]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "payout_batches_period_chk": {
@@ -3499,21 +3561,21 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "payout_items_batch_id_payout_batches_id_fk": {
-          "name": "payout_items_batch_id_payout_batches_id_fk",
+        "payout_items_batch_tenant_fk": {
+          "name": "payout_items_batch_tenant_fk",
           "tableFrom": "payout_items",
           "tableTo": "payout_batches",
-          "columnsFrom": ["batch_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["tenant_id", "batch_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "payout_items_membership_id_memberships_id_fk": {
-          "name": "payout_items_membership_id_memberships_id_fk",
+        "payout_items_membership_tenant_fk": {
+          "name": "payout_items_membership_tenant_fk",
           "tableFrom": "payout_items",
           "tableTo": "memberships",
-          "columnsFrom": ["membership_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["tenant_id", "membership_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -3644,15 +3706,6 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "policies_project_id_projects_id_fk": {
-          "name": "policies_project_id_projects_id_fk",
-          "tableFrom": "policies",
-          "tableTo": "projects",
-          "columnsFrom": ["project_id"],
-          "columnsTo": ["id"],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
         "policies_approved_by_users_id_fk": {
           "name": "policies_approved_by_users_id_fk",
           "tableFrom": "policies",
@@ -3661,10 +3714,25 @@
           "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
+        },
+        "policies_project_tenant_fk": {
+          "name": "policies_project_tenant_fk",
+          "tableFrom": "policies",
+          "tableTo": "projects",
+          "columnsFrom": ["tenant_id", "project_id"],
+          "columnsTo": ["tenant_id", "id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "policies_tenant_id_uq": {
+          "name": "policies_tenant_id_uq",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "id"]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "policies_version_chk": {
@@ -3743,21 +3811,21 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "project_members_project_id_projects_id_fk": {
-          "name": "project_members_project_id_projects_id_fk",
+        "project_members_project_tenant_fk": {
+          "name": "project_members_project_tenant_fk",
           "tableFrom": "project_members",
           "tableTo": "projects",
-          "columnsFrom": ["project_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["tenant_id", "project_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "project_members_membership_id_memberships_id_fk": {
-          "name": "project_members_membership_id_memberships_id_fk",
+        "project_members_membership_tenant_fk": {
+          "name": "project_members_membership_tenant_fk",
           "tableFrom": "project_members",
           "tableTo": "memberships",
-          "columnsFrom": ["membership_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["tenant_id", "membership_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -3909,7 +3977,13 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "projects_tenant_id_uq": {
+          "name": "projects_tenant_id_uq",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "id"]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "projects_repo_len_chk": {
@@ -4022,21 +4096,21 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "rate_versions_policy_id_policies_id_fk": {
-          "name": "rate_versions_policy_id_policies_id_fk",
-          "tableFrom": "rate_versions",
-          "tableTo": "policies",
-          "columnsFrom": ["policy_id"],
-          "columnsTo": ["id"],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
         "rate_versions_approved_by_users_id_fk": {
           "name": "rate_versions_approved_by_users_id_fk",
           "tableFrom": "rate_versions",
           "tableTo": "users",
           "columnsFrom": ["approved_by"],
           "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "rate_versions_policy_tenant_fk": {
+          "name": "rate_versions_policy_tenant_fk",
+          "tableFrom": "rate_versions",
+          "tableTo": "policies",
+          "columnsFrom": ["tenant_id", "policy_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -4165,21 +4239,21 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "valuation_versions_policy_id_policies_id_fk": {
-          "name": "valuation_versions_policy_id_policies_id_fk",
-          "tableFrom": "valuation_versions",
-          "tableTo": "policies",
-          "columnsFrom": ["policy_id"],
-          "columnsTo": ["id"],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
         "valuation_versions_approved_by_users_id_fk": {
           "name": "valuation_versions_approved_by_users_id_fk",
           "tableFrom": "valuation_versions",
           "tableTo": "users",
           "columnsFrom": ["approved_by"],
           "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "valuation_versions_policy_tenant_fk": {
+          "name": "valuation_versions_policy_tenant_fk",
+          "tableFrom": "valuation_versions",
+          "tableTo": "policies",
+          "columnsFrom": ["tenant_id", "policy_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -4360,36 +4434,42 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "work_sessions_project_id_projects_id_fk": {
-          "name": "work_sessions_project_id_projects_id_fk",
+        "work_sessions_project_tenant_fk": {
+          "name": "work_sessions_project_tenant_fk",
           "tableFrom": "work_sessions",
           "tableTo": "projects",
-          "columnsFrom": ["project_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["tenant_id", "project_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "work_sessions_membership_id_memberships_id_fk": {
-          "name": "work_sessions_membership_id_memberships_id_fk",
+        "work_sessions_membership_tenant_fk": {
+          "name": "work_sessions_membership_tenant_fk",
           "tableFrom": "work_sessions",
           "tableTo": "memberships",
-          "columnsFrom": ["membership_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["tenant_id", "membership_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "work_sessions_device_id_devices_id_fk": {
-          "name": "work_sessions_device_id_devices_id_fk",
+        "work_sessions_device_tenant_fk": {
+          "name": "work_sessions_device_tenant_fk",
           "tableFrom": "work_sessions",
           "tableTo": "devices",
-          "columnsFrom": ["device_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["tenant_id", "device_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "work_sessions_tenant_id_uq": {
+          "name": "work_sessions_tenant_id_uq",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "id"]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "work_sessions_period_chk": {
@@ -4455,12 +4535,6 @@
           "notNull": true,
           "default": "now()"
         },
-        "processed_at": {
-          "name": "processed_at",
-          "type": "timestamp (3) with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp (3) with time zone",
@@ -4470,9 +4544,15 @@
         }
       },
       "indexes": {
-        "connector_events_delivery_uq": {
-          "name": "connector_events_delivery_uq",
+        "connector_events_provider_delivery_uq": {
+          "name": "connector_events_provider_delivery_uq",
           "columns": [
+            {
+              "expression": "provider",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
             {
               "expression": "delivery_id",
               "isExpression": false,
@@ -4532,12 +4612,12 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "connector_events_project_id_projects_id_fk": {
-          "name": "connector_events_project_id_projects_id_fk",
+        "connector_events_project_tenant_fk": {
+          "name": "connector_events_project_tenant_fk",
           "tableFrom": "connector_events",
           "tableTo": "projects",
-          "columnsFrom": ["project_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["tenant_id", "project_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -4777,12 +4857,12 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "git_integrations_project_id_projects_id_fk": {
-          "name": "git_integrations_project_id_projects_id_fk",
+        "git_integrations_project_tenant_fk": {
+          "name": "git_integrations_project_tenant_fk",
           "tableFrom": "git_integrations",
           "tableTo": "projects",
-          "columnsFrom": ["project_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["tenant_id", "project_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -5109,12 +5189,12 @@
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "repo_facts_project_id_projects_id_fk": {
-          "name": "repo_facts_project_id_projects_id_fk",
+        "repo_facts_project_tenant_fk": {
+          "name": "repo_facts_project_tenant_fk",
           "tableFrom": "repo_facts",
           "tableTo": "projects",
-          "columnsFrom": ["project_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["tenant_id", "project_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -5207,6 +5287,10 @@
         "tenant_audit_anchors_count_chk": {
           "name": "tenant_audit_anchors_count_chk",
           "value": "\"tenant_audit_anchors\".\"event_count\" >= 0"
+        },
+        "tenant_audit_anchors_hash_chk": {
+          "name": "tenant_audit_anchors_hash_chk",
+          "value": "\"tenant_audit_anchors\".\"last_hash\" ~ '^[0-9a-f]{64}$'"
         }
       },
       "isRLSEnabled": false
@@ -5284,6 +5368,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "chain_seq": {
+          "name": "chain_seq",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp (3) with time zone",
@@ -5310,6 +5400,27 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tenant_audit_events_tenant_seq_uq": {
+          "name": "tenant_audit_events_tenant_seq_uq",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "chain_seq",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -5389,6 +5500,18 @@
         "tenant_audit_events_entity_len_chk": {
           "name": "tenant_audit_events_entity_len_chk",
           "value": "length(\"tenant_audit_events\".\"entity\") between 1 and 128"
+        },
+        "tenant_audit_events_hash_chk": {
+          "name": "tenant_audit_events_hash_chk",
+          "value": "\"tenant_audit_events\".\"hash\" ~ '^[0-9a-f]{64}$'"
+        },
+        "tenant_audit_events_prev_hash_chk": {
+          "name": "tenant_audit_events_prev_hash_chk",
+          "value": "\"tenant_audit_events\".\"prev_hash\" is null or \"tenant_audit_events\".\"prev_hash\" ~ '^[0-9a-f]{64}$'"
+        },
+        "tenant_audit_events_seq_chk": {
+          "name": "tenant_audit_events_seq_chk",
+          "value": "\"tenant_audit_events\".\"chain_seq\" >= 1"
         }
       },
       "isRLSEnabled": false

@@ -23,7 +23,7 @@
     "changeset": "changeset",
     "commitlint": "commitlint",
     "lint": "eslint .",
-    "seed": "pnpm --filter @partner-coder/seed seed",
+    "seed": "pnpm build && pnpm --filter @partner-coder/seed seed",
     "test": "vitest run",
     "test:db": "vitest run packages/db/test tools/seed/test",
     "test:golden": "vitest run packages/domain/src/golden.test.ts",

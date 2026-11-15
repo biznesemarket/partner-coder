@@ -124,6 +124,31 @@ describe("идемпотентность", () => {
     expect(calls).toBe(2);
   });
 
+  it("переиспользует ключ после истечения TTL", async () => {
+    let calls = 0;
+    const options = {
+      tenantId,
+      scope: "POST /v1/tenant/expired",
+      key: "expired-key",
+      requestHash: hash("1"),
+      ttlSeconds: -1,
+    };
+    const first = await withIdempotency(database.db, options, async () => {
+      calls += 1;
+      return { statusCode: 200, body: { attempt: 1 } };
+    });
+    const second = await withIdempotency(database.db, options, async () => {
+      calls += 1;
+      return { statusCode: 200, body: { attempt: 2 } };
+    });
+
+    expect(first.replayed).toBe(false);
+    expect(second.replayed).toBe(false);
+    expect(calls).toBe(2);
+    expect(first.body).toEqual({ attempt: 1 });
+    expect(second.body).toEqual({ attempt: 2 });
+  });
+
   it("при параллельных запросах выполняет операцию один раз", async () => {
     let calls = 0;
     const options = {

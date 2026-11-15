@@ -57,7 +57,8 @@ export interface SeedSummary {
 
 function stableUuid(name: string): string {
   const namespace = Buffer.from(NAMESPACE.replaceAll("-", ""), "hex");
-  const hash = createHash("sha1").update(namespace).update(name, "utf8").digest();
+  const nameHash = createHash("sha1").update(name, "utf8").digest();
+  const hash = createHash("sha1").update(namespace).update(nameHash).digest();
   hash[6] = (hash[6]! & 0x0f) | 0x50;
   hash[8] = (hash[8]! & 0x3f) | 0x80;
   const hex = hash.subarray(0, 16).toString("hex");
@@ -85,7 +86,13 @@ function demoPolicy(tenantId: string, projectId: string, directorId: string): Po
   });
 }
 
+type SeedDb = Pick<Database, "insert">;
+
 export async function seedDemo(db: Database): Promise<SeedSummary> {
+  return db.transaction((tx) => seedDemoRows(tx));
+}
+
+async function seedDemoRows(db: SeedDb): Promise<SeedSummary> {
   const vendorUserId = id("vendor-user");
   const planId = id("plan");
   const customerId = id("customer");
@@ -363,6 +370,7 @@ export async function seedDemo(db: Database): Promise<SeedSummary> {
       entity: "tenant",
       after: { slug: "demo-studio", days: DEMO_DAYS.length, developers: DEVELOPERS.length },
       hash: "0".repeat(64),
+      chainSeq: 0n,
     })
     .onConflictDoNothing();
 

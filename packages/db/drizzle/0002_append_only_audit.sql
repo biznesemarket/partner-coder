@@ -24,9 +24,7 @@ BEGIN
     'repo_facts',
     'monthly_snapshots',
     'tenant_audit_events',
-    'tenant_audit_anchors',
-    'vendor_audit_events',
-    'vendor_audit_anchors'
+    'vendor_audit_events'
   ]
   LOOP
     EXECUTE format('DROP TRIGGER IF EXISTS %I ON %I', tbl || '_append_only', tbl);
@@ -43,13 +41,17 @@ BEGIN
 END
 $$;--> statement-breakpoint
 
+-- Канонизация с версией и префиксами длин: границы полей не зависят от
+-- символов-разделителей внутри action/entity.
 CREATE OR REPLACE FUNCTION audit_event_hash(
   p_scope text,
+  p_seq bigint,
   p_id uuid,
   p_actor uuid,
   p_actor_type text,
   p_action text,
   p_entity text,
+  p_context text,
   p_before jsonb,
   p_after jsonb,
   p_ip inet,
@@ -64,17 +66,20 @@ AS $$
       convert_to(
         concat_ws(
           '|',
-          p_scope,
-          p_id::text,
-          coalesce(p_actor::text, ''),
-          p_actor_type,
-          p_action,
-          p_entity,
-          coalesce(p_before::text, ''),
-          coalesce(p_after::text, ''),
-          coalesce(p_ip::text, ''),
+          'v2',
+          length(p_scope), p_scope,
+          p_seq,
+          p_id,
+          length(coalesce(p_actor::text, '')), coalesce(p_actor::text, ''),
+          length(p_actor_type), p_actor_type,
+          length(p_action), p_action,
+          length(p_entity), p_entity,
+          length(coalesce(p_context, '')), coalesce(p_context, ''),
+          length(coalesce(p_before::text, '')), coalesce(p_before::text, ''),
+          length(coalesce(p_after::text, '')), coalesce(p_after::text, ''),
+          length(coalesce(p_ip::text, '')), coalesce(p_ip::text, ''),
           to_char(p_created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US'),
-          coalesce(p_prev_hash, '')
+          length(coalesce(p_prev_hash, '')), coalesce(p_prev_hash, '')
         ),
         'UTF8'
       )
@@ -88,22 +93,32 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_prev text;
+  v_seq bigint;
 BEGIN
-  PERFORM pg_advisory_xact_lock(hashtextextended(NEW.tenant_id::text, 0));
-  SELECT e.hash INTO v_prev
-    FROM tenant_audit_events e
-   WHERE e.tenant_id = NEW.tenant_id
-   ORDER BY e.created_at DESC, e.id DESC
+  PERFORM pg_advisory_xact_lock(hashtextextended('audit:' || NEW.tenant_id::text, 0));
+
+  SELECT coalesce(max(chain_seq), 0) + 1 INTO v_seq
+    FROM tenant_audit_events
+   WHERE tenant_id = NEW.tenant_id;
+
+  SELECT hash INTO v_prev
+    FROM tenant_audit_events
+   WHERE tenant_id = NEW.tenant_id
+   ORDER BY chain_seq DESC
    LIMIT 1;
+
   NEW.created_at := clock_timestamp();
+  NEW.chain_seq := v_seq;
   NEW.prev_hash := v_prev;
   NEW.hash := audit_event_hash(
     NEW.tenant_id::text,
+    NEW.chain_seq,
     NEW.id,
     NEW.actor,
     NEW.actor_type::text,
     NEW.action,
     NEW.entity,
+    '',
     NEW.before,
     NEW.after,
     NEW.ip,
@@ -124,21 +139,29 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_prev text;
+  v_seq bigint;
 BEGIN
-  PERFORM pg_advisory_xact_lock(hashtextextended('vendor_audit', 0));
-  SELECT e.hash INTO v_prev
-    FROM vendor_audit_events e
-   ORDER BY e.created_at DESC, e.id DESC
+  PERFORM pg_advisory_xact_lock(hashtextextended('audit:vendor', 0));
+
+  SELECT coalesce(max(chain_seq), 0) + 1 INTO v_seq FROM vendor_audit_events;
+
+  SELECT hash INTO v_prev
+    FROM vendor_audit_events
+   ORDER BY chain_seq DESC
    LIMIT 1;
+
   NEW.created_at := clock_timestamp();
+  NEW.chain_seq := v_seq;
   NEW.prev_hash := v_prev;
   NEW.hash := audit_event_hash(
     'vendor',
+    NEW.chain_seq,
     NEW.id,
     NEW.actor_id,
     'vendor',
     NEW.action,
     NEW.entity,
+    coalesce(NEW.customer_id::text, ''),
     NEW.before,
     NEW.after,
     NEW.ip,
@@ -167,18 +190,20 @@ BEGIN
   FOR r IN
     SELECT * FROM tenant_audit_events
      WHERE tenant_id = p_tenant_id
-     ORDER BY created_at ASC, id ASC
+     ORDER BY chain_seq ASC
   LOOP
     IF r.prev_hash IS DISTINCT FROM v_prev THEN
       RETURN false;
     END IF;
     v_expected := audit_event_hash(
       r.tenant_id::text,
+      r.chain_seq,
       r.id,
       r.actor,
       r.actor_type::text,
       r.action,
       r.entity,
+      '',
       r.before,
       r.after,
       r.ip,
@@ -204,18 +229,20 @@ DECLARE
   v_expected text;
 BEGIN
   v_prev := NULL;
-  FOR r IN SELECT * FROM vendor_audit_events ORDER BY created_at ASC, id ASC
+  FOR r IN SELECT * FROM vendor_audit_events ORDER BY chain_seq ASC
   LOOP
     IF r.prev_hash IS DISTINCT FROM v_prev THEN
       RETURN false;
     END IF;
     v_expected := audit_event_hash(
       'vendor',
+      r.chain_seq,
       r.id,
       r.actor_id,
       'vendor',
       r.action,
       r.entity,
+      coalesce(r.customer_id::text, ''),
       r.before,
       r.after,
       r.ip,
@@ -231,6 +258,9 @@ BEGIN
 END
 $$;--> statement-breakpoint
 
+-- Якоря — производные снимки: их можно пересчитать (upsert), цепочка при
+-- этом остается неизменяемой. Счетчик и последний хеш берутся одним запросом
+-- под тем же advisory lock, что и вставка событий.
 CREATE OR REPLACE FUNCTION anchor_tenant_audit(p_tenant_id uuid, p_date date)
 RETURNS text
 LANGUAGE plpgsql
@@ -239,7 +269,17 @@ DECLARE
   v_hash text;
   v_count integer;
 BEGIN
-  SELECT count(*)::integer INTO v_count
+  PERFORM pg_advisory_xact_lock(hashtextextended('audit:' || p_tenant_id::text, 0));
+
+  SELECT count(*)::integer,
+         (SELECT e.hash
+            FROM tenant_audit_events e
+           WHERE e.tenant_id = p_tenant_id
+             AND e.created_at >= (p_date::timestamp AT TIME ZONE 'UTC')
+             AND e.created_at < ((p_date + 1)::timestamp AT TIME ZONE 'UTC')
+           ORDER BY e.chain_seq DESC
+           LIMIT 1)
+    INTO v_count, v_hash
     FROM tenant_audit_events
    WHERE tenant_id = p_tenant_id
      AND created_at >= (p_date::timestamp AT TIME ZONE 'UTC')
@@ -249,17 +289,12 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  SELECT hash INTO v_hash
-    FROM tenant_audit_events
-   WHERE tenant_id = p_tenant_id
-     AND created_at >= (p_date::timestamp AT TIME ZONE 'UTC')
-     AND created_at < ((p_date + 1)::timestamp AT TIME ZONE 'UTC')
-   ORDER BY created_at DESC, id DESC
-   LIMIT 1;
-
   INSERT INTO tenant_audit_anchors (tenant_id, date, last_hash, event_count)
   VALUES (p_tenant_id, p_date, v_hash, v_count)
-  ON CONFLICT (tenant_id, date) DO NOTHING;
+  ON CONFLICT (tenant_id, date) DO UPDATE
+    SET last_hash = excluded.last_hash,
+        event_count = excluded.event_count,
+        anchored_at = now();
 
   RETURN v_hash;
 END
@@ -273,7 +308,16 @@ DECLARE
   v_hash text;
   v_count integer;
 BEGIN
-  SELECT count(*)::integer INTO v_count
+  PERFORM pg_advisory_xact_lock(hashtextextended('audit:vendor', 0));
+
+  SELECT count(*)::integer,
+         (SELECT e.hash
+            FROM vendor_audit_events e
+           WHERE e.created_at >= (p_date::timestamp AT TIME ZONE 'UTC')
+             AND e.created_at < ((p_date + 1)::timestamp AT TIME ZONE 'UTC')
+           ORDER BY e.chain_seq DESC
+           LIMIT 1)
+    INTO v_count, v_hash
     FROM vendor_audit_events
    WHERE created_at >= (p_date::timestamp AT TIME ZONE 'UTC')
      AND created_at < ((p_date + 1)::timestamp AT TIME ZONE 'UTC');
@@ -282,19 +326,44 @@ BEGIN
     RETURN NULL;
   END IF;
 
-  SELECT hash INTO v_hash
-    FROM vendor_audit_events
-   WHERE created_at >= (p_date::timestamp AT TIME ZONE 'UTC')
-     AND created_at < ((p_date + 1)::timestamp AT TIME ZONE 'UTC')
-   ORDER BY created_at DESC, id DESC
-   LIMIT 1;
-
   INSERT INTO vendor_audit_anchors (date, last_hash, event_count)
   VALUES (p_date, v_hash, v_count)
-  ON CONFLICT (date) DO NOTHING;
+  ON CONFLICT (date) DO UPDATE
+    SET last_hash = excluded.last_hash,
+        event_count = excluded.event_count,
+        anchored_at = now();
 
   RETURN v_hash;
 END
+$$;--> statement-breakpoint
+
+CREATE OR REPLACE FUNCTION verify_tenant_audit_anchor(p_tenant_id uuid, p_date date)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+      FROM tenant_audit_anchors a
+     WHERE a.tenant_id = p_tenant_id
+       AND a.date = p_date
+       AND a.event_count = (
+         SELECT count(*)::integer
+           FROM tenant_audit_events e
+          WHERE e.tenant_id = p_tenant_id
+            AND e.created_at >= (p_date::timestamp AT TIME ZONE 'UTC')
+            AND e.created_at < ((p_date + 1)::timestamp AT TIME ZONE 'UTC')
+       )
+       AND a.last_hash = (
+         SELECT e.hash
+           FROM tenant_audit_events e
+          WHERE e.tenant_id = p_tenant_id
+            AND e.created_at >= (p_date::timestamp AT TIME ZONE 'UTC')
+            AND e.created_at < ((p_date + 1)::timestamp AT TIME ZONE 'UTC')
+          ORDER BY e.chain_seq DESC
+          LIMIT 1
+       )
+  )
 $$;--> statement-breakpoint
 
 REVOKE EXECUTE ON FUNCTION anchor_tenant_audit(uuid, date) FROM PUBLIC;--> statement-breakpoint
@@ -312,9 +381,7 @@ REVOKE UPDATE, DELETE ON TABLE
   repo_facts,
   monthly_snapshots,
   tenant_audit_events,
-  tenant_audit_anchors,
-  vendor_audit_events,
-  vendor_audit_anchors
+  vendor_audit_events
 FROM partner_coder_worker;--> statement-breakpoint
 
 REVOKE UPDATE, DELETE ON TABLE
@@ -326,9 +393,8 @@ REVOKE UPDATE, DELETE ON TABLE
   connector_events,
   repo_facts,
   monthly_snapshots,
-  tenant_audit_events,
-  tenant_audit_anchors
+  tenant_audit_events
 FROM partner_coder_api;--> statement-breakpoint
 
-REVOKE UPDATE, DELETE ON TABLE vendor_audit_events, vendor_audit_anchors
+REVOKE UPDATE, DELETE ON TABLE vendor_audit_events
 FROM partner_coder_vendor;--> statement-breakpoint

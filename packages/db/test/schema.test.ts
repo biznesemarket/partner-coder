@@ -113,7 +113,7 @@ describe("схема БД", () => {
     for (const index of [
       "heartbeats_session_seq_uq",
       "day_records_tenant_project_member_date_uq",
-      "connector_events_delivery_uq",
+      "connector_events_provider_delivery_uq",
       "invoices_number_uq",
       "memberships_tenant_user_uq",
       "projects_tenant_forge_repo_uq",

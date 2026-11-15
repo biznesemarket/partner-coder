@@ -9,7 +9,7 @@
 ```bash
 pnpm db:migrate   # применить миграции к DATABASE_URL
 pnpm db:generate  # сгенерировать миграцию из схемы
-pnpm db:check     # проверить целостность журнала миграций
+pnpm db:check     # журнал миграций + проверка дрейфа схемы
 pnpm db:studio    # Drizzle Studio
 pnpm test:db      # интеграционные тесты схемы, RLS, аудита, seed
 ```
@@ -59,6 +59,8 @@ test/             интеграционные тесты на реальном 
 
 - Все тенантские таблицы содержат `tenant_id NOT NULL`; дочерние таблицы
   дублируют его, чтобы политика была одинаковой и не зависела от JOIN.
+- Дочерние FK составные: `(tenant_id, parent_id)` → `(tenant_id, id)`
+  родителя; сослаться на родителя другого tenant нельзя даже без RLS.
 - API-роль видит строки только при `app.tenant_id`, выставленном в транзакции:
 
 ```ts
@@ -68,8 +70,10 @@ await withTenantContext(db, { tenantId, userId }, async (tx) => {
 ```
 
 - `tenants` использует `id = app.tenant_id`; `users` — членство в текущем
-  tenant и `app.user_id` для собственного профиля; `auth_sessions` — только
-  `app.user_id`.
+  tenant и `app.user_id`; `auth_sessions` — только `app.user_id`. Создание
+  пользователя и разрешение сессии — через `SECURITY DEFINER` функции
+  `auth_user_by_email` и `auth_session_by_token`.
+- Аудит пишется через `app_audit()`; actor берется из `app.user_id`.
 - Без `app.tenant_id` политика не пропускает ни одной строки.
 - Вендорская роль не читает тенантские таблицы; вендорский доступ к сырым
   heartbeat запрещен на уровне прав.
@@ -80,14 +84,17 @@ Append-only (запрет UPDATE/DELETE/TRUNCATE триггером и прав�
 
 `heartbeats`, `intervals`, `day_records`, `day_adjustments`, `day_flags`,
 `connector_events`, `repo_facts`, `monthly_snapshots`, `tenant_audit_events`,
-`tenant_audit_anchors`, `vendor_audit_events`, `vendor_audit_anchors`.
+`vendor_audit_events`.
 
-- `tenant_audit_events` и `vendor_audit_events` получают `prev_hash` и `hash`
-  в BEFORE INSERT триггере; цепочка сериализуется advisory lock.
+- `tenant_audit_events` и `vendor_audit_events` получают `chain_seq`,
+  `prev_hash` и `hash` в BEFORE INSERT триггере; цепочка сериализуется
+  advisory lock. Канонизация версионирована и использует префиксы длин;
+  вендорская цепочка включает `customer_id`.
 - `verify_tenant_audit_chain(uuid)` и `verify_vendor_audit_chain()` проверяют
-  цепочку; подмена события обнаруживается.
+  цепочку; подмена события или перенос разделителя обнаруживается.
 - `anchor_tenant_audit(uuid, date)` и `anchor_vendor_audit(date)` фиксируют
-  дневной якорь (UTC) в таблицах якорей.
+  дневной якорь (UTC). Якоря производные и пересчитываются upsert-ом;
+  `verify_tenant_audit_anchor` проверяет снимок.
 - Компенсация закрытого дня — новая строка `day_adjustments`, не UPDATE.
 
 ## Идемпотентность
@@ -98,6 +105,7 @@ Append-only (запрет UPDATE/DELETE/TRUNCATE триггером и прав�
 - повтор с тем же ключом и телом возвращает сохраненный ответ (`replayed: true`);
 - тот же ключ с другим `requestHash` — `IdempotencyConflictError`;
 - падение операции откатывает и ключ, и запись;
+- истекший ключ удаляется и используется заново;
 - tenant-ключи изолированы RLS, vendor-ключи (`tenantId: null`) доступны
   вендорской роли.
 

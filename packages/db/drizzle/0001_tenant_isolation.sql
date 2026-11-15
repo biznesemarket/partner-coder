@@ -4,12 +4,6 @@
 
 DO $$
 BEGIN
-  PERFORM pg_advisory_xact_lock(hashtext('partner_coder_roles')::bigint);
-END
-$$;--> statement-breakpoint
-
-DO $$
-BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'partner_coder_api') THEN
     CREATE ROLE partner_coder_api NOLOGIN;
   END IF;
@@ -106,6 +100,10 @@ CREATE POLICY users_tenant_read ON users
       WHERE m.user_id = users.id AND m.tenant_id = app_current_tenant_id()
     )
   );--> statement-breakpoint
+DROP POLICY IF EXISTS users_insert_self ON users;--> statement-breakpoint
+CREATE POLICY users_insert_self ON users
+  AS PERMISSIVE FOR INSERT TO partner_coder_api
+  WITH CHECK (id = app_current_user_id());--> statement-breakpoint
 DROP POLICY IF EXISTS users_self_update ON users;--> statement-breakpoint
 CREATE POLICY users_self_update ON users
   AS PERMISSIVE FOR UPDATE TO partner_coder_api
@@ -136,11 +134,92 @@ CREATE POLICY idempotency_vendor ON idempotency_keys
   USING (tenant_id IS NULL)
   WITH CHECK (tenant_id IS NULL);--> statement-breakpoint
 
+-- Аутентификация: точечные SECURITY DEFINER-функции вместо выдачи API
+-- широкого доступа к users/auth_sessions. Функции возвращают минимум полей.
+CREATE OR REPLACE FUNCTION auth_user_by_email(p_email text)
+RETURNS TABLE (id uuid, email text, name text, status user_status)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT u.id, u.email, u.name, u.status
+    FROM users u
+   WHERE lower(u.email) = lower(p_email)
+   LIMIT 1
+$$;--> statement-breakpoint
+
+CREATE OR REPLACE FUNCTION auth_session_by_token(p_token_hash text)
+RETURNS TABLE (
+  session_id uuid,
+  user_id uuid,
+  expires_at timestamptz,
+  revoked_at timestamptz
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT s.id, s.user_id, s.expires_at, s.revoked_at
+    FROM auth_sessions s
+   WHERE s.token_hash = p_token_hash
+   LIMIT 1
+$$;--> statement-breakpoint
+
+-- Аудит: API пишет события только через функцию, actor берется из контекста.
+CREATE OR REPLACE FUNCTION app_audit(
+  p_action text,
+  p_entity text,
+  p_before jsonb DEFAULT NULL,
+  p_after jsonb DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_tenant uuid := app_current_tenant_id();
+  v_user uuid := app_current_user_id();
+  v_id uuid := gen_random_uuid();
+BEGIN
+  IF v_tenant IS NULL THEN
+    RAISE EXCEPTION 'tenant_context_required' USING ERRCODE = '42501';
+  END IF;
+
+  INSERT INTO tenant_audit_events
+    (id, tenant_id, actor, actor_type, action, entity, before, after, ip)
+  VALUES
+    (v_id,
+     v_tenant,
+     v_user,
+     CASE WHEN v_user IS NULL THEN 'system'::audit_actor_type ELSE 'user'::audit_actor_type END,
+     p_action,
+     p_entity,
+     p_before,
+     p_after,
+     inet_client_addr());
+
+  RETURN v_id;
+END
+$$;--> statement-breakpoint
+
+REVOKE EXECUTE ON FUNCTION auth_user_by_email(text) FROM PUBLIC;--> statement-breakpoint
+REVOKE EXECUTE ON FUNCTION auth_session_by_token(text) FROM PUBLIC;--> statement-breakpoint
+REVOKE EXECUTE ON FUNCTION app_audit(text, text, jsonb, jsonb) FROM PUBLIC;--> statement-breakpoint
+ALTER FUNCTION auth_user_by_email(text) OWNER TO partner_coder_worker;--> statement-breakpoint
+ALTER FUNCTION auth_session_by_token(text) OWNER TO partner_coder_worker;--> statement-breakpoint
+ALTER FUNCTION app_audit(text, text, jsonb, jsonb) OWNER TO partner_coder_worker;--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION auth_user_by_email(text) TO partner_coder_api;--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION auth_session_by_token(text) TO partner_coder_api;--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION app_audit(text, text, jsonb, jsonb) TO partner_coder_api;--> statement-breakpoint
+
 -- Права API: изменяемые таблицы — CRUD, журналы — только SELECT/INSERT.
+GRANT SELECT, INSERT, UPDATE (name, locale, last_login_at) ON TABLE users TO partner_coder_api;--> statement-breakpoint
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
-  users,
   auth_sessions,
-  tenants,
   memberships,
   projects,
   project_members,
@@ -159,19 +238,24 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   idempotency_keys
 TO partner_coder_api;--> statement-breakpoint
 
+GRANT SELECT ON TABLE tenants TO partner_coder_api;--> statement-breakpoint
+GRANT UPDATE (name, timezone, settings) ON TABLE tenants TO partner_coder_api;--> statement-breakpoint
+
 GRANT SELECT, INSERT ON TABLE
   heartbeats,
   intervals,
+  connector_events,
+  repo_facts
+TO partner_coder_api;--> statement-breakpoint
+
+GRANT SELECT ON TABLE
   day_records,
   day_adjustments,
   day_flags,
-  connector_events,
-  repo_facts,
   monthly_snapshots,
-  tenant_audit_events
+  tenant_audit_events,
+  tenant_audit_anchors
 TO partner_coder_api;--> statement-breakpoint
-
-GRANT SELECT ON TABLE tenant_audit_anchors TO partner_coder_api;--> statement-breakpoint
 
 -- Права вендора: только вендорский контур и вендорский журнал.
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE

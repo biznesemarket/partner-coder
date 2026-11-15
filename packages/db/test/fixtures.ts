@@ -15,6 +15,7 @@ export interface TenantFixture {
   readonly policyId: string;
   readonly sessionId: string;
   readonly dayRecordId: string;
+  readonly payoutBatchId: string;
   readonly deviceId: string;
   readonly idempotencyKeyId: string;
 }
@@ -288,6 +289,7 @@ export async function seedTenant(
     policyId: ids.policy,
     sessionId: ids.session,
     dayRecordId: ids.dayRecord,
+    payoutBatchId: ids.payoutBatch,
     deviceId: ids.device,
     idempotencyKeyId: ids.idempotency,
   };

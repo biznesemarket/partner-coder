@@ -154,7 +154,8 @@ CREATE TABLE "vendor_audit_anchors" (
 	"last_hash" text NOT NULL,
 	"event_count" integer NOT NULL,
 	"anchored_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "vendor_audit_anchors_count_chk" CHECK ("vendor_audit_anchors"."event_count" >= 0)
+	CONSTRAINT "vendor_audit_anchors_count_chk" CHECK ("vendor_audit_anchors"."event_count" >= 0),
+	CONSTRAINT "vendor_audit_anchors_hash_chk" CHECK ("vendor_audit_anchors"."last_hash" ~ '^[0-9a-f]{64}$')
 );
 --> statement-breakpoint
 CREATE TABLE "vendor_audit_events" (
@@ -168,7 +169,11 @@ CREATE TABLE "vendor_audit_events" (
 	"ip" "inet",
 	"prev_hash" text,
 	"hash" text NOT NULL,
-	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL
+	"chain_seq" bigint NOT NULL,
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "vendor_audit_events_hash_chk" CHECK ("vendor_audit_events"."hash" ~ '^[0-9a-f]{64}$'),
+	CONSTRAINT "vendor_audit_events_prev_hash_chk" CHECK ("vendor_audit_events"."prev_hash" is null or "vendor_audit_events"."prev_hash" ~ '^[0-9a-f]{64}$'),
+	CONSTRAINT "vendor_audit_events_seq_chk" CHECK ("vendor_audit_events"."chain_seq" >= 1)
 );
 --> statement-breakpoint
 CREATE TABLE "vendor_users" (
@@ -206,7 +211,8 @@ CREATE TABLE "devices" (
 	"last_seen" timestamp (3) with time zone,
 	"revoked_at" timestamp (3) with time zone,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "devices_tenant_id_uq" UNIQUE("tenant_id","id")
 );
 --> statement-breakpoint
 CREATE TABLE "invitations" (
@@ -232,7 +238,8 @@ CREATE TABLE "memberships" (
 	"display_name" text,
 	"joined_at" timestamp (3) with time zone,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "memberships_tenant_id_uq" UNIQUE("tenant_id","id")
 );
 --> statement-breakpoint
 CREATE TABLE "tenants" (
@@ -306,6 +313,7 @@ CREATE TABLE "day_records" (
 	"explanation" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"closed_at" timestamp (3) with time zone NOT NULL,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "day_records_tenant_id_uq" UNIQUE("tenant_id","id"),
 	CONSTRAINT "day_records_paid_seconds_chk" CHECK ("day_records"."paid_seconds" >= 0),
 	CONSTRAINT "day_records_tracked_seconds_chk" CHECK ("day_records"."tracked_seconds" >= 0),
 	CONSTRAINT "day_records_amount_chk" CHECK ("day_records"."amount_kopecks" >= 0),
@@ -387,6 +395,7 @@ CREATE TABLE "payout_batches" (
 	"paid_at" timestamp (3) with time zone,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "payout_batches_tenant_id_uq" UNIQUE("tenant_id","id"),
 	CONSTRAINT "payout_batches_period_chk" CHECK ("payout_batches"."period" ~ '^[0-9]{4}-(0[1-9]|1[0-2])$')
 );
 --> statement-breakpoint
@@ -413,6 +422,7 @@ CREATE TABLE "policies" (
 	"approved_by" uuid,
 	"sha256" text NOT NULL,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "policies_tenant_id_uq" UNIQUE("tenant_id","id"),
 	CONSTRAINT "policies_version_chk" CHECK ("policies"."version" >= 1),
 	CONSTRAINT "policies_sha256_chk" CHECK ("policies"."sha256" ~ '^[0-9a-f]{64}$')
 );
@@ -437,6 +447,7 @@ CREATE TABLE "projects" (
 	"status" "project_status" DEFAULT 'active' NOT NULL,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "projects_tenant_id_uq" UNIQUE("tenant_id","id"),
 	CONSTRAINT "projects_repo_len_chk" CHECK (length("projects"."repo") between 1 and 255)
 );
 --> statement-breakpoint
@@ -481,6 +492,7 @@ CREATE TABLE "work_sessions" (
 	"ended_at" timestamp (3) with time zone,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "work_sessions_tenant_id_uq" UNIQUE("tenant_id","id"),
 	CONSTRAINT "work_sessions_period_chk" CHECK ("work_sessions"."ended_at" is null or "work_sessions"."ended_at" >= "work_sessions"."started_at")
 );
 --> statement-breakpoint
@@ -493,7 +505,6 @@ CREATE TABLE "connector_events" (
 	"project_id" uuid,
 	"payload_meta" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"received_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
-	"processed_at" timestamp (3) with time zone,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -559,7 +570,8 @@ CREATE TABLE "tenant_audit_anchors" (
 	"last_hash" text NOT NULL,
 	"event_count" integer NOT NULL,
 	"anchored_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "tenant_audit_anchors_count_chk" CHECK ("tenant_audit_anchors"."event_count" >= 0)
+	CONSTRAINT "tenant_audit_anchors_count_chk" CHECK ("tenant_audit_anchors"."event_count" >= 0),
+	CONSTRAINT "tenant_audit_anchors_hash_chk" CHECK ("tenant_audit_anchors"."last_hash" ~ '^[0-9a-f]{64}$')
 );
 --> statement-breakpoint
 CREATE TABLE "tenant_audit_events" (
@@ -574,9 +586,13 @@ CREATE TABLE "tenant_audit_events" (
 	"ip" "inet",
 	"prev_hash" text,
 	"hash" text NOT NULL,
+	"chain_seq" bigint NOT NULL,
 	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "tenant_audit_events_action_len_chk" CHECK (length("tenant_audit_events"."action") between 1 and 128),
-	CONSTRAINT "tenant_audit_events_entity_len_chk" CHECK (length("tenant_audit_events"."entity") between 1 and 128)
+	CONSTRAINT "tenant_audit_events_entity_len_chk" CHECK (length("tenant_audit_events"."entity") between 1 and 128),
+	CONSTRAINT "tenant_audit_events_hash_chk" CHECK ("tenant_audit_events"."hash" ~ '^[0-9a-f]{64}$'),
+	CONSTRAINT "tenant_audit_events_prev_hash_chk" CHECK ("tenant_audit_events"."prev_hash" is null or "tenant_audit_events"."prev_hash" ~ '^[0-9a-f]{64}$'),
+	CONSTRAINT "tenant_audit_events_seq_chk" CHECK ("tenant_audit_events"."chain_seq" >= 1)
 );
 --> statement-breakpoint
 CREATE TABLE "idempotency_keys" (
@@ -612,60 +628,60 @@ ALTER TABLE "vendor_audit_events" ADD CONSTRAINT "vendor_audit_events_actor_id_v
 ALTER TABLE "vendor_audit_events" ADD CONSTRAINT "vendor_audit_events_customer_id_customers_id_fk" FOREIGN KEY ("customer_id") REFERENCES "public"."customers"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "auth_sessions" ADD CONSTRAINT "auth_sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "devices" ADD CONSTRAINT "devices_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "devices" ADD CONSTRAINT "devices_membership_id_memberships_id_fk" FOREIGN KEY ("membership_id") REFERENCES "public"."memberships"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "devices" ADD CONSTRAINT "devices_membership_tenant_fk" FOREIGN KEY ("tenant_id","membership_id") REFERENCES "public"."memberships"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "invitations" ADD CONSTRAINT "invitations_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "invitations" ADD CONSTRAINT "invitations_invited_by_users_id_fk" FOREIGN KEY ("invited_by") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "memberships" ADD CONSTRAINT "memberships_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "memberships" ADD CONSTRAINT "memberships_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tenants" ADD CONSTRAINT "tenants_customer_id_customers_id_fk" FOREIGN KEY ("customer_id") REFERENCES "public"."customers"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "day_adjustments" ADD CONSTRAINT "day_adjustments_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "day_adjustments" ADD CONSTRAINT "day_adjustments_day_record_id_day_records_id_fk" FOREIGN KEY ("day_record_id") REFERENCES "public"."day_records"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "day_adjustments" ADD CONSTRAINT "day_adjustments_approved_by_users_id_fk" FOREIGN KEY ("approved_by") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "day_adjustments" ADD CONSTRAINT "day_adjustments_record_tenant_fk" FOREIGN KEY ("tenant_id","day_record_id") REFERENCES "public"."day_records"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "day_flags" ADD CONSTRAINT "day_flags_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "day_flags" ADD CONSTRAINT "day_flags_day_record_id_day_records_id_fk" FOREIGN KEY ("day_record_id") REFERENCES "public"."day_records"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "day_flags" ADD CONSTRAINT "day_flags_record_tenant_fk" FOREIGN KEY ("tenant_id","day_record_id") REFERENCES "public"."day_records"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "day_records" ADD CONSTRAINT "day_records_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "day_records" ADD CONSTRAINT "day_records_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "day_records" ADD CONSTRAINT "day_records_membership_id_memberships_id_fk" FOREIGN KEY ("membership_id") REFERENCES "public"."memberships"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "day_records" ADD CONSTRAINT "day_records_project_tenant_fk" FOREIGN KEY ("tenant_id","project_id") REFERENCES "public"."projects"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "day_records" ADD CONSTRAINT "day_records_membership_tenant_fk" FOREIGN KEY ("tenant_id","membership_id") REFERENCES "public"."memberships"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "disputes" ADD CONSTRAINT "disputes_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "disputes" ADD CONSTRAINT "disputes_day_record_id_day_records_id_fk" FOREIGN KEY ("day_record_id") REFERENCES "public"."day_records"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "disputes" ADD CONSTRAINT "disputes_opened_by_users_id_fk" FOREIGN KEY ("opened_by") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "disputes" ADD CONSTRAINT "disputes_resolved_by_users_id_fk" FOREIGN KEY ("resolved_by") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "disputes" ADD CONSTRAINT "disputes_record_tenant_fk" FOREIGN KEY ("tenant_id","day_record_id") REFERENCES "public"."day_records"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "heartbeats" ADD CONSTRAINT "heartbeats_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "heartbeats" ADD CONSTRAINT "heartbeats_session_id_work_sessions_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."work_sessions"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "heartbeats" ADD CONSTRAINT "heartbeats_session_tenant_fk" FOREIGN KEY ("tenant_id","session_id") REFERENCES "public"."work_sessions"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "intervals" ADD CONSTRAINT "intervals_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "intervals" ADD CONSTRAINT "intervals_session_id_work_sessions_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."work_sessions"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "intervals" ADD CONSTRAINT "intervals_session_tenant_fk" FOREIGN KEY ("tenant_id","session_id") REFERENCES "public"."work_sessions"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "monthly_snapshots" ADD CONSTRAINT "monthly_snapshots_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payout_batches" ADD CONSTRAINT "payout_batches_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payout_batches" ADD CONSTRAINT "payout_batches_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payout_items" ADD CONSTRAINT "payout_items_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "payout_items" ADD CONSTRAINT "payout_items_batch_id_payout_batches_id_fk" FOREIGN KEY ("batch_id") REFERENCES "public"."payout_batches"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "payout_items" ADD CONSTRAINT "payout_items_membership_id_memberships_id_fk" FOREIGN KEY ("membership_id") REFERENCES "public"."memberships"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payout_items" ADD CONSTRAINT "payout_items_batch_tenant_fk" FOREIGN KEY ("tenant_id","batch_id") REFERENCES "public"."payout_batches"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payout_items" ADD CONSTRAINT "payout_items_membership_tenant_fk" FOREIGN KEY ("tenant_id","membership_id") REFERENCES "public"."memberships"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "policies" ADD CONSTRAINT "policies_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "policies" ADD CONSTRAINT "policies_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "policies" ADD CONSTRAINT "policies_approved_by_users_id_fk" FOREIGN KEY ("approved_by") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "policies" ADD CONSTRAINT "policies_project_tenant_fk" FOREIGN KEY ("tenant_id","project_id") REFERENCES "public"."projects"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "project_members" ADD CONSTRAINT "project_members_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "project_members" ADD CONSTRAINT "project_members_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "project_members" ADD CONSTRAINT "project_members_membership_id_memberships_id_fk" FOREIGN KEY ("membership_id") REFERENCES "public"."memberships"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "project_members" ADD CONSTRAINT "project_members_project_tenant_fk" FOREIGN KEY ("tenant_id","project_id") REFERENCES "public"."projects"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "project_members" ADD CONSTRAINT "project_members_membership_tenant_fk" FOREIGN KEY ("tenant_id","membership_id") REFERENCES "public"."memberships"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "projects" ADD CONSTRAINT "projects_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "rate_versions" ADD CONSTRAINT "rate_versions_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "rate_versions" ADD CONSTRAINT "rate_versions_policy_id_policies_id_fk" FOREIGN KEY ("policy_id") REFERENCES "public"."policies"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "rate_versions" ADD CONSTRAINT "rate_versions_approved_by_users_id_fk" FOREIGN KEY ("approved_by") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "rate_versions" ADD CONSTRAINT "rate_versions_policy_tenant_fk" FOREIGN KEY ("tenant_id","policy_id") REFERENCES "public"."policies"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "valuation_versions" ADD CONSTRAINT "valuation_versions_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "valuation_versions" ADD CONSTRAINT "valuation_versions_policy_id_policies_id_fk" FOREIGN KEY ("policy_id") REFERENCES "public"."policies"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "valuation_versions" ADD CONSTRAINT "valuation_versions_approved_by_users_id_fk" FOREIGN KEY ("approved_by") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "valuation_versions" ADD CONSTRAINT "valuation_versions_policy_tenant_fk" FOREIGN KEY ("tenant_id","policy_id") REFERENCES "public"."policies"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "work_sessions" ADD CONSTRAINT "work_sessions_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "work_sessions" ADD CONSTRAINT "work_sessions_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "work_sessions" ADD CONSTRAINT "work_sessions_membership_id_memberships_id_fk" FOREIGN KEY ("membership_id") REFERENCES "public"."memberships"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "work_sessions" ADD CONSTRAINT "work_sessions_device_id_devices_id_fk" FOREIGN KEY ("device_id") REFERENCES "public"."devices"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "work_sessions" ADD CONSTRAINT "work_sessions_project_tenant_fk" FOREIGN KEY ("tenant_id","project_id") REFERENCES "public"."projects"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "work_sessions" ADD CONSTRAINT "work_sessions_membership_tenant_fk" FOREIGN KEY ("tenant_id","membership_id") REFERENCES "public"."memberships"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "work_sessions" ADD CONSTRAINT "work_sessions_device_tenant_fk" FOREIGN KEY ("tenant_id","device_id") REFERENCES "public"."devices"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "connector_events" ADD CONSTRAINT "connector_events_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "connector_events" ADD CONSTRAINT "connector_events_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "connector_events" ADD CONSTRAINT "connector_events_project_tenant_fk" FOREIGN KEY ("tenant_id","project_id") REFERENCES "public"."projects"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "digest_runs" ADD CONSTRAINT "digest_runs_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "git_integrations" ADD CONSTRAINT "git_integrations_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "git_integrations" ADD CONSTRAINT "git_integrations_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "git_integrations" ADD CONSTRAINT "git_integrations_project_tenant_fk" FOREIGN KEY ("tenant_id","project_id") REFERENCES "public"."projects"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_recipient_user_id_users_id_fk" FOREIGN KEY ("recipient_user_id") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "repo_facts" ADD CONSTRAINT "repo_facts_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "repo_facts" ADD CONSTRAINT "repo_facts_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "repo_facts" ADD CONSTRAINT "repo_facts_project_tenant_fk" FOREIGN KEY ("tenant_id","project_id") REFERENCES "public"."projects"("tenant_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tenant_audit_anchors" ADD CONSTRAINT "tenant_audit_anchors_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tenant_audit_events" ADD CONSTRAINT "tenant_audit_events_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tenant_audit_events" ADD CONSTRAINT "tenant_audit_events_actor_users_id_fk" FOREIGN KEY ("actor") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
@@ -683,6 +699,7 @@ CREATE UNIQUE INDEX "provisioning_packages_token_uq" ON "provisioning_packages" 
 CREATE INDEX "provisioning_packages_customer_idx" ON "provisioning_packages" USING btree ("customer_id","status");--> statement-breakpoint
 CREATE INDEX "subscriptions_customer_idx" ON "subscriptions" USING btree ("customer_id");--> statement-breakpoint
 CREATE INDEX "vendor_audit_events_created_idx" ON "vendor_audit_events" USING btree ("created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "vendor_audit_events_seq_uq" ON "vendor_audit_events" USING btree ("chain_seq");--> statement-breakpoint
 CREATE UNIQUE INDEX "vendor_audit_events_hash_uq" ON "vendor_audit_events" USING btree ("hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "vendor_audit_events_prev_uq" ON "vendor_audit_events" USING btree ("prev_hash") WHERE "vendor_audit_events"."prev_hash" is not null;--> statement-breakpoint
 CREATE UNIQUE INDEX "vendor_users_email_lower_uq" ON "vendor_users" USING btree (lower("email"));--> statement-breakpoint
@@ -731,7 +748,7 @@ CREATE INDEX "valuation_versions_tenant_idx" ON "valuation_versions" USING btree
 CREATE INDEX "work_sessions_tenant_member_start_idx" ON "work_sessions" USING btree ("tenant_id","membership_id","started_at");--> statement-breakpoint
 CREATE INDEX "work_sessions_project_start_idx" ON "work_sessions" USING btree ("project_id","started_at");--> statement-breakpoint
 CREATE INDEX "work_sessions_status_idx" ON "work_sessions" USING btree ("status");--> statement-breakpoint
-CREATE UNIQUE INDEX "connector_events_delivery_uq" ON "connector_events" USING btree ("delivery_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "connector_events_provider_delivery_uq" ON "connector_events" USING btree ("provider","delivery_id");--> statement-breakpoint
 CREATE INDEX "connector_events_tenant_received_idx" ON "connector_events" USING btree ("tenant_id","received_at");--> statement-breakpoint
 CREATE INDEX "connector_events_project_idx" ON "connector_events" USING btree ("project_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "digest_runs_tenant_date_uq" ON "digest_runs" USING btree ("tenant_id","date_local");--> statement-breakpoint
@@ -744,6 +761,7 @@ CREATE INDEX "repo_facts_project_task_idx" ON "repo_facts" USING btree ("project
 CREATE INDEX "repo_facts_tenant_occurred_idx" ON "repo_facts" USING btree ("tenant_id","occurred_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "tenant_audit_anchors_tenant_date_uq" ON "tenant_audit_anchors" USING btree ("tenant_id","date");--> statement-breakpoint
 CREATE INDEX "tenant_audit_events_tenant_created_idx" ON "tenant_audit_events" USING btree ("tenant_id","created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "tenant_audit_events_tenant_seq_uq" ON "tenant_audit_events" USING btree ("tenant_id","chain_seq");--> statement-breakpoint
 CREATE UNIQUE INDEX "tenant_audit_events_tenant_hash_uq" ON "tenant_audit_events" USING btree ("tenant_id","hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "tenant_audit_events_tenant_prev_uq" ON "tenant_audit_events" USING btree ("tenant_id","prev_hash") WHERE "tenant_audit_events"."prev_hash" is not null;--> statement-breakpoint
 CREATE UNIQUE INDEX "idempotency_keys_owner_scope_key_uq" ON "idempotency_keys" USING btree (coalesce("tenant_id", '00000000-0000-0000-0000-000000000000'::uuid),"scope","key");--> statement-breakpoint

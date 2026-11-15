@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   check,
   date,
@@ -273,14 +274,22 @@ export const vendorAuditEvents = pgTable(
     ip: inet("ip"),
     prevHash: text("prev_hash"),
     hash: text("hash").notNull(),
+    chainSeq: bigint("chain_seq", { mode: "bigint" }).notNull(),
     createdAt: createdAt(),
   },
   (t) => [
     index("vendor_audit_events_created_idx").on(t.createdAt),
+    uniqueIndex("vendor_audit_events_seq_uq").on(t.chainSeq),
     uniqueIndex("vendor_audit_events_hash_uq").on(t.hash),
     uniqueIndex("vendor_audit_events_prev_uq")
       .on(t.prevHash)
       .where(sql`${t.prevHash} is not null`),
+    check("vendor_audit_events_hash_chk", sql`${t.hash} ~ '^[0-9a-f]{64}$'`),
+    check(
+      "vendor_audit_events_prev_hash_chk",
+      sql`${t.prevHash} is null or ${t.prevHash} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check("vendor_audit_events_seq_chk", sql`${t.chainSeq} >= 1`),
   ],
 );
 
@@ -294,5 +303,8 @@ export const vendorAuditAnchors = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [check("vendor_audit_anchors_count_chk", sql`${t.eventCount} >= 0`)],
+  (t) => [
+    check("vendor_audit_anchors_count_chk", sql`${t.eventCount} >= 0`),
+    check("vendor_audit_anchors_hash_chk", sql`${t.lastHash} ~ '^[0-9a-f]{64}$'`),
+  ],
 );
