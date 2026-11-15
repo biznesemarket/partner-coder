@@ -20,6 +20,8 @@ cp .env.example .env   # Windows PowerShell: Copy-Item .env.example .env
 
 ```bash
 docker compose -f deploy/compose/docker-compose.yml up -d
+pnpm db:migrate   # схема, RLS, триггеры аудита
+pnpm seed         # демо-вендор, клиент, проект, 3 разработчика, 5 дней
 ```
 
 | Сервис        | Адрес                 | Назначение                    |
@@ -28,18 +30,23 @@ docker compose -f deploy/compose/docker-compose.yml up -d
 | Mailpit       | http://localhost:8025 | SMTP-перехватчик писем        |
 | MinIO         | http://localhost:9001 | S3-хранилище пакетов и счетов |
 
+Если нужен только PostgreSQL: `docker compose ... up -d postgres`.
+
 ## 4. Проверки
 
 ```bash
 pnpm test:golden   # 20 golden-сценариев домена
-pnpm test          # + unit + property
+pnpm test          # unit + property + интеграционные тесты БД
+pnpm test:db       # схема, RLS, append-only, аудит, идемпотентность, seed
 pnpm typecheck     # tsc strict во всех пакетах
 pnpm lint
 pnpm check         # всё вместе: prettier + lint + typecheck + тесты
 pnpm build         # turbo build
 ```
 
-Ожидаемый результат: `Tests 66 passed`, все 20 golden-сценариев совпадают точно.
+Ожидаемый результат: `Tests 90 passed`, все 20 golden-сценариев совпадают
+точно. Интеграционные тесты создают отдельные БД, поэтому PostgreSQL должен
+быть запущен; в CI он поднимается сервисом GitHub Actions.
 
 ## 5. API (скелет)
 

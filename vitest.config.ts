@@ -11,6 +11,7 @@ export default defineConfig({
       "@partner-coder/domain": pkg("./packages/domain/src/index.ts"),
       "@partner-coder/config": pkg("./packages/config/src/index.ts"),
       "@partner-coder/contracts": pkg("./packages/contracts/src/index.ts"),
+      "@partner-coder/db": pkg("./packages/db/src/index.ts"),
     },
   },
   test: {
@@ -19,5 +20,8 @@ export default defineConfig({
     environment: "node",
     reporters: ["default"],
     testTimeout: 20_000,
+    // Интеграционные тесты создают и удаляют отдельные БД и роли PostgreSQL.
+    // Параллельный запуск файлов приводит к гонкам DDL и сбросу соединений.
+    fileParallelism: false,
   },
 });
