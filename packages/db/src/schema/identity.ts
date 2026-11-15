@@ -69,6 +69,7 @@ export const authSessions = pgTable(
       .on(t.tokenHash)
       .where(sql`${t.tokenHash} is not null`),
     index("auth_sessions_user_idx").on(t.userId, t.expiresAt),
+    index("auth_sessions_expires_idx").on(t.expiresAt),
     index("auth_sessions_active_tenant_idx").on(t.activeTenantId),
   ],
 );
@@ -191,6 +192,7 @@ export const deviceTokens = pgTable(
     unique("device_tokens_tenant_id_uq").on(t.tenantId, t.id),
     index("device_tokens_membership_idx").on(t.membershipId, t.revokedAt),
     index("device_tokens_tenant_idx").on(t.tenantId),
+    index("device_tokens_expires_idx").on(t.expiresAt),
     check("device_tokens_hash_chk", sql`${t.tokenHash} ~ '^[0-9a-f]{64}$'`),
     check("device_tokens_prefix_chk", sql`length(${t.tokenPrefix}) between 4 and 16`),
     check("device_tokens_scope_chk", sql`length(${t.scope}) between 1 and 32`),

@@ -56,6 +56,12 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: OpenAPI contract drift
+        run: |
+          pnpm --filter @partner-coder/api openapi:emit
+          pnpm --filter @partner-coder/api openapi:types
+          git diff --exit-code -- apps/api/openapi.json apps/api/src/generated/openapi.d.ts
+
       - name: Migrations and drift check
         run: pnpm db:migrate && pnpm db:check
 

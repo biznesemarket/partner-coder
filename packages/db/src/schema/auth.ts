@@ -60,7 +60,10 @@ export const authVerifications = pgTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index("auth_verifications_identifier_idx").on(t.identifier)],
+  (t) => [
+    index("auth_verifications_identifier_idx").on(t.identifier),
+    index("auth_verifications_expires_idx").on(t.expiresAt),
+  ],
 );
 
 export const authTwoFactors = pgTable(

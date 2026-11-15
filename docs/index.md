@@ -91,6 +91,7 @@
 | `0008-git-providers.md`                  | Git-провайдеры, вебхуки и метаданные.                     |
 | `0009-db-roles-rls-audit.md`             | Роли БД, RLS, append-only и хеш-цепочка аудита.           |
 | `0010-better-auth-and-authz.md`          | Better Auth, приглашения, device-токены и матрица прав.   |
+| `0011-worker-jobs-observability.md`      | pg-boss, закрытие дня, якоря, retention и наблюдаемость.  |
 
 ## Вне `docs/`
 
@@ -103,4 +104,5 @@
 | `LICENSE`                                                       | Source-available условия использования.                                             |
 | `CHANGELOG.md`                                                  | История изменений по вехам.                                                         |
 | `deploy/README.md`, `deploy/environments/README.md`             | Локальная инфраструктура и окружения.                                               |
+| `deploy/environments/staging/README.md`                         | Staging-конфигурация, роли БД, порядок выката и smoke.                              |
 | `apps/*/README.md`, `packages/*/README.md`, `tools/*/README.md` | Короткие указатели на код и статус вехи; архитектурные описания — только в `docs/`. |

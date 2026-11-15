@@ -59,6 +59,29 @@ export const envSchema = z
 
     MCP_MIN_VERSION: z.string().default("0.1.0"),
     PACKAGE_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(7),
+
+    // Worker и pg-boss. Расписания задаются в cron-формате; часовой пояс
+    // проектов учитывается внутри задания закрытия дня, а не cron-ом.
+    WORKER_METRICS_PORT: z.coerce.number().int().min(1).max(65_535).default(4100),
+    WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(100).default(5),
+    WORKER_SHUTDOWN_TIMEOUT_SECONDS: z.coerce.number().int().min(1).max(300).default(30),
+    PG_BOSS_SCHEMA: z
+      .string()
+      .regex(/^[a-z_][a-z0-9_]*$/)
+      .default("pgboss"),
+    DAY_CLOSE_CRON: z.string().min(1).default("*/15 * * * *"),
+    DAY_CLOSE_CATCHUP_DAYS: z.coerce.number().int().min(1).max(366).default(31),
+    AUDIT_ANCHOR_CRON: z.string().min(1).default("15 0 * * *"),
+    TTL_CLEANUP_CRON: z.string().min(1).default("30 * * * *"),
+    JOB_RETRY_LIMIT: z.coerce.number().int().min(0).max(20).default(5),
+    AUTH_SESSION_RETENTION_DAYS: z.coerce.number().int().min(0).max(365).default(7),
+    AUTH_VERIFICATION_RETENTION_DAYS: z.coerce.number().int().min(0).max(90).default(1),
+    HEARTBEAT_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
+
+    /** CORS для веб-кабинетов; пусто — WEB_BASE_URL и VENDOR_BASE_URL. */
+    API_CORS_ORIGINS: optionalString,
+    /** Необязательный токен для /metrics; пусто — метрики открыты в local/staging. */
+    METRICS_TOKEN: optionalString,
   })
   .superRefine((value, ctx) => {
     if (value.APP_ENV !== "local" && !value.AUTH_DATABASE_URL) {

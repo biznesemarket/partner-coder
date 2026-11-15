@@ -16,7 +16,8 @@ SaaS-платформа, которая превращает время рабо
 | M1 — доменное ядро         | политика, время, экономика, калькулятор, вестинг, golden-тесты |
 | M2.1 — платформенное ядро  | схема, RLS, append-only, аудит, идемпотентность, seed          |
 | M2.2 — аутентификация      | Better Auth, OTP/magic link, роли, приглашения, device-токены  |
-| M2.3–M11                   | см. `docs/05-process/development-process.md` и мега-план       |
+| M2.3 — API/worker          | pg-boss, закрытие дня, TTL, якоря, метрики, OpenAPI            |
+| M3–M11                     | см. `docs/05-process/development-process.md` и мега-план       |
 
 Доменное ядро покрыто golden-тестами T-01…T-12 и E-01…E-08: числа зафиксированы
 до копейки и до единицы доли.
@@ -37,7 +38,7 @@ pnpm check         # prettier + eslint + typecheck + тесты (нужен Post
 pnpm test:golden   # только golden-тесты домена
 ```
 
-Требуется Node.js ≥ 22.6 и pnpm ≥ 9.
+Требуется Node.js ≥ 22.12 и pnpm ≥ 9.
 
 ## Структура
 
@@ -45,7 +46,7 @@ pnpm test:golden   # только golden-тесты домена
 apps/
   api/            Fastify API (health, auth, приглашения, tenant-маршруты)
   web/            Next.js кабинеты (каркас — M5)
-  worker/         pg-boss задания (каркас — M2.3)
+  worker/         pg-boss: закрытие дня, TTL, якоря, метрики
   mcp/            локальный MCP-сервер (каркас — M4)
   ide-extension/  расширение VS Code/Cursor (каркас — M6)
 packages/

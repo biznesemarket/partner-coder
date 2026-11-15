@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 import type { FastifyInstance } from "fastify";
 
 import {
@@ -7,7 +5,9 @@ import {
   getTenantOverview,
   issueDeviceToken,
   listDeviceTokens,
+  listTenantDays,
   listTenantMembers,
+  listTenantProjects,
   revokeDeviceToken,
   rotateDeviceToken,
 } from "@partner-coder/db";
@@ -15,20 +15,8 @@ import {
 import { ApiError } from "../errors.js";
 import { auditAuthorizationDenied, createGuards } from "../auth/guard.js";
 import type { AuthIdentity, AuthRuntime } from "../auth/runtime.js";
-import { parseBody, parseParams } from "./validation.js";
-
-const deviceParamsSchema = z.object({ id: z.uuid() });
-const deviceCreateSchema = z.object({
-  label: z.string().trim().max(120).optional(),
-  scope: z.enum(["agent", "mcp"]).default("agent"),
-  ttlMinutes: z
-    .number()
-    .int()
-    .min(5)
-    .max(365 * 24 * 60)
-    .optional(),
-  deviceId: z.uuid().optional(),
-});
+import { daysQuerySchema, deviceCreateSchema, deviceParamsSchema } from "../openapi/schemas.js";
+import { parseBody, parseParams, parseQuery } from "./validation.js";
 
 export function registerTenantRoutes(server: FastifyInstance, runtime: AuthRuntime): void {
   const guards = createGuards(runtime);
@@ -51,6 +39,27 @@ export function registerTenantRoutes(server: FastifyInstance, runtime: AuthRunti
     async (request) => {
       const identity = request.auth!;
       return { items: await listTenantMembers(runtime.db, identity.activeTenantId!) };
+    },
+  );
+
+  server.get(
+    "/v1/tenant/projects",
+    { preHandler: [guards.authenticate, guards.permission("project", "read")] },
+    async (request) => {
+      const identity = request.auth!;
+      return { items: await listTenantProjects(runtime.db, identity.activeTenantId!) };
+    },
+  );
+
+  server.get(
+    "/v1/tenant/days",
+    { preHandler: [guards.authenticate, guards.permission("day_record", "read")] },
+    async (request) => {
+      const identity = request.auth!;
+      const query = parseQuery(daysQuerySchema, request.query);
+      return {
+        items: await listTenantDays(runtime.db, identity.activeTenantId!, query),
+      };
     },
   );
 

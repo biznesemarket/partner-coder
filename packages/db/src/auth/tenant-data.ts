@@ -1,4 +1,4 @@
-import { and, count, eq, max, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, lte, max, sql } from "drizzle-orm";
 
 import { setTenantContext, withTenantContext, type Database } from "../client.js";
 import {
@@ -116,6 +116,109 @@ export async function getTenantOverview(db: Database, tenantId: string): Promise
       closedDays: Number(dayCount?.value ?? 0),
       lastClosedDay: lastDay?.value ?? null,
     };
+  });
+}
+
+export interface TenantProject {
+  readonly id: string;
+  readonly name: string;
+  readonly forge: string;
+  readonly repo: string;
+  readonly defaultBranch: string;
+  readonly timezone: string;
+  readonly status: string;
+}
+
+export async function listTenantProjects(
+  db: Database,
+  tenantId: string,
+): Promise<readonly TenantProject[]> {
+  return withTenantContext(db, { tenantId }, async (tx) =>
+    tx
+      .select({
+        id: projects.id,
+        name: projects.name,
+        forge: projects.forge,
+        repo: projects.repo,
+        defaultBranch: projects.defaultBranch,
+        timezone: projects.timezone,
+        status: projects.status,
+      })
+      .from(projects)
+      .where(eq(projects.tenantId, tenantId))
+      .orderBy(projects.createdAt, projects.id),
+  );
+}
+
+export interface TenantDayFilter {
+  readonly from?: string | undefined;
+  readonly to?: string | undefined;
+  readonly membershipId?: string | undefined;
+  readonly limit?: number | undefined;
+}
+
+export interface TenantDay {
+  readonly id: string;
+  readonly membershipId: string;
+  readonly displayName: string | null;
+  readonly dateLocal: string;
+  readonly timezone: string;
+  readonly paidSeconds: number;
+  readonly amountKopecks: string;
+  readonly cashKopecks: string;
+  readonly equityKopecks: string;
+  readonly shareBp: string;
+  readonly poolPending: boolean;
+  readonly closedAt: Date;
+}
+
+export async function listTenantDays(
+  db: Database,
+  tenantId: string,
+  filter: TenantDayFilter = {},
+): Promise<readonly TenantDay[]> {
+  return withTenantContext(db, { tenantId }, async (tx) => {
+    const conditions = [eq(dayRecords.tenantId, tenantId)];
+    if (filter.from) conditions.push(gte(dayRecords.dateLocal, filter.from));
+    if (filter.to) conditions.push(lte(dayRecords.dateLocal, filter.to));
+    if (filter.membershipId) {
+      conditions.push(eq(dayRecords.membershipId, filter.membershipId));
+    }
+
+    const rows = await tx
+      .select({
+        id: dayRecords.id,
+        membershipId: dayRecords.membershipId,
+        displayName: memberships.displayName,
+        dateLocal: dayRecords.dateLocal,
+        timezone: dayRecords.timezone,
+        paidSeconds: dayRecords.paidSeconds,
+        amountKopecks: dayRecords.amountKopecks,
+        cashKopecks: dayRecords.cashKopecks,
+        equityKopecks: dayRecords.equityKopecks,
+        shareBp: dayRecords.shareBp,
+        poolPending: dayRecords.poolPending,
+        closedAt: dayRecords.closedAt,
+      })
+      .from(dayRecords)
+      .innerJoin(
+        memberships,
+        and(
+          eq(memberships.tenantId, dayRecords.tenantId),
+          eq(memberships.id, dayRecords.membershipId),
+        ),
+      )
+      .where(and(...conditions))
+      .orderBy(desc(dayRecords.dateLocal), memberships.id)
+      .limit(filter.limit ?? 100);
+
+    return rows.map((row) => ({
+      ...row,
+      amountKopecks: row.amountKopecks.toString(),
+      cashKopecks: row.cashKopecks.toString(),
+      equityKopecks: row.equityKopecks.toString(),
+      shareBp: row.shareBp.toString(),
+    }));
   });
 }
 

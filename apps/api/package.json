@@ -11,21 +11,32 @@
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js",
+    "openapi:emit": "tsx src/openapi/emit.ts",
+    "openapi:types": "openapi-typescript openapi.json -o src/generated/openapi.d.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.7.25",
+    "@fastify/cors": "^11.4.3",
     "@fastify/rate-limit": "^11.2.2",
+    "@opentelemetry/api": "^1.10.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.83.1",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.301.2",
+    "@opentelemetry/sdk-node": "^0.301.2",
     "@partner-coder/config": "workspace:*",
     "@partner-coder/contracts": "workspace:*",
     "@partner-coder/db": "workspace:*",
     "@partner-coder/domain": "workspace:*",
+    "@sentry/node": "^11.12.0",
     "better-auth": "^1.7.25",
     "fastify": "^5.2.1",
     "nodemailer": "^7.0.13",
+    "pino": "^10.4.0",
+    "prom-client": "^15.1.3",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/nodemailer": "^7.0.12"
+    "@types/nodemailer": "^7.0.12",
+    "openapi-typescript": "^7.13.0"
   }
 }

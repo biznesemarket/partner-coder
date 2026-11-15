@@ -24,6 +24,20 @@ describe("валидация окружения", () => {
     expect(env.PACKAGE_TTL_DAYS).toBe(7);
     expect(env.S3_FORCE_PATH_STYLE).toBe(true);
     expect(env.LOG_LEVEL).toBe("info");
+    expect(env.WORKER_METRICS_PORT).toBe(4100);
+    expect(env.PG_BOSS_SCHEMA).toBe("pgboss");
+    expect(env.DAY_CLOSE_CRON).toBe("*/15 * * * *");
+    expect(env.HEARTBEAT_RETENTION_DAYS).toBe(90);
+  });
+
+  it("проверяет имя схемы pg-boss", () => {
+    try {
+      parseEnv({ ...validEnv, PG_BOSS_SCHEMA: "pg-boss" });
+      expect.unreachable("ожидалась ошибка валидации");
+    } catch (error) {
+      expect(error).toBeInstanceOf(EnvValidationError);
+      expect((error as EnvValidationError).issues.join("\n")).toMatch(/PG_BOSS_SCHEMA/);
+    }
   });
 
   it("падает с понятным списком проблем", () => {

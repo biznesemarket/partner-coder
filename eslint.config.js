@@ -10,6 +10,7 @@ export default tseslint.config(
       "**/coverage/**",
       "**/.superpowers/**",
       "apps/ide-extension/out/**",
+      "apps/api/src/generated/**",
     ],
   },
   js.configs.recommended,
