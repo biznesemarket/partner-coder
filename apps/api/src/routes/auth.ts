@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 import { fromNodeHeaders } from "better-auth/node";
 import type { FastifyInstance } from "fastify";
 
@@ -16,22 +14,15 @@ import { canAssignRole } from "@partner-coder/contracts";
 
 import { ApiError } from "../errors.js";
 import { auditAuthorizationDenied, createGuards } from "../auth/guard.js";
+import { EmailRateLimiter } from "../auth/email-rate-limit.js";
 import type { AuthRuntime } from "../auth/runtime.js";
+import {
+  invitationCreateSchema,
+  invitationParamsSchema,
+  tenantIdBodySchema,
+  tokenParamsSchema,
+} from "../openapi/schemas.js";
 import { parseBody, parseParams } from "./validation.js";
-
-const tenantIdSchema = z.object({ tenantId: z.uuid() });
-const invitationCreateSchema = z.object({
-  email: z.email(),
-  role: z.enum(["director", "developer", "finance", "support"]),
-  ttlMinutes: z
-    .number()
-    .int()
-    .min(5)
-    .max(90 * 24 * 60)
-    .optional(),
-});
-const tokenParamsSchema = z.object({ token: z.string().min(10).max(256) });
-const invitationParamsSchema = z.object({ id: z.uuid() });
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split("@");
@@ -41,14 +32,40 @@ function maskEmail(email: string): string {
   return `${local.slice(0, 1)}***@${domain}`;
 }
 
-export function registerAuthRoutes(server: FastifyInstance, runtime: AuthRuntime): void {
+const EMAIL_RATE_LIMITED_PATHS = new Set([
+  "/api/auth/email-otp/send-verification-otp",
+  "/api/auth/sign-in/email-otp",
+  "/api/auth/sign-in/magic-link",
+]);
+
+export function registerAuthRoutes(
+  server: FastifyInstance,
+  runtime: AuthRuntime,
+  options: { readonly emailRateLimit?: number | false } = {},
+): void {
   const guards = createGuards(runtime);
+  const emailLimiter =
+    options.emailRateLimit === false
+      ? null
+      : new EmailRateLimiter({
+          ...(options.emailRateLimit === undefined ? {} : { limit: options.emailRateLimit }),
+        });
 
   server.route({
     method: ["GET", "POST"],
     url: "/api/auth/*",
     async handler(request, reply) {
       const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
+      if (EMAIL_RATE_LIMITED_PATHS.has(url.pathname)) {
+        const email = (request.body as { email?: unknown } | undefined)?.email;
+        if (emailLimiter && typeof email === "string" && !emailLimiter.consume(email)) {
+          throw new ApiError(
+            429,
+            "email_rate_limited",
+            "Слишком много попыток входа для этого email",
+          );
+        }
+      }
       const headers = fromNodeHeaders(request.headers);
       const body = request.body === undefined ? undefined : JSON.stringify(request.body);
       const fetchRequest = new Request(url.toString(), {
@@ -97,7 +114,7 @@ export function registerAuthRoutes(server: FastifyInstance, runtime: AuthRuntime
 
   server.post("/v1/auth/tenant", { preHandler: guards.authenticate }, async (request) => {
     const identity = request.auth!;
-    const { tenantId } = parseBody(tenantIdSchema, request.body);
+    const { tenantId } = parseBody(tenantIdBodySchema, request.body);
     const membership = identity.memberships.find(
       (item) =>
         item.tenantId === tenantId &&

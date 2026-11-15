@@ -36,9 +36,19 @@
   проверка разделения ролей БД; Fastify middleware, отказы в аудите отдельной
   транзакцией; E2E-тест входа, выбора tenant, приглашения, device-токена,
   suspension и эскалации роли.
+- M2.3: worker на pg-boss (скан и закрытие дня с advisory-lock, catch-up по
+  timezone, идемпотентность `input_hash`, компенсации, DLQ/retry), дневные
+  якоря аудита после проверки цепочек, TTL-очистка ключей/OTP/сессий,
+  отзыв device-токенов и сессий suspended tenant/пользователей, retention
+  heartbeat через отдельную роль; per-email лимит OTP/magic-link; проверка
+  роли worker при старте; pino-редакция токенов, request id, Prometheus-метрики,
+  опциональные OTel/Sentry, CORS и security-заголовки; OpenAPI 3.1 из Zod-схем,
+  `/openapi.json` и генерация типов клиента; tenant-маршруты проектов и закрытых
+  дней; staging-чек-лист и ADR-0011.
 
 ### Notes
 
 - Лицензия — source-available; финальный текст за юристом.
 - Passkeys/2FA: схема готова, плагины включаются позже.
-- M2.3–M11 не реализованы: см. `docs/05-process/development-process.md`.
+- Общий rate-limit store и per-email лимит — M6.
+- M3–M11 не реализованы: см. `docs/05-process/development-process.md`.

@@ -8,7 +8,7 @@ import { createAuth } from "./auth/config.js";
 import { readRoleFacts, roleSeparationErrors } from "./auth/db-roles.js";
 import { SmtpMailer } from "./auth/mailer.js";
 import { createAuthRuntime } from "./auth/runtime.js";
-import { buildServer } from "./server.js";
+import { loggerOptions } from "./logger.js";
 
 /**
  * Загружает `.env`, если он есть рядом с приложением или в корне монорепозитория.
@@ -25,6 +25,10 @@ function loadEnvFile(): void {
 loadEnvFile();
 
 const env = parseEnv();
+const version = "0.0.1";
+
+const { initTelemetry } = await import("./telemetry.js");
+const telemetry = await initTelemetry(env, { serviceName: "partner-coder-api", version });
 
 const apiPool = createPool(env.DATABASE_URL, env.DATABASE_POOL_MAX);
 const db = createDatabase(apiPool);
@@ -57,14 +61,23 @@ const auth = createAuth({
   trustedProxies: parseList(env.AUTH_TRUSTED_PROXIES),
 });
 
+const { buildServer } = await import("./server.js");
+const corsOrigins = parseList(env.API_CORS_ORIGINS ?? `${env.WEB_BASE_URL},${env.VENDOR_BASE_URL}`);
 const server = buildServer({
-  logger: env.LOG_LEVEL !== "fatal",
+  logger: loggerOptions(env),
+  version,
+  appEnv: env.APP_ENV,
+  ...(env.METRICS_TOKEN ? { metricsToken: env.METRICS_TOKEN } : {}),
+  corsOrigins,
+  apiBaseUrl: env.API_BASE_URL,
   authRuntime: createAuthRuntime({ auth, db, webBaseUrl: env.WEB_BASE_URL }),
+  onError: (error) => telemetry.captureException(error),
 });
 
 server.addHook("onClose", async () => {
   await apiPool.end();
   await authPool.end();
+  await telemetry.shutdown();
 });
 
 server

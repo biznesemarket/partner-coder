@@ -18,3 +18,7 @@ export function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
 export function parseParams<T>(schema: z.ZodType<T>, params: unknown): T {
   return parseBody(schema, params);
 }
+
+export function parseQuery<T>(schema: z.ZodType<T>, query: unknown): T {
+  return parseBody(schema, query);
+}

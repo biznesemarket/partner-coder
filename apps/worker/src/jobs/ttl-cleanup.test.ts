@@ -1,0 +1,184 @@
+import { randomUUID } from "node:crypto";
+
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import { createDatabase, type Database } from "@partner-coder/db";
+
+import { createTestDatabase, type TestDatabase } from "../../../../packages/db/test/helpers.js";
+import {
+  seedTenant,
+  seedVendorBase,
+  type TenantFixture,
+} from "../../../../packages/db/test/fixtures.js";
+import { runTtlCleanup } from "./ttl-cleanup.js";
+
+describe("TTL-очистка и отзыв при suspension", () => {
+  let testDb: TestDatabase;
+  let db: Database;
+  let tenantA: TenantFixture;
+  let tenantB: TenantFixture;
+  let expiredVerification: string;
+  let expiredIdempotency: string;
+  let expiredSession: string;
+  let expiredDeviceToken: string;
+  let suspendedTenantSession: string;
+  let suspendedTenantDevice: string;
+  let suspendedUserSession: string;
+  let oldHeartbeat: string;
+
+  beforeAll(async () => {
+    testDb = await createTestDatabase();
+    db = createDatabase(testDb.pool);
+    const vendor = await seedVendorBase(testDb.pool);
+    tenantA = await seedTenant(testDb.pool, vendor, "a");
+    tenantB = await seedTenant(testDb.pool, vendor, "b");
+
+    expiredVerification = randomUUID();
+    expiredIdempotency = randomUUID();
+    expiredSession = randomUUID();
+    expiredDeviceToken = randomUUID();
+    suspendedTenantSession = randomUUID();
+    suspendedTenantDevice = randomUUID();
+    suspendedUserSession = randomUUID();
+    oldHeartbeat = randomUUID();
+
+    await testDb.pool.query(
+      `insert into auth_verifications (id, identifier, value, expires_at)
+       values ($1, 'otp:expired@example.com', 'hash', now() - interval '5 days')`,
+      [expiredVerification],
+    );
+    await testDb.pool.query(
+      `insert into idempotency_keys (id, tenant_id, scope, key, request_hash, expires_at)
+       values ($1, $2, 'test', 'expired-key', $3, now() - interval '1 day')`,
+      [expiredIdempotency, tenantA.tenantId, "a".repeat(64)],
+    );
+    await testDb.pool.query(
+      `insert into auth_sessions (id, user_id, token, expires_at)
+       values ($1, $2, $3, now() - interval '10 days')`,
+      [expiredSession, tenantA.userId, `expired-${expiredSession}`],
+    );
+    await testDb.pool.query(
+      `insert into device_tokens
+         (id, tenant_id, membership_id, token_hash, token_prefix, expires_at)
+       values ($1, $2, $3, $4, 'pcd_tst', now() - interval '1 day')`,
+      [
+        expiredDeviceToken,
+        tenantA.tenantId,
+        tenantA.membershipId,
+        randomUUID().replaceAll("-", "").padEnd(64, "0"),
+      ],
+    );
+    await testDb.pool.query(
+      `insert into heartbeats
+         (event_id, tenant_id, session_id, seq, class, start_utc, end_utc, received_at)
+       values ($1, $2, $3, 20, 'active_human',
+               now() - interval '100 days', now() - interval '100 days' + interval '1 minute',
+               now() - interval '100 days')`,
+      [oldHeartbeat, tenantA.tenantId, tenantA.sessionId],
+    );
+
+    await testDb.pool.query("update tenants set status = 'suspended' where id = $1", [
+      tenantB.tenantId,
+    ]);
+    await testDb.pool.query(
+      `insert into auth_sessions (id, user_id, token, active_tenant_id, expires_at)
+       values ($1, $2, $3, $4, now() + interval '1 day')`,
+      [
+        suspendedTenantSession,
+        tenantB.userId,
+        `suspended-${suspendedTenantSession}`,
+        tenantB.tenantId,
+      ],
+    );
+    await testDb.pool.query(
+      `insert into device_tokens
+         (id, tenant_id, membership_id, token_hash, token_prefix)
+       values ($1, $2, $3, $4, 'pcd_tst')`,
+      [
+        suspendedTenantDevice,
+        tenantB.tenantId,
+        tenantB.membershipId,
+        randomUUID().replaceAll("-", "").padEnd(64, "1"),
+      ],
+    );
+
+    await testDb.pool.query(
+      `insert into users (id, email, name, status)
+       values ($1, $2, 'Заблокирован', 'suspended')`,
+      [randomUUID(), `suspended-user-${randomUUID()}@example.com`],
+    );
+    const suspendedUser = await testDb.pool.query<{ id: string }>(
+      "select id from users where status = 'suspended' and name = 'Заблокирован' limit 1",
+    );
+    await testDb.pool.query(
+      `insert into auth_sessions (id, user_id, token, expires_at)
+       values ($1, $2, $3, now() + interval '1 day')`,
+      [suspendedUserSession, suspendedUser.rows[0]!.id, `suspended-user-${suspendedUserSession}`],
+    );
+  });
+
+  afterAll(async () => {
+    await testDb?.drop();
+  });
+
+  it("удаляет просроченные записи, отзывает токены и чистит heartbeat", async () => {
+    const result = await runTtlCleanup(db, {
+      sessionRetentionDays: 7,
+      verificationRetentionDays: 1,
+      heartbeatRetentionDays: 90,
+    });
+
+    expect(result).toMatchObject({
+      idempotencyKeys: 1,
+      authVerifications: 1,
+      authSessionsExpired: 1,
+    });
+
+    const verification = await testDb.pool.query("select 1 from auth_verifications where id = $1", [
+      expiredVerification,
+    ]);
+    expect(verification.rowCount).toBe(0);
+
+    const idempotency = await testDb.pool.query("select 1 from idempotency_keys where id = $1", [
+      expiredIdempotency,
+    ]);
+    expect(idempotency.rowCount).toBe(0);
+
+    const session = await testDb.pool.query("select 1 from auth_sessions where id = $1", [
+      expiredSession,
+    ]);
+    expect(session.rowCount).toBe(0);
+
+    const device = await testDb.pool.query<{ revoked_at: string | null }>(
+      "select revoked_at from device_tokens where id = $1",
+      [expiredDeviceToken],
+    );
+    expect(device.rows[0]?.revoked_at).not.toBeNull();
+
+    const heartbeat = await testDb.pool.query("select 1 from heartbeats where event_id = $1", [
+      oldHeartbeat,
+    ]);
+    expect(heartbeat.rowCount).toBe(0);
+  });
+
+  it("при suspension tenant очищает активный tenant и отзывает его device-токены", async () => {
+    const tenantSession = await testDb.pool.query<{ active_tenant_id: string | null }>(
+      "select active_tenant_id from auth_sessions where id = $1",
+      [suspendedTenantSession],
+    );
+    expect(tenantSession.rows[0]?.active_tenant_id).toBeNull();
+
+    const device = await testDb.pool.query<{ revoked_at: string | null }>(
+      "select revoked_at from device_tokens where id = $1",
+      [suspendedTenantDevice],
+    );
+    expect(device.rows[0]?.revoked_at).not.toBeNull();
+  });
+
+  it("удаляет сессии suspended/deleted пользователей", async () => {
+    const session = await testDb.pool.query("select 1 from auth_sessions where id = $1", [
+      suspendedUserSession,
+    ]);
+    expect(session.rowCount).toBe(0);
+  });
+});

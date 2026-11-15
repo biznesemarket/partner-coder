@@ -1,12 +1,16 @@
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
+import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import { randomUUID } from "node:crypto";
+import type { LoggerOptions } from "pino";
 
 import type { ErrorEnvelope } from "@partner-coder/contracts";
 import { AuthServiceError } from "@partner-coder/db";
 
 import { ApiError } from "./errors.js";
 import type { AuthRuntime } from "./auth/runtime.js";
+import { createHttpMetrics } from "./metrics.js";
+import { buildOpenApiDocument } from "./openapi/index.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerTenantRoutes } from "./routes/tenant.js";
 
@@ -51,9 +55,15 @@ function authServiceStatus(code: AuthServiceError["code"]): number {
 }
 
 export interface BuildServerOptions {
-  readonly logger?: boolean;
+  readonly logger?: boolean | LoggerOptions;
   readonly version?: string;
   readonly authRuntime?: AuthRuntime;
+  readonly corsOrigins?: readonly string[];
+  readonly metricsToken?: string;
+  readonly appEnv?: string;
+  readonly apiBaseUrl?: string;
+  readonly emailRateLimit?: number | false;
+  readonly onError?: (error: unknown, request: FastifyRequest) => void;
 }
 
 /**
@@ -80,6 +90,35 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
     allowList: (request) => request.url === "/healthz" || request.url === "/readyz",
   });
 
+  if (options.corsOrigins && options.corsOrigins.length > 0) {
+    void server.register(cors, {
+      origin: [...options.corsOrigins],
+      credentials: true,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["content-type", "authorization", "x-request-id", "idempotency-key"],
+      exposedHeaders: ["x-request-id"],
+      maxAge: 600,
+    });
+  }
+
+  const metrics = createHttpMetrics();
+
+  server.addHook("onRequest", async (request) => {
+    (request as FastifyRequest & { metricsStart?: bigint }).metricsStart = process.hrtime.bigint();
+  });
+
+  server.addHook("onResponse", async (request, reply) => {
+    const started = (request as FastifyRequest & { metricsStart?: bigint }).metricsStart;
+    const seconds = started ? Number(process.hrtime.bigint() - started) / 1e9 : 0;
+    const labels = {
+      method: request.method,
+      route: metrics.routeOf(request),
+      status: String(reply.statusCode),
+    };
+    metrics.requestCounter.inc(labels);
+    metrics.requestDuration.observe(labels, seconds);
+  });
+
   const startedAt = Date.now();
   const version = options.version ?? "0.0.1";
 
@@ -88,6 +127,40 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
     reply.header("x-content-type-options", "nosniff");
     reply.header("referrer-policy", "no-referrer");
     reply.header("x-frame-options", "DENY");
+    reply.header("cross-origin-resource-policy", "same-site");
+    reply.header("permissions-policy", "camera=(), microphone=(), geolocation=()");
+    reply.header("content-security-policy", "default-src 'none'; frame-ancestors 'none'");
+    if (options.appEnv && options.appEnv !== "local") {
+      reply.header("strict-transport-security", "max-age=31536000; includeSubDomains");
+    }
+  });
+
+  server.get("/metrics", async (request, reply) => {
+    if (options.metricsToken) {
+      const authorization = request.headers.authorization;
+      const token = request.headers["x-metrics-token"];
+      const provided =
+        typeof authorization === "string" && authorization.startsWith("Bearer ")
+          ? authorization.slice(7)
+          : typeof token === "string"
+            ? token
+            : null;
+      if (provided !== options.metricsToken) {
+        return reply.status(401).send({ error: "metrics_unauthorized" });
+      }
+    }
+    reply.type(metrics.registry.contentType);
+    return reply.send(await metrics.registry.metrics());
+  });
+
+  server.get("/openapi.json", async (_request, reply) => {
+    reply.type("application/json; charset=utf-8");
+    return reply.send(
+      buildOpenApiDocument({
+        serverUrl: options.apiBaseUrl ?? "http://localhost:4000",
+        version,
+      }),
+    );
   });
 
   server.setErrorHandler((error, request, reply) => {
@@ -121,6 +194,7 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
     };
     if (statusCode >= 500) {
       request.log.error({ err: error }, "request_failed");
+      options.onError?.(error, request);
     }
     return reply.status(statusCode).send(payload);
   });
@@ -146,7 +220,11 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
   server.get("/readyz", async () => ({ status: "ok" as const }));
 
   if (options.authRuntime) {
-    registerAuthRoutes(server, options.authRuntime);
+    registerAuthRoutes(
+      server,
+      options.authRuntime,
+      options.emailRateLimit === undefined ? {} : { emailRateLimit: options.emailRateLimit },
+    );
     registerTenantRoutes(server, options.authRuntime);
   }
 

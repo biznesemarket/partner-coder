@@ -82,7 +82,7 @@ beforeAll(async () => {
     db: database.db,
     webBaseUrl: origin,
   });
-  server = buildServer({ authRuntime: runtime });
+  server = buildServer({ authRuntime: runtime, emailRateLimit: false });
   await server.ready();
 }, 120_000);
 
@@ -208,6 +208,46 @@ describe("E2E: эскалация роли", () => {
     expect(audit.rows[0]?.reason).toBe("role_denied");
   });
 });
+describe("E2E: чтение seed-данных tenant", () => {
+  it("отдает проекты и закрытые дни только активного tenant", async () => {
+    const director = await database.pool.query<{ email: string }>(
+      "select email from users where id = $1",
+      [tenant.userId],
+    );
+    const cookies = await signIn(director.rows[0]!.email);
+
+    const projects = await server.inject({
+      method: "GET",
+      url: "/v1/tenant/projects",
+      headers: { host, cookie: cookies },
+    });
+    expect(projects.statusCode).toBe(200);
+    expect(projects.json<{ items: { id: string }[] }>().items).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: tenant.projectId })]),
+    );
+
+    const days = await server.inject({
+      method: "GET",
+      url: "/v1/tenant/days?limit=10",
+      headers: { host, cookie: cookies },
+    });
+    expect(days.statusCode).toBe(200);
+    expect(days.json<{ items: { dateLocal: string; amountKopecks: string }[] }>().items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ dateLocal: "2026-11-01", amountKopecks: "100" }),
+      ]),
+    );
+
+    const invalid = await server.inject({
+      method: "GET",
+      url: "/v1/tenant/days?limit=0",
+      headers: { host, cookie: cookies },
+    });
+    expect(invalid.statusCode).toBe(400);
+    expect(invalid.json()).toMatchObject({ error: { code: "validation_error" } });
+  });
+});
+
 describe("E2E: приглашение и device token через API", () => {
   it("директор приглашает разработчика, тот принимает приглашение", async () => {
     const director = await database.pool.query<{ email: string }>(

@@ -50,4 +50,67 @@ describe("api skeleton", () => {
     expect(response.headers["x-request-id"]).toBe("req-123");
     await server.close();
   });
+
+  it("отдает метрики Prometheus", async () => {
+    const server = buildServer();
+    const response = await server.inject({ method: "GET", url: "/metrics" });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["content-type"]).toContain("text/plain");
+    expect(response.body).toContain("partner_coder_http_requests_total");
+    await server.close();
+  });
+
+  it("закрывает метрики токеном, если он задан", async () => {
+    const server = buildServer({ metricsToken: "metrics-secret" });
+    const denied = await server.inject({ method: "GET", url: "/metrics" });
+    expect(denied.statusCode).toBe(401);
+
+    const allowed = await server.inject({
+      method: "GET",
+      url: "/metrics",
+      headers: { authorization: "Bearer metrics-secret" },
+    });
+    expect(allowed.statusCode).toBe(200);
+    await server.close();
+  });
+
+  it("отдает OpenAPI 3.1 из Zod-схем", async () => {
+    const server = buildServer({ apiBaseUrl: "https://api.example.test" });
+    const response = await server.inject({ method: "GET", url: "/openapi.json" });
+    expect(response.statusCode).toBe(200);
+    const body = response.json<{
+      openapi: string;
+      servers: { url: string }[];
+      paths: Record<string, unknown>;
+      components: { schemas: Record<string, unknown> };
+    }>();
+    expect(body.openapi).toBe("3.1.0");
+    expect(body.servers[0]?.url).toBe("https://api.example.test");
+    expect(body.paths).toHaveProperty("/v1/tenant/days");
+    expect(body.paths).toHaveProperty("/v1/auth/me");
+    expect(body.components.schemas).toHaveProperty("ErrorEnvelope");
+    expect(body.components.schemas).toHaveProperty("AuthMeResponse");
+    await server.close();
+  });
+
+  it("включает HSTS вне local и CORS для веб-кабинетов", async () => {
+    const server = buildServer({
+      appEnv: "staging",
+      corsOrigins: ["https://app.partnercoder.ru"],
+    });
+    const health = await server.inject({ method: "GET", url: "/healthz" });
+    expect(health.headers["strict-transport-security"]).toContain("max-age=31536000");
+
+    const preflight = await server.inject({
+      method: "OPTIONS",
+      url: "/v1/tenant/overview",
+      headers: {
+        origin: "https://app.partnercoder.ru",
+        "access-control-request-method": "GET",
+      },
+    });
+    expect(preflight.statusCode).toBe(204);
+    expect(preflight.headers["access-control-allow-origin"]).toBe("https://app.partnercoder.ru");
+    await server.close();
+  });
 });

@@ -200,4 +200,31 @@ describe("API authz middleware", () => {
     });
     await server.close();
   });
+
+  it("ограничивает OTP и magic link по email", async () => {
+    const server = buildServer({ authRuntime: fakeRuntime(identity()) });
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const response = await server.inject({
+        method: "POST",
+        url: "/api/auth/email-otp/send-verification-otp",
+        payload: { email: "rate@example.com", type: "sign-in" },
+      });
+      expect(response.statusCode).not.toBe(429);
+    }
+    const blocked = await server.inject({
+      method: "POST",
+      url: "/api/auth/email-otp/send-verification-otp",
+      payload: { email: "rate@example.com", type: "sign-in" },
+    });
+    expect(blocked.statusCode).toBe(429);
+    expect(blocked.json()).toMatchObject({ error: { code: "email_rate_limited" } });
+
+    const otherEmail = await server.inject({
+      method: "POST",
+      url: "/api/auth/sign-in/magic-link",
+      payload: { email: "other@example.com" },
+    });
+    expect(otherEmail.statusCode).not.toBe(429);
+    await server.close();
+  });
 });

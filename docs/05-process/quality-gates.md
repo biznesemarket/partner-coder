@@ -13,7 +13,7 @@
 | Golden      | Vitest                 | T-01…T-12, E-01…E-08 — точные числа               |
 | Property    | fast-check             | инварианты union, капов, округления, монотонности |
 | Integration | Vitest + PostgreSQL    | RLS, репозитории, API, очереди, вебхуки (M2)      |
-| Contract    | Zod/OpenAPI            | схемы API и MCP (M2.3)                            |
+| Contract    | Zod/OpenAPI            | схемы API, `/openapi.json`, типы клиента (M2.3)   |
 | E2E         | Playwright             | вендор, директор, разработчик, онбординг (M3–M8)  |
 | MCP         | MCP SDK client         | tools/list, tool calls, ошибки, enrollment (M4)   |
 | Load        | k6                     | heartbeat, закрытие, дашборды (M6, M9)            |
@@ -31,8 +31,12 @@ pnpm lint
 pnpm typecheck
 pnpm test          # unit + golden + property + интеграционные тесты БД
 pnpm build
+pnpm --filter @partner-coder/api openapi:emit
+pnpm --filter @partner-coder/api openapi:types
 ```
 
+Для изменений API обязательна проверка `/openapi.json` и regenerated-типов;
+для worker — интеграционные тесты jobs на PostgreSQL и smoke pg-boss.
 Плюс в CI: secret scan, dependency review. Для изменений схемы БД обязательны
 миграция на чистой базе и тесты RLS/append-only/аудита.
 
