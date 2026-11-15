@@ -3,7 +3,7 @@
 ## 1. Требования
 
 - Node.js ≥ 22.6, pnpm ≥ 9 (ядро пакета зафиксировано в `package.json`).
-- Docker Desktop (для PostgreSQL, Mailpit, MinIO).
+- Docker Desktop (для PostgreSQL, Mailpit, S3).
 - Windows 10/11 для проверки MCP-сценариев; macOS/Linux — после пилота.
 
 ## 2. Установка
@@ -28,7 +28,7 @@ pnpm seed         # демо-вендор, клиент, проект, 3 раз�
 | ------------- | --------------------- | ----------------------------- |
 | PostgreSQL 17 | `localhost:5432`      | БД (логин/пароль `partner`)   |
 | Mailpit       | http://localhost:8025 | SMTP-перехватчик писем        |
-| MinIO         | http://localhost:9001 | S3-хранилище пакетов и счетов |
+| S3 (SILO)     | http://localhost:9001 | S3-хранилище пакетов и счетов |
 
 Если нужен только PostgreSQL: `docker compose ... up -d postgres`.
 

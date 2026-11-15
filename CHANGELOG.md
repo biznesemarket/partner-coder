@@ -50,6 +50,9 @@
 
 - GitHub Actions обновлены: `actions/checkout` и `actions/setup-node` v7,
   `pnpm/action-setup` v6, `github/codeql-action` v4, `gitleaks-action` v3.
+- Локальный S3 в Docker Compose переведен с удаленных образов `minio/minio`
+  и `minio/mc` на совместимый форк SILO (`pgsty/silo`, `pgsty/mc`); healthcheck
+  и создание приватного bucket `partner-coder` проверены.
 
 ### Security
 
