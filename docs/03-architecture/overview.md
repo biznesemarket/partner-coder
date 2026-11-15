@@ -86,7 +86,7 @@ Git platform → POST /v1/hooks/{provider} → HMAC сырого тела → de
 
 | Окружение | Назначение      | Данные                                                                                                         |
 | --------- | --------------- | -------------------------------------------------------------------------------------------------------------- |
-| local     | разработка      | Docker Compose: PostgreSQL, Mailpit, MinIO; seed                                                               |
+| local     | разработка      | Docker Compose: PostgreSQL, Mailpit, S3 (SILO); seed                                                           |
 | staging   | приемка и демо  | отдельная БД, синтетический tenant; конфигурация — `deploy/environments/staging` (деплой ждет выбора хостинга) |
 | prod      | пилот и продажи | managed PostgreSQL, 2 API-инстанса, worker, S3, WAF                                                            |
 

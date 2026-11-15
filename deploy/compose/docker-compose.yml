@@ -32,7 +32,8 @@ services:
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
 
   minio:
-    image: minio/minio:latest
+    # Официальные образы MinIO удалены из registry; SILO — поддерживаемый форк.
+    image: pgsty/silo:RELEASE.2026-11-12T00-00-00Z
     container_name: partner-coder-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -51,7 +52,7 @@ services:
       retries: 10
 
   minio-init:
-    image: minio/mc:latest
+    image: pgsty/mc:RELEASE.2026-11-12T00-00-00Z
     depends_on:
       minio:
         condition: service_healthy

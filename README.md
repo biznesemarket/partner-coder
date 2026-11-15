@@ -31,7 +31,7 @@ TypeScript MCP-сервер, PostgreSQL 17 с RLS, Drizzle, Zod, Vitest, Playwri
 
 ```bash
 pnpm install
-docker compose -f deploy/compose/docker-compose.yml up -d   # PostgreSQL, Mailpit, MinIO
+docker compose -f deploy/compose/docker-compose.yml up -d   # PostgreSQL, Mailpit, S3
 pnpm db:migrate    # схема, RLS, триггеры аудита
 pnpm seed          # демо-данные: вендор, клиент, 3 разработчика, 5 дней
 pnpm check         # prettier + eslint + typecheck + тесты (нужен PostgreSQL)
