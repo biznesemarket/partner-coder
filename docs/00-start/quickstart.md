@@ -66,31 +66,40 @@ curl http://localhost:4000/healthz
 
 ## 6. Вход в консоль вендора
 
-Первого вендорского `superadmin` создаёт CLI (пароль и токен не печатаются):
+В PR A ещё нет вендорского веб-кабинета: экран входа появится в PR B вместе с
+консолью. Пока вход проверяется через Mailpit и HTTP-маршруты Better Auth.
+
+`pnpm seed` уже создаёт демо-суперадминистратора, поэтому локальный bootstrap
+запускается с `--force` — без него CLI откажется создавать второго superadmin:
 
 ```bash
-pnpm --filter @partner-coder/api vendor:admin -- --email ops@example.com --name "Ops"
+pnpm --filter @partner-coder/api vendor:admin -- --email ops@example.com --name "Ops" --force
 ```
 
 CLI создаёт пользователя со статусом `invited` и отправляет письмо со ссылкой
-сброса пароля. Если `superadmin` уже есть, без `--force` команда откажется;
-`--force` создаёт нового только для другого email.
+сброса пароля. Пароль и токен не печатаются. `--force` создаёт нового
+superadmin только для другого email; существующего active/suspended/disabled
+пользователя он не сбрасывает.
 
-1. Откройте http://localhost:3001/login и нажмите «Забыли пароль».
-2. Введите email и заберите письмо в Mailpit (http://localhost:8025).
-3. Перейдите по ссылке и установите пароль — учётная запись станет `active`.
-4. При первом входе включите TOTP: отсканируйте QR-код или введите секрет
-   в приложение-аутентификатор.
+1. Запросите ссылку: `POST /api/vendor-auth/request-password-reset` с
+   `{ "email": "ops@example.com", "redirectTo": "http://localhost:3001/reset-password" }`.
+2. Заберите письмо в Mailpit (http://localhost:8025) и возьмите `token` из ссылки.
+3. Установите пароль: `POST /api/vendor-auth/reset-password` с
+   `{ "token": "...", "newPassword": "..." }` — учётная запись станет `active`.
+4. Войдите: `POST /api/vendor-auth/sign-in/email` с email и паролем.
+5. Включите TOTP: `POST /api/vendor-auth/two-factor/enable`, затем подтвердите
+   секрет через `POST /api/vendor-auth/two-factor/verify-totp`.
 
-Демо-вендор из `pnpm seed` создаётся со статусом `invited` без пароля и TOTP,
-поэтому для локального входа используйте CLI выше.
-
-В staging тот же CLI запускается с боевыми переменными окружения (`DATABASE_URL`,
-`VENDOR_DATABASE_URL`, `VENDOR_AUTH_DATABASE_URL`, `SMTP_*`):
+В staging на пустой БД первый superadmin создаётся без `--force` (боевые
+переменные окружения `DATABASE_URL`, `VENDOR_DATABASE_URL`,
+`VENDOR_AUTH_DATABASE_URL`, `SMTP_*`):
 
 ```bash
 pnpm --filter @partner-coder/api vendor:admin -- --email ops@example.com --name "Ops"
 ```
+
+Повторный запуск для того же invited-superadmin идемпотентен и переотправляет
+ссылку.
 
 ## 7. Что читать дальше
 

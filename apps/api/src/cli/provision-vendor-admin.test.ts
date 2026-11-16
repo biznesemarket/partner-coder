@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { getVendorUserByEmail, getVendorUserById, type Database } from "@partner-coder/db";
+import {
+  getVendorUserByEmail,
+  getVendorUserById,
+  vendorUsers,
+  type Database,
+  type VendorRole,
+  type VendorUserStatus,
+} from "@partner-coder/db";
 
 import { createTestDatabase, type TestDatabase } from "../../../../packages/db/test/helpers.js";
 import { MemoryMailer } from "../auth/mailer.js";
@@ -42,6 +49,19 @@ async function hasAudit(pool: TestDatabase["pool"], action: string): Promise<boo
   return result.rowCount === 1;
 }
 
+async function insertVendorUser(input: {
+  readonly email: string;
+  readonly role: VendorRole;
+  readonly status: VendorUserStatus;
+}): Promise<void> {
+  await database.db.insert(vendorUsers).values({
+    email: input.email,
+    name: "Existing",
+    role: input.role,
+    status: input.status,
+  });
+}
+
 beforeEach(async () => {
   database = await createTestDatabase();
   mailer = new MemoryMailer();
@@ -53,7 +73,6 @@ beforeEach(async () => {
     vendorBaseUrl,
   };
 }, 120_000);
-
 afterEach(async () => {
   await database?.drop();
 }, 60_000);
@@ -85,7 +104,42 @@ describe("provisionVendorAdmin", () => {
     ).rejects.toThrow(/superadmin/);
   });
 
-  it("идемпотентен для invited", async () => {
+  it("отклоняет invited-пользователя с ролью не superadmin", async () => {
+    await insertVendorUser({ email: "support@example.com", role: "support", status: "invited" });
+
+    await expect(
+      provisionVendorAdmin(deps, { email: "support@example.com", name: "Support", force: false }),
+    ).rejects.toThrow(/ролью support; повысьте роль через PATCH \/v1\/vendor\/users\/:id/);
+    expect(mailer.vendorPasswordResets).toHaveLength(0);
+  });
+
+  it("отклоняет active-пользователя даже с --force", async () => {
+    await insertVendorUser({ email: "active@example.com", role: "support", status: "active" });
+
+    await expect(
+      provisionVendorAdmin(deps, { email: "active@example.com", name: "Active", force: true }),
+    ).rejects.toThrow(/статусом active; измените статус через PATCH \/v1\/vendor\/users\/:id/);
+    expect(mailer.vendorPasswordResets).toHaveLength(0);
+  });
+
+  it("с --force создаёт второго superadmin при наличии первого", async () => {
+    await provisionVendorAdmin(deps, { email: "first@example.com", name: "First", force: false });
+
+    const second = await provisionVendorAdmin(deps, {
+      email: "second@example.com",
+      name: "Second",
+      force: true,
+    });
+
+    expect(second.invited).toBe(true);
+    const superadmins = await database.pool.query<{ count: string }>(
+      "select count(*)::text as count from vendor_users where role = 'superadmin'",
+    );
+    expect(superadmins.rows[0]?.count).toBe("2");
+    expect(mailer.vendorPasswordResets).toHaveLength(2);
+  });
+
+  it("идемпотентен для invited superadmin", async () => {
     await provisionVendorAdmin(deps, { email: "ops@example.com", name: "Ops", force: false });
 
     const second = await provisionVendorAdmin(deps, {

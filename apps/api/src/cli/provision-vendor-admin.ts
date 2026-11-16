@@ -81,7 +81,12 @@ export async function provisionVendorAdmin(
   if (existing) {
     if (existing.status !== "invited") {
       throw new Error(
-        `Вендор ${email} уже существует со статусом ${existing.status}; используйте явное восстановление доступа`,
+        `Вендор ${email} уже существует со статусом ${existing.status}; измените статус через PATCH /v1/vendor/users/:id`,
+      );
+    }
+    if (existing.role !== "superadmin") {
+      throw new Error(
+        `Пользователь ${email} уже приглашён с ролью ${existing.role}; повысьте роль через PATCH /v1/vendor/users/:id`,
       );
     }
     await sendResetLink(deps, email);
