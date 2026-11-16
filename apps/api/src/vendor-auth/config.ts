@@ -31,8 +31,8 @@ export interface CreateVendorAuthOptions {
   readonly getVendorStatus: (vendorUserId: string) => Promise<VendorUserStatus | null | undefined>;
   /** Статус по email для блокировки входа suspended/disabled. */
   readonly getVendorStatusByEmail: (email: string) => Promise<VendorUserStatus | null | undefined>;
-  /** Отметка входа и активация приглашённого после создания сессии. */
-  readonly onSessionCreated: (vendorUserId: string) => Promise<void>;
+  /** Отметка входа, аудит и активация приглашённого после создания сессии. */
+  readonly onSessionCreated: (vendorUserId: string, ip: string | null) => Promise<void>;
   /** Активация и аудит после успешного сброса пароля. */
   readonly onPasswordReset: (vendorUserId: string) => Promise<void>;
   /** В тестах можно отключить rate limit. */
@@ -87,8 +87,10 @@ export function createVendorAuth(options: CreateVendorAuthOptions) {
             return;
           },
           async after(session) {
+            const rawIp = (session as { ipAddress?: unknown }).ipAddress;
+            const ip = typeof rawIp === "string" && rawIp.length > 0 ? rawIp : null;
             try {
-              await options.onSessionCreated(session.userId);
+              await options.onSessionCreated(session.userId, ip);
             } catch {
               return;
             }
@@ -173,7 +175,11 @@ export function createVendorAuth(options: CreateVendorAuthOptions) {
           return;
         }
         const url = `${vendorBaseURL}/reset-password?token=${encodeURIComponent(token)}`;
-        await options.mailer.sendVendorPasswordReset({ email: user.email, url });
+        await options.mailer.sendVendorPasswordReset({
+          email: user.email,
+          url,
+          ttlMinutes: options.passwordResetTtlMinutes,
+        });
       },
       async onPasswordReset({ user }) {
         await options.onPasswordReset(user.id);

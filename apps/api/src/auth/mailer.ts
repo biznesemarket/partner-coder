@@ -17,6 +17,7 @@ export interface MagicLinkMail {
 export interface VendorPasswordResetMail {
   readonly email: string;
   readonly url: string;
+  readonly ttlMinutes: number;
 }
 
 export interface AuthMailer {
@@ -89,7 +90,7 @@ export class SmtpMailer implements AuthMailer {
       subject: "Доступ к консоли вендора «Партнер кодер»",
       text:
         `Откройте ссылку для сброса пароля: ${mail.url}\n\n` +
-        `Ссылка действует 30 минут. Если вы не запрашивали сброс пароля, ` +
+        `Ссылка действует ${mail.ttlMinutes} минут. Если вы не запрашивали сброс пароля, ` +
         `просто игнорируйте письмо.`,
     });
   }

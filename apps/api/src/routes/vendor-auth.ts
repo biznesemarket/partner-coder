@@ -1,15 +1,22 @@
+import { createHash } from "node:crypto";
+
 import { fromNodeHeaders } from "better-auth/node";
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
+
+import { writeVendorAudit, type VendorAuditEvent } from "@partner-coder/db";
 
 import { EmailRateLimiter, type EmailRateLimitStore } from "../auth/email-rate-limit.js";
 import { ApiError } from "../errors.js";
-import type { VendorAuthRuntime } from "../vendor-auth/runtime.js";
+import { VENDOR_AUDIT_ACTIONS } from "../vendor-auth/audit-actions.js";
+import {
+  resolveVendorIdentity,
+  type VendorAuthRuntime,
+  type VendorIdentity,
+} from "../vendor-auth/runtime.js";
 
 const MOUNT_PATH = "/api/vendor-auth";
 
 const DENIED_PATHS = new Set([
-  "/sign-up",
-  "/sign-up/email",
   "/two-factor/disable",
   "/two-factor/send-otp",
   "/two-factor/verify-otp",
@@ -20,9 +27,25 @@ const DENIED_PATHS = new Set([
   "/sign-in/social",
 ]);
 
-const DENIED_PREFIXES = ["/admin", "/callback"] as const;
+const DENIED_PREFIXES = ["/sign-up", "/admin", "/callback"] as const;
 
 const EMAIL_RATE_LIMITED_PATHS = new Set(["/sign-in/email", "/request-password-reset"]);
+
+const SIGN_IN_PATH = "/sign-in/email";
+const SIGN_OUT_PATH = "/sign-out";
+const CHANGE_PASSWORD_PATH = "/change-password";
+const MFA_VERIFY_TOTP_PATH = "/two-factor/verify-totp";
+const MFA_VERIFY_BACKUP_PATH = "/two-factor/verify-backup-code";
+const MFA_VERIFY_PATHS = new Set([MFA_VERIFY_TOTP_PATH, MFA_VERIFY_BACKUP_PATH]);
+const SESSION_REVOKE_PATHS = new Set(["/revoke-session", "/revoke-other-sessions"]);
+
+/** Перед проксированием нужен актор: пишем его в аудит только после успеха. */
+const IDENTITY_PATHS = new Set([
+  SIGN_OUT_PATH,
+  CHANGE_PASSWORD_PATH,
+  ...SESSION_REVOKE_PATHS,
+  ...MFA_VERIFY_PATHS,
+]);
 
 export interface VendorAuthRouteOptions {
   /** База API; разрешена как Origin наравне с vendorBaseUrl. */
@@ -75,6 +98,115 @@ function normalizedEmail(body: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+function sha256(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+async function auditBestEffort(
+  request: FastifyRequest,
+  runtime: VendorAuthRuntime,
+  event: VendorAuditEvent,
+): Promise<void> {
+  try {
+    await writeVendorAudit(runtime.db, event);
+  } catch (error) {
+    request.log.warn({ err: error, action: event.action }, "vendor_auth_audit_failed");
+  }
+}
+
+/**
+ * Актор для аудита после успешного ответа. Сессия читается до проксирования,
+ * поэтому sign-out/revoke/change-password ещё видят её. Ошибка чтения не
+ * влияет на auth-ответ: аудит остаётся best-effort.
+ */
+async function identityForAudit(
+  request: FastifyRequest,
+  runtime: VendorAuthRuntime,
+): Promise<VendorIdentity | null> {
+  const api = runtime.auth.api as unknown as { getSession?: unknown } | undefined;
+  if (typeof api?.getSession !== "function") {
+    return null;
+  }
+  try {
+    return await resolveVendorIdentity(runtime, request.headers, request.log);
+  } catch (error) {
+    request.log.warn({ err: error }, "vendor_auth_identity_lookup_failed");
+    return null;
+  }
+}
+
+/**
+ * Аудит по результату прокси. Все записи best-effort и не содержат секретов:
+ * неуспешный вход — только sha256(normalizedEmail), второй фактор — path.
+ */
+async function auditResponse(
+  request: FastifyRequest,
+  runtime: VendorAuthRuntime,
+  path: string,
+  status: number,
+  email: string | null,
+  identity: VendorIdentity | null,
+): Promise<void> {
+  if (path === SIGN_IN_PATH && (status === 401 || status === 403) && email) {
+    await auditBestEffort(request, runtime, {
+      actorId: null,
+      action: VENDOR_AUDIT_ACTIONS.signInFailed,
+      entity: "vendor_auth",
+      after: {
+        emailHash: sha256(email),
+        reason: status === 403 ? "inactive" : "invalid_credentials",
+      },
+      ip: request.ip || null,
+    });
+    return;
+  }
+
+  if (MFA_VERIFY_PATHS.has(path) && (status === 401 || status === 429)) {
+    await auditBestEffort(request, runtime, {
+      actorId: null,
+      action: VENDOR_AUDIT_ACTIONS.mfaFailed,
+      entity: "vendor_auth",
+      after: { path, reason: status === 429 ? "locked" : "invalid_totp" },
+      ip: request.ip || null,
+    });
+    return;
+  }
+
+  if (status !== 200 || !identity) {
+    return;
+  }
+
+  if (path === MFA_VERIFY_TOTP_PATH && !identity.twoFactorEnabled) {
+    await auditBestEffort(request, runtime, {
+      actorId: identity.userId,
+      action: VENDOR_AUDIT_ACTIONS.mfaEnabled,
+      entity: "vendor_user",
+      after: { userId: identity.userId, sessionId: identity.sessionId },
+      ip: request.ip || null,
+    });
+    return;
+  }
+
+  const sessionEvent =
+    path === SIGN_OUT_PATH
+      ? VENDOR_AUDIT_ACTIONS.signedOut
+      : path === CHANGE_PASSWORD_PATH
+        ? VENDOR_AUDIT_ACTIONS.passwordChanged
+        : SESSION_REVOKE_PATHS.has(path)
+          ? VENDOR_AUDIT_ACTIONS.sessionRevoked
+          : null;
+  if (!sessionEvent) {
+    return;
+  }
+  await auditBestEffort(request, runtime, {
+    actorId: identity.userId,
+    action: sessionEvent,
+    entity: "vendor_session",
+    after: { userId: identity.userId, sessionId: identity.sessionId, path },
+    ip: request.ip || null,
+  });
+}
+
 export function registerVendorAuthRoutes(
   server: FastifyInstance,
   runtime: VendorAuthRuntime,
@@ -122,6 +254,8 @@ export function registerVendorAuthRoutes(
 
       const headers = fromNodeHeaders(request.headers);
       const body = request.body === undefined ? undefined : JSON.stringify(request.body);
+      const requestEmail = path === SIGN_IN_PATH ? normalizedEmail(request.body) : null;
+      const identity = IDENTITY_PATHS.has(path) ? await identityForAudit(request, runtime) : null;
       const fetchRequest = new Request(url.toString(), {
         method: request.method,
         headers,
@@ -140,6 +274,7 @@ export function registerVendorAuthRoutes(
         reply.header("set-cookie", cookies);
       }
       const text = await response.text();
+      await auditResponse(request, runtime, path, response.status, requestEmail, identity);
       return reply.send(text.length > 0 ? text : null);
     },
   });
