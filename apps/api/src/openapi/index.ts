@@ -19,6 +19,16 @@ import {
   tenantOverviewResponseSchema,
   tenantProjectsResponseSchema,
   tenantSwitchResponseSchema,
+  vendorAuthMeResponseSchema,
+  vendorMfaResetResponseSchema,
+  vendorPasswordResetResponseSchema,
+  vendorStepUpResponseSchema,
+  vendorStepUpSchema,
+  vendorUserCreateSchema,
+  vendorUserListResponseSchema,
+  vendorUserResponseSchema,
+  vendorUserSchema,
+  vendorUserUpdateSchema,
 } from "./schemas.js";
 
 type JsonSchema = Record<string, unknown>;
@@ -61,11 +71,22 @@ function componentSchemas(): Record<string, JsonSchema> {
       TenantMembersResponse: tenantMembersResponseSchema,
       TenantProjectsResponse: tenantProjectsResponseSchema,
       TenantDaysResponse: tenantDaysResponseSchema,
+      VendorUser: vendorUserSchema,
+      VendorUserResponse: vendorUserResponseSchema,
+      VendorUserListResponse: vendorUserListResponseSchema,
+      VendorUserCreate: vendorUserCreateSchema,
+      VendorUserUpdate: vendorUserUpdateSchema,
+      VendorAuthMeResponse: vendorAuthMeResponseSchema,
+      VendorStepUpRequest: vendorStepUpSchema,
+      VendorStepUpResponse: vendorStepUpResponseSchema,
+      VendorPasswordResetResponse: vendorPasswordResetResponseSchema,
+      VendorMfaResetResponse: vendorMfaResetResponseSchema,
     }).map(([name, schema]) => [name, toJsonSchema(schema)]),
   );
 }
 
 const sessionSecurity = [{ sessionCookie: [] }];
+const vendorSessionSecurity = [{ vendorSessionCookie: [] }];
 const anyAuthSecurity = [{ sessionCookie: [] }, { bearerAuth: [] }];
 
 const dayQueryParameters = [
@@ -106,6 +127,7 @@ export function buildOpenApiDocument(options: OpenApiOptions): Record<string, un
       { name: "Invitations", description: "Приглашения и членство" },
       { name: "Devices", description: "Device-токены агентов" },
       { name: "Tenant", description: "Данные рабочего пространства" },
+      { name: "Vendor", description: "Вендорская консоль: доступ и пользователи" },
     ],
     components: {
       schemas: componentSchemas(),
@@ -115,6 +137,12 @@ export function buildOpenApiDocument(options: OpenApiOptions): Record<string, un
           in: "cookie",
           name: "better-auth.session_token",
           description: "Сессия Better Auth, выданная после OTP или magic link",
+        },
+        vendorSessionCookie: {
+          type: "apiKey",
+          in: "cookie",
+          name: "pc-vendor.session_token",
+          description: "Сессия Better Auth вендорской консоли (cookie pc-vendor.session_token)",
         },
         bearerAuth: {
           type: "http",
@@ -381,6 +409,135 @@ export function buildOpenApiDocument(options: OpenApiOptions): Record<string, un
               description: "Дни",
               content: jsonContent(schemaRef("TenantDaysResponse")),
             },
+          },
+        },
+      },
+      "/v1/vendor/auth/me": {
+        get: {
+          tags: ["Vendor"],
+          summary: "Текущий вендор и состояние MFA",
+          security: vendorSessionSecurity,
+          responses: {
+            200: {
+              description: "Профиль вендора",
+              content: jsonContent(schemaRef("VendorAuthMeResponse")),
+            },
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Учётная запись заблокирована"),
+          },
+        },
+      },
+      "/v1/vendor/auth/step-up": {
+        post: {
+          tags: ["Vendor"],
+          summary: "Повторное подтверждение пароля",
+          security: vendorSessionSecurity,
+          requestBody: { required: true, content: jsonContent(schemaRef("VendorStepUpRequest")) },
+          responses: {
+            200: {
+              description: "Step-up активен",
+              content: jsonContent(schemaRef("VendorStepUpResponse")),
+            },
+            400: errorResponse("Неверный пароль"),
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA"),
+            429: errorResponse("Слишком много попыток"),
+          },
+        },
+      },
+      "/v1/vendor/users": {
+        get: {
+          tags: ["Vendor"],
+          summary: "Список вендорских пользователей",
+          security: vendorSessionSecurity,
+          responses: {
+            200: {
+              description: "Пользователи",
+              content: jsonContent(schemaRef("VendorUserListResponse")),
+            },
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA или роль superadmin"),
+          },
+        },
+        post: {
+          tags: ["Vendor"],
+          summary: "Создать или пригласить вендорского пользователя",
+          security: vendorSessionSecurity,
+          requestBody: { required: true, content: jsonContent(schemaRef("VendorUserCreate")) },
+          responses: {
+            201: {
+              description: "Пользователь создан",
+              content: jsonContent(schemaRef("VendorUserResponse")),
+            },
+            200: {
+              description: "Приглашение отправлено повторно",
+              content: jsonContent(schemaRef("VendorUserResponse")),
+            },
+            400: errorResponse("Некорректный запрос или нет подтверждения superadmin"),
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA или роль superadmin"),
+            409: errorResponse("Пользователь уже существует или заблокирован"),
+          },
+        },
+      },
+      "/v1/vendor/users/{id}": {
+        patch: {
+          tags: ["Vendor"],
+          summary: "Изменить роль или статус вендорского пользователя",
+          security: vendorSessionSecurity,
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          requestBody: { required: true, content: jsonContent(schemaRef("VendorUserUpdate")) },
+          responses: {
+            200: {
+              description: "Пользователь обновлён",
+              content: jsonContent(schemaRef("VendorUserResponse")),
+            },
+            400: errorResponse("Некорректный запрос или нет подтверждения superadmin"),
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA или роль superadmin"),
+            404: errorResponse("Пользователь не найден"),
+            409: errorResponse("Нельзя изменить себя"),
+          },
+        },
+      },
+      "/v1/vendor/users/{id}/reset-password": {
+        post: {
+          tags: ["Vendor"],
+          summary: "Отправить ссылку сброса пароля",
+          security: vendorSessionSecurity,
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          responses: {
+            200: {
+              description: "Ссылка отправлена",
+              content: jsonContent(schemaRef("VendorPasswordResetResponse")),
+            },
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA или роль superadmin"),
+            404: errorResponse("Пользователь не найден"),
+            409: errorResponse("Учётная запись заблокирована"),
+          },
+        },
+      },
+      "/v1/vendor/users/{id}/reset-mfa": {
+        post: {
+          tags: ["Vendor"],
+          summary: "Сбросить TOTP, passkeys и сессии пользователя",
+          security: vendorSessionSecurity,
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          responses: {
+            200: {
+              description: "MFA сброшен",
+              content: jsonContent(schemaRef("VendorMfaResetResponse")),
+            },
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA или роль superadmin"),
+            404: errorResponse("Пользователь не найден"),
           },
         },
       },

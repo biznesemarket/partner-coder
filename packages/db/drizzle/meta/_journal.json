@@ -43,6 +43,13 @@
       "when": 1794762179791,
       "tag": "0005_romantic_pretty_boy",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794816140092,
+      "tag": "0006_hard_changeling",
+      "breakpoints": true
     }
   ]
 }

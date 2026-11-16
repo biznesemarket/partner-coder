@@ -18,6 +18,10 @@ export interface TtlCleanupResult {
   readonly activeTenantsCleared: number;
   readonly deviceTokensExpired: number;
   readonly deviceTokensSuspended: number;
+  readonly vendorAuthSessions: number;
+  readonly vendorAuthVerifications: number;
+  readonly vendorAuthRateLimits: number;
+  readonly vendorAuthEmailLimits: number;
   readonly heartbeats: number;
 }
 
@@ -32,6 +36,7 @@ function affected(rowCount: number | null | undefined): number {
  * - просроченные OTP/magic-link проверки и сессии (с запасом на аудит);
  * - сессии suspended/deleted пользователей и активный tenant suspended/archived;
  * - device-токены истекшие или принадлежащие suspended tenant/пользователю;
+ * - просроченные vendor-auth сессии, проверки и окна лимитов;
  * - heartbeat старше retention через отдельную retention-роль.
  */
 export async function runTtlCleanup(
@@ -102,6 +107,29 @@ export async function runTtlCleanup(
        and (u.status in ('suspended', 'deleted') or t.status in ('suspended', 'archived'))
   `);
 
+  // Вендорский контур: TTL только по четырём таблицам, на которые у worker
+  // есть DELETE. TOTP-секреты и passkeys не удаляются по TTL — они живут до
+  // удаления самого вендорского пользователя.
+  const vendorSessions = await db.execute(sql`
+    delete from vendor_auth_sessions
+     where expires_at < now() - make_interval(days => ${options.sessionRetentionDays})
+  `);
+
+  const vendorVerifications = await db.execute(sql`
+    delete from vendor_auth_verifications
+     where expires_at < now() - make_interval(days => ${options.verificationRetentionDays})
+  `);
+
+  const vendorRateLimits = await db.execute(sql`
+    delete from vendor_auth_rate_limits
+     where last_request < floor(extract(epoch from now() - interval '1 day') * 1000)::bigint
+  `);
+
+  const vendorEmailLimits = await db.execute(sql`
+    delete from vendor_auth_email_limits
+     where window_started_at < now() - interval '1 day'
+  `);
+
   const heartbeats = await db.execute(sql`
     select retention_delete_heartbeats(
       now() - make_interval(days => ${options.heartbeatRetentionDays})
@@ -121,6 +149,10 @@ export async function runTtlCleanup(
     activeTenantsCleared: affected(clearedTenants.rowCount),
     deviceTokensExpired: affected(expiredDevices.rowCount),
     deviceTokensSuspended: affected(suspendedDevices.rowCount),
+    vendorAuthSessions: affected(vendorSessions.rowCount),
+    vendorAuthVerifications: affected(vendorVerifications.rowCount),
+    vendorAuthRateLimits: affected(vendorRateLimits.rowCount),
+    vendorAuthEmailLimits: affected(vendorEmailLimits.rowCount),
     heartbeats: deletedHeartbeats,
   };
 }

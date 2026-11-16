@@ -111,6 +111,23 @@ describe("seed демо-данных", () => {
     });
   });
 
+  it("создаёт демо-вендора invited без пароля и TOTP", async () => {
+    const { rows } = await database.pool.query<{
+      status: string;
+      two_factor_enabled: boolean;
+    }>(
+      `select status, mfa_enabled as two_factor_enabled
+         from vendor_users
+        where email = 'vendor@demo.partnercoder.local'`,
+    );
+    expect(rows[0]).toEqual({ status: "invited", two_factor_enabled: false });
+
+    const accounts = await database.pool.query<{ count: string }>(
+      "select count(*)::text as count from vendor_auth_accounts",
+    );
+    expect(accounts.rows[0]?.count).toBe("0");
+  });
+
   it("данные видны через RLS своего tenant и вендорской роли", async () => {
     const { rows } = await database.pool.query<{ tenant_id: string }>(
       "select tenant_id from day_records limit 1",

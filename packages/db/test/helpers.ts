@@ -76,6 +76,11 @@ export function createPoolForDatabase(database: TestDatabase, max = 2): Pool {
   return new Pool({ connectionString: database.url, max });
 }
 
+/** Пул с отдельными учётными данными (роль-ограниченный логин). */
+export function createPoolForUrl(url: string, max = 2): Pool {
+  return new Pool({ connectionString: url, max });
+}
+
 export interface SqlClient {
   query<T extends Record<string, unknown> = Record<string, unknown>>(
     text: string,

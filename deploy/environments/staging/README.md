@@ -17,7 +17,18 @@
 
 Обязательные: `APP_ENV=staging`, `DATABASE_URL`, `AUTH_DATABASE_URL`,
 `AUTH_SECRET` (>= 32 байт), `API_BASE_URL`, `WEB_BASE_URL`,
+`VENDOR_DATABASE_URL`, `VENDOR_AUTH_DATABASE_URL`, `VENDOR_AUTH_SECRET`
+(>= 32 байт, не равен `AUTH_SECRET`), `VENDOR_BASE_URL`,
 `AUTH_TRUSTED_PROXIES`, `SMTP_*`, `S3_*`.
+
+Вендорский контур (ADR-0013): `VENDOR_SESSION_TTL_HOURS=8`,
+`VENDOR_PASSWORD_RESET_TTL_MINUTES=30`, `VENDOR_PASSWORD_MIN_LENGTH=12`
+(допустимые диапазоны 1…24, 5…120, 12…64). `VENDOR_BASE_URL` — origin
+консоли без path/query/fragment: локально `http://localhost:3001`, в staging —
+только `https://` с реальным доменом консоли. Вне local значение обязательно;
+если `API_CORS_ORIGINS` задан явно, он должен включать `VENDOR_BASE_URL`.
+Passkeys и UI-страницы в PR A не включены; вход проверяется через
+SMTP/Mailpit и HTTP, `VENDOR_WEBAUTHN_RP_ID` пока не задаётся.
 
 Rate limit: вне local по умолчанию используется общий PostgreSQL-store;
 `RATE_LIMIT_STORAGE=database` можно задать явно, `memory` — только для
@@ -28,15 +39,39 @@ Rate limit: вне local по умолчанию используется общ
 network). Worker: `WORKER_METRICS_PORT=4100`, cron-переменные
 `DAY_CLOSE_CRON`, `AUDIT_ANCHOR_CRON`, `TTL_CLEANUP_CRON`.
 
+## Секрет вендорского auth
+
+`VENDOR_AUTH_SECRET` (>= 32 байт, не равен `AUTH_SECRET`) шифрует TOTP-секреты
+и backup-коды в `vendor_auth_two_factors` и подписывает вендорские сессии.
+Храните его только в секрет-менеджере и включите в тот же backup/PITR-контур,
+что и БД: без секрета существующие TOTP и backup-коды не читаются.
+
+Ротация — плановая операция: новый секрет делает сохранённые TOTP-секреты
+нерасшифровываемыми, поэтому после смены всем вендорам нужно заново
+зарегистрировать TOTP (старые сессии также станут невалидны). Порядок:
+объявить окно, сменить секрет, раздать reset через вход по паролю, проверить
+`vendor:admin` и `verify_vendor_audit_chain()`.
+
+## Сбой SMTP
+
+Если SMTP недоступен при приглашении, пользователь остаётся в статусе
+`invited`, письмо не уходит, API отвечает ошибкой отправки. Повторный
+`POST /v1/vendor/users` для того же `invited` пользователя или
+`POST /v1/vendor/users/:id/reset-password` переотправляет ссылку. Пароль и
+TOTP при этом не меняются; `vendor.user.invited`/`password_reset_requested`
+пишутся в аудит по факту запроса.
+
 ## Роли БД
 
 1. Провижининг создает `NOLOGIN`-роли `partner_coder_api`,
-   `partner_coder_vendor`, `partner_coder_worker`, `partner_coder_auth`,
+   `partner_coder_vendor`, `partner_coder_vendor_auth`,
+   `partner_coder_worker`, `partner_coder_auth`,
    `partner_coder_retention` и login-роли приложений.
 2. API login состоит только в `partner_coder_api`; auth login — только в
-   `partner_coder_auth`; worker login — в `partner_coder_worker` (BYPASSRLS).
-   Смешение ролей, superuser и чужое членство вне `local` роняют старт API и
-   worker.
+   `partner_coder_auth`; vendor login — только в `partner_coder_vendor`;
+   vendor-auth login — только в `partner_coder_vendor_auth`; worker login —
+   в `partner_coder_worker` (BYPASSRLS). Смешение ролей, superuser и чужое
+   членство вне `local` роняют старт API и worker.
 3. Worker login должен уметь создать/владеть схемой `pgboss` (или схема
    создается миграцией/администратором заранее).
 4. Retention-функция `retention_delete_heartbeats` принадлежит
@@ -44,6 +79,11 @@ network). Worker: `WORKER_METRICS_PORT=4100`, cron-переменные
 5. Миграция `0005` создает `auth_rate_limits` (только auth-роль) и
    `email_rate_limits` (API-роль + worker для очистки); проверить гранты
    после переноса ролей на managed PostgreSQL.
+6. Миграция `0006` создает `partner_coder_vendor_auth`, семь таблиц
+   `vendor_auth_*`, функцию `vendor_audit()` и права worker на TTL-очистку.
+   `partner_coder_vendor` не видит `vendor_auth_*`; API/auth не видят
+   вендорский контур. RLS на вендорских таблицах отсутствует по решению
+   ADR-0013.
 
 ## Порядок выката
 
@@ -59,6 +99,30 @@ pnpm --filter @partner-coder/worker start
 API. При откате — предыдущий образ и совместимая схема; destructive-миграции
 запрещены.
 
+## Bootstrap вендорского суперадминистратора
+
+На пустой staging/prod БД нет ни одного вендора, поэтому первый
+суперадминистратор создаётся ops-инструментом (без UI):
+
+```bash
+pnpm --filter @partner-coder/api vendor:admin -- --email ops@example.com --name "Ops"
+```
+
+CLI использует `VENDOR_DATABASE_URL`/`VENDOR_AUTH_DATABASE_URL`, создаёт
+пользователя в статусе `invited`, отправляет одноразовую ссылку через SMTP и
+пишет `vendor.user.bootstrap_admin` с actor `NULL`. Пароль и токен не
+печатаются. На пустой БД `--force` не нужен; повторный запуск для того же
+`invited` superadmin идемпотентен и переотправляет ссылку. Если superadmin уже
+существует, без `--force` CLI откажется; активного/suspended/disabled
+пользователя `--force` не сбрасывает — статус меняется через
+`PATCH /v1/vendor/users/:id` из консоли/API.
+
+Ссылка ведёт на `/reset-password` консоли, которой в PR A ещё нет. Для smoke
+возьмите `token` из письма в Mailpit/SMTP и вызовите
+`POST /api/vendor-auth/reset-password` с `{ token, newPassword }`; затем
+`POST /api/vendor-auth/sign-in/email`, включите TOTP через
+`/api/vendor-auth/two-factor/enable` и подтвердите `verify-totp`.
+
 ## Smoke
 
 ```bash
@@ -71,6 +135,12 @@ curl -fsS https://staging-api.partnercoder.ru/metrics | head
 Затем: OTP через Mailpit/SMTP → `/v1/auth/me` → `/v1/tenant/overview` →
 `/v1/tenant/projects` → `/v1/tenant/days`; ручной запуск `day-close` и
 `audit-anchor` из pg-boss UI/CLI, проверка метрик worker и Sentry.
+
+Вендорский smoke: `vendor:admin` → reset-токен из письма → сброс пароля →
+вход → TOTP → `GET /v1/vendor/auth/me` (`role=superadmin`,
+`twoFactorEnabled=true`) → `GET /v1/vendor/users`. Suspended-пользователь
+должен получить 403 `VENDOR_INACTIVE` на входе, а `reset-mfa` — удалить TOTP
+и отозвать сессии.
 
 ## Ограничения
 

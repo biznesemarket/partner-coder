@@ -1,20 +1,21 @@
 # Данные: схема, изоляция, аудит
 
-| Поле      | Значение                               |
-| --------- | -------------------------------------- |
-| Код       | ARCH-DATA                              |
-| Версия    | 1.0                                    |
-| Статус    | реализовано в M2.1                     |
-| Связанные | ADR-0002, ADR-0006, ADR-0007, ADR-0009 |
+| Поле      | Значение                                         |
+| --------- | ------------------------------------------------ |
+| Код       | ARCH-DATA                                        |
+| Версия    | 1.1                                              |
+| Статус    | реализовано в M2.1; вендорский auth — M3 PR A    |
+| Связанные | ADR-0002, ADR-0006, ADR-0007, ADR-0009, ADR-0013 |
 
 ## 1. Контуры
 
-| Контур     | Таблицы                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Вендор     | `vendor_users`, `customers`, `plans`, `contracts`, `subscriptions`, `invoices`, `payments`, `provisioning_packages`, `onboarding_sessions`, `vendor_audit_events`, `vendor_audit_anchors`                                                                                                                                                                                                                                                                                                              |
-| Tenant     | `users`, `auth_sessions`, `tenants`, `memberships`, `projects`, `project_members`, `policies`, `rate_versions`, `valuation_versions`, `work_sessions`, `heartbeats`, `intervals`, `day_records`, `day_adjustments`, `day_flags`, `disputes`, `payout_batches`, `payout_items`, `devices`, `device_tokens`, `invitations`, `git_integrations`, `connector_events`, `repo_facts`, `notifications`, `digest_runs`, `monthly_snapshots`, `tenant_audit_events`, `tenant_audit_anchors`, `idempotency_keys` |
-| Auth       | `auth_accounts`, `auth_verifications`, `auth_two_factors`, `auth_passkeys`, `auth_rate_limits` (глобальные, доступ только у `partner_coder_auth`)                                                                                                                                                                                                                                                                                                                                                      |
-| Rate limit | `email_rate_limits` (глобальная, доступ у `partner_coder_api` и worker)                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Контур      | Таблицы                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Вендор      | `vendor_users`, `customers`, `plans`, `contracts`, `subscriptions`, `invoices`, `payments`, `provisioning_packages`, `onboarding_sessions`, `vendor_audit_events`, `vendor_audit_anchors`                                                                                                                                                                                                                                                                                                              |
+| Вендор-auth | `vendor_auth_accounts`, `vendor_auth_sessions`, `vendor_auth_verifications`, `vendor_auth_two_factors`, `vendor_auth_passkeys`, `vendor_auth_rate_limits`, `vendor_auth_email_limits` (доступ только у `partner_coder_vendor_auth`)                                                                                                                                                                                                                                                                    |
+| Tenant      | `users`, `auth_sessions`, `tenants`, `memberships`, `projects`, `project_members`, `policies`, `rate_versions`, `valuation_versions`, `work_sessions`, `heartbeats`, `intervals`, `day_records`, `day_adjustments`, `day_flags`, `disputes`, `payout_batches`, `payout_items`, `devices`, `device_tokens`, `invitations`, `git_integrations`, `connector_events`, `repo_facts`, `notifications`, `digest_runs`, `monthly_snapshots`, `tenant_audit_events`, `tenant_audit_anchors`, `idempotency_keys` |
+| Auth        | `auth_accounts`, `auth_verifications`, `auth_two_factors`, `auth_passkeys`, `auth_rate_limits` (глобальные, доступ только у `partner_coder_auth`)                                                                                                                                                                                                                                                                                                                                                      |
+| Rate limit  | `email_rate_limits` (глобальная, доступ у `partner_coder_api` и worker)                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 Схема и миграции — `packages/db/src/schema` и `packages/db/drizzle`.
 Домен не зависит от БД; `packages/db` импортирует `@partner-coder/domain`.
@@ -77,6 +78,43 @@
 - Тесты: чтение/запись/вставка чужого tenant по каждому ресурсу, составные
   FK, каталог RLS/грантов, auth-функции.
 
+### 3.1 Вендорский auth-контур (M3 PR A)
+
+- `vendor_users` — единственная точка идентичности вендора: роли
+  `superadmin`, `finance`, `support`, `readonly`, статусы `invited`, `active`,
+  `suspended`, `disabled`. `email` уникален по `lower(email)`.
+- Better Auth маппится на `vendor_users` и семь `vendor_auth_*` таблиц.
+  `vendor_users.mfa_enabled` — колонка плагина `twoFactor`; в Drizzle она
+  называется `twoFactorEnabled`, DDL не меняется.
+- Вендорские таблицы **без `tenant_id` и без RLS**: контур глобальный,
+  изоляция — гранты и раздельные логины. `partner_coder_vendor_auth` видит
+  `vendor_users` и `vendor_auth_*`; `partner_coder_vendor` видит вендорские
+  данные, но не секреты; API/auth не видят вендорский контур; worker получает
+  `SELECT, DELETE` только на TTL-таблицы.
+- `partner_coder_vendor_auth` создаётся миграцией `0006` как `NOLOGIN`-роль.
+  Логины `VENDOR_DATABASE_URL`/`VENDOR_AUTH_DATABASE_URL` провижинятся
+  отдельно; вне local API проверяет разделение ролей при старте.
+- Аудит пишется через `SECURITY DEFINER` функцию `vendor_audit(...)`:
+  `REVOKE EXECUTE FROM PUBLIC`, `GRANT EXECUTE` вендорским ролям, функция
+  только вставляет событие и возвращает `uuid`. Прямой `INSERT` в
+  `vendor_audit_events` у `partner_coder_vendor` остаётся, auth-роль получает
+  только функцию.
+- `vendor_auth_passkeys` создана заранее, но плагин passkey и UI в PR A не
+  подключены (PR B). Сброс MFA удаляет и TOTP, и passkey-строки.
+- Reset-токен вендора Better Auth 1.7.25 хранит как
+  `vendor_auth_verifications.identifier = reset-password:<raw token>`:
+  TTL 30 минут, одна активация, без хеширования. Строку видит только
+  `partner_coder_vendor_auth`; tenant magic-link/invitation токены остаются
+  хешированными. Это остаточный риск, зафиксированный в threat model.
+- Аудит вендорского контура дополнен событиями `vendor.auth.sign_in_succeeded`,
+  `sign_in_failed` (sha256 email), `mfa_failed`, `signed_out`,
+  `password_changed`, `session_revoked` и `vendor.user.mfa_enabled`.
+- TTL: worker удаляет просроченные `vendor_auth_sessions`,
+  `vendor_auth_verifications`, окна `vendor_auth_rate_limits` и
+  `vendor_auth_email_limits`. TOTP-секреты и passkeys по TTL не удаляются.
+- `verify_vendor_audit_chain()` проверяет целостность вендорской хеш-цепочки;
+  `verify_tenant_audit_chain(uuid)` остаётся для tenant-контура.
+
 ## 4. Append-only и аудит
 
 - Append-only таблицы: `heartbeats`, `intervals`, `day_records`,
@@ -120,6 +158,10 @@ pnpm test:db
 - Миграция `0005` добавляет `auth_rate_limits` и `email_rate_limits` с
   раздельными грантами и RLS (ADR-0012); worker получил DELETE для чистки
   просроченных окон.
+- Миграция `0006` добавляет `vendor_users.email_verified/image`, семь
+  `vendor_auth_*` таблиц, роль `partner_coder_vendor_auth`, гранты,
+  `vendor_audit()` и `EXECUTE` для вендорских ролей, права worker на TTL;
+  RLS на вендорских таблицах не включается (ADR-0013).
 - CI поднимает PostgreSQL 17, применяет миграции на чистой БД, проверяет
   журнал и запускает интеграционные тесты.
 - Интеграционные тесты создают отдельные БД, поэтому `vitest` запускает

@@ -13,6 +13,7 @@ export interface EmailRateLimiterOptions {
 }
 
 export interface DatabaseEmailRateLimiterOptions extends EmailRateLimiterOptions {
+  readonly table?: "email_rate_limits" | "vendor_auth_email_limits";
   readonly fallback?: EmailRateLimitStore;
   readonly onError?: (error: unknown) => void;
 }
@@ -79,6 +80,7 @@ export class EmailRateLimiter implements EmailRateLimitStore {
 export class DatabaseEmailRateLimiter implements EmailRateLimitStore {
   private readonly limit: number;
   private readonly windowMs: number;
+  private readonly table: "email_rate_limits" | "vendor_auth_email_limits";
   private readonly fallback: EmailRateLimitStore;
   private readonly onError: ((error: unknown) => void) | undefined;
 
@@ -88,6 +90,7 @@ export class DatabaseEmailRateLimiter implements EmailRateLimitStore {
   ) {
     this.limit = options.limit ?? 5;
     this.windowMs = options.windowMs ?? 60_000;
+    this.table = options.table ?? "email_rate_limits";
     this.fallback = options.fallback ?? new EmailRateLimiter(options);
     this.onError = options.onError;
   }
@@ -98,20 +101,21 @@ export class DatabaseEmailRateLimiter implements EmailRateLimitStore {
       return true;
     }
     const windowSeconds = this.windowMs / 1000;
+    const table = sql.raw(this.table);
     try {
       const result = await this.db.execute(sql`
-        insert into email_rate_limits (key, count, window_started_at)
+        insert into ${table} (key, count, window_started_at)
         values (${key}, 1, now())
         on conflict (key) do update
            set count = case
-                 when email_rate_limits.window_started_at <= now() - make_interval(secs => ${windowSeconds}::double precision)
+                 when ${table}.window_started_at <= now() - make_interval(secs => ${windowSeconds}::double precision)
                    then 1
-                 else email_rate_limits.count + 1
+                 else ${table}.count + 1
                end,
                window_started_at = case
-                 when email_rate_limits.window_started_at <= now() - make_interval(secs => ${windowSeconds}::double precision)
+                 when ${table}.window_started_at <= now() - make_interval(secs => ${windowSeconds}::double precision)
                    then now()
-                 else email_rate_limits.window_started_at
+                 else ${table}.window_started_at
                end
         returning count
       `);

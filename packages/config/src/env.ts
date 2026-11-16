@@ -14,6 +14,16 @@ const optionalString = z
   .optional()
   .transform((value) => (value === "" ? undefined : value));
 
+/** Origin без path/query/fragment: используется как доверенный источник. */
+const originUrl = z
+  .string()
+  .trim()
+  .url("Укажите абсолютный URL origin")
+  .refine((value) => {
+    const url = new URL(value);
+    return url.pathname === "/" && url.search === "" && url.hash === "";
+  }, "URL должен содержать только origin без path, query и fragment");
+
 export const envSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -27,7 +37,7 @@ export const envSchema = z
     API_PORT: z.coerce.number().int().min(1).max(65_535).default(4000),
     API_BASE_URL: z.string().url(),
     WEB_BASE_URL: z.string().url(),
-    VENDOR_BASE_URL: z.string().url().default("http://localhost:3001"),
+    VENDOR_BASE_URL: optionalString.pipe(originUrl.optional()),
 
     AUTH_SECRET: z.string().min(32, "AUTH_SECRET: минимум 32 символа"),
     /** Доверенные заголовки IP через запятую; пусто — дефолт Better Auth. */
@@ -41,6 +51,15 @@ export const envSchema = z
      * Явно не задано: local — memory, staging/prod — общий database.
      */
     RATE_LIMIT_STORAGE: optionalString.pipe(z.enum(["memory", "database"]).optional()),
+
+    // Вендорский контур аутентификации: отдельные БД и секрет, локально
+    // допустим fallback на DATABASE_URL/AUTH_SECRET.
+    VENDOR_DATABASE_URL: optionalString,
+    VENDOR_AUTH_DATABASE_URL: optionalString,
+    VENDOR_AUTH_SECRET: optionalString.pipe(z.string().min(32).optional()),
+    VENDOR_SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(24).default(8),
+    VENDOR_PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().min(5).max(120).default(30),
+    VENDOR_PASSWORD_MIN_LENGTH: z.coerce.number().int().min(12).max(64).default(12),
 
     S3_ENDPOINT: z.string().url(),
     S3_REGION: z.string().min(1).default("ru-central-1"),
@@ -107,6 +126,60 @@ export const envSchema = z
         message: "AUTH_SECRET не должен совпадать с примером вне local",
       });
     }
+    if (value.APP_ENV !== "local" && !value.VENDOR_DATABASE_URL) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["VENDOR_DATABASE_URL"],
+        message:
+          "VENDOR_DATABASE_URL обязателен вне local: вендорский контур ходит под partner_coder_vendor",
+      });
+    }
+    if (value.APP_ENV !== "local" && !value.VENDOR_AUTH_DATABASE_URL) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["VENDOR_AUTH_DATABASE_URL"],
+        message:
+          "VENDOR_AUTH_DATABASE_URL обязателен вне local: Better Auth вендоров ходит под partner_coder_vendor_auth",
+      });
+    }
+    if (value.APP_ENV !== "local" && !value.VENDOR_BASE_URL) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["VENDOR_BASE_URL"],
+        message:
+          "VENDOR_BASE_URL обязателен вне local: origin вендорской консоли (https, без path/query/fragment)",
+      });
+    }
+    if (
+      value.APP_ENV !== "local" &&
+      value.VENDOR_BASE_URL !== undefined &&
+      !value.VENDOR_BASE_URL.startsWith("https://")
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["VENDOR_BASE_URL"],
+        message: "VENDOR_BASE_URL вне local должен использовать https",
+      });
+    }
+    if (value.APP_ENV !== "local" && !value.VENDOR_AUTH_SECRET) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["VENDOR_AUTH_SECRET"],
+        message:
+          "VENDOR_AUTH_SECRET обязателен вне local: локальный fallback на AUTH_SECRET запрещён",
+      });
+    }
+    if (
+      value.APP_ENV !== "local" &&
+      value.VENDOR_AUTH_SECRET !== undefined &&
+      value.VENDOR_AUTH_SECRET === value.AUTH_SECRET
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["VENDOR_AUTH_SECRET"],
+        message: "VENDOR_AUTH_SECRET не должен совпадать с AUTH_SECRET вне local",
+      });
+    }
   });
 
 export type Env = z.infer<typeof envSchema>;
@@ -134,6 +207,22 @@ export function parseEnv(source: Record<string, string | undefined> = process.en
     );
   }
   return result.data;
+}
+
+/**
+ * Origin вендорской консоли. Локально допустим дефолт; вне local значение
+ * обязательно и уже проверено `parseEnv` (https, только origin).
+ */
+export function resolveVendorBaseUrl(
+  env: Pick<Env, "APP_ENV"> & { readonly VENDOR_BASE_URL?: string | undefined },
+): string {
+  if (env.VENDOR_BASE_URL) {
+    return env.VENDOR_BASE_URL;
+  }
+  if (env.APP_ENV === "local") {
+    return "http://localhost:3001";
+  }
+  throw new Error("VENDOR_BASE_URL обязателен вне local");
 }
 
 /**

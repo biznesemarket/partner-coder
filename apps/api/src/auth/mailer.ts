@@ -14,15 +14,23 @@ export interface MagicLinkMail {
   readonly token: string;
 }
 
+export interface VendorPasswordResetMail {
+  readonly email: string;
+  readonly url: string;
+  readonly ttlMinutes: number;
+}
+
 export interface AuthMailer {
   sendOtp(mail: OtpMail): Promise<void>;
   sendMagicLink(mail: MagicLinkMail): Promise<void>;
+  sendVendorPasswordReset(mail: VendorPasswordResetMail): Promise<void>;
 }
 
 /** Тестовая почта: сохраняет письма в памяти, ничего не отправляет. */
 export class MemoryMailer implements AuthMailer {
   readonly otps: OtpMail[] = [];
   readonly magicLinks: MagicLinkMail[] = [];
+  readonly vendorPasswordResets: VendorPasswordResetMail[] = [];
 
   async sendOtp(mail: OtpMail): Promise<void> {
     this.otps.push(mail);
@@ -30,6 +38,10 @@ export class MemoryMailer implements AuthMailer {
 
   async sendMagicLink(mail: MagicLinkMail): Promise<void> {
     this.magicLinks.push(mail);
+  }
+
+  async sendVendorPasswordReset(mail: VendorPasswordResetMail): Promise<void> {
+    this.vendorPasswordResets.push(mail);
   }
 }
 
@@ -68,6 +80,18 @@ export class SmtpMailer implements AuthMailer {
         `Откройте ссылку для входа: ${mail.url}\n\n` +
         `Ссылка одноразовая и действует ограниченное время. ` +
         `Если вы не запрашивали вход, просто игнорируйте письмо.`,
+    });
+  }
+
+  async sendVendorPasswordReset(mail: VendorPasswordResetMail): Promise<void> {
+    await this.transporter.sendMail({
+      from: this.env.SMTP_FROM,
+      to: mail.email,
+      subject: "Доступ к консоли вендора «Партнер кодер»",
+      text:
+        `Откройте ссылку для сброса пароля: ${mail.url}\n\n` +
+        `Ссылка действует ${mail.ttlMinutes} минут. Если вы не запрашивали сброс пароля, ` +
+        `просто игнорируйте письмо.`,
     });
   }
 }

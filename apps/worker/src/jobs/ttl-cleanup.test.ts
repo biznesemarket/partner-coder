@@ -17,6 +17,7 @@ describe("TTL-очистка и отзыв при suspension", () => {
   let db: Database;
   let tenantA: TenantFixture;
   let tenantB: TenantFixture;
+  let vendorUserId: string;
   let expiredVerification: string;
   let expiredIdempotency: string;
   let expiredSession: string;
@@ -30,6 +31,7 @@ describe("TTL-очистка и отзыв при suspension", () => {
     testDb = await createTestDatabase();
     db = createDatabase(testDb.pool);
     const vendor = await seedVendorBase(testDb.pool);
+    vendorUserId = vendor.vendorUserId;
     tenantA = await seedTenant(testDb.pool, vendor, "a");
     tenantB = await seedTenant(testDb.pool, vendor, "b");
 
@@ -202,5 +204,90 @@ describe("TTL-очистка и отзыв при suspension", () => {
       suspendedUserSession,
     ]);
     expect(session.rowCount).toBe(0);
+  });
+
+  it("чистит просроченные vendor-auth сессии, проверки и окна", async () => {
+    const expiredVendorSession = randomUUID();
+    const freshVendorSession = randomUUID();
+    const expiredVendorVerification = `vendor-expired-${randomUUID()}`;
+    const freshVendorVerification = `vendor-fresh-${randomUUID()}`;
+    const twoFactorId = randomUUID();
+    const passkeyId = randomUUID();
+
+    await testDb.pool.query(
+      `insert into vendor_auth_sessions (id, token, user_id, expires_at)
+       values ($1, $2, $3, now() - interval '30 days'),
+              ($4, $5, $3, now() + interval '1 day')`,
+      [
+        expiredVendorSession,
+        `expired-${expiredVendorSession}`,
+        vendorUserId,
+        freshVendorSession,
+        `fresh-${freshVendorSession}`,
+      ],
+    );
+    await testDb.pool.query(
+      `insert into vendor_auth_verifications (id, identifier, value, expires_at)
+       values ($1, 'otp:vendor-expired@example.com', 'hash', now() - interval '5 days'),
+              ($2, 'otp:vendor-fresh@example.com', 'hash', now() + interval '1 day')`,
+      [expiredVendorVerification, freshVendorVerification],
+    );
+    await testDb.pool.query(
+      `insert into vendor_auth_rate_limits (key, count, last_request)
+       values ('vendor-old-ip', 1, $1), ('vendor-fresh-ip', 1, $2)`,
+      [Date.now() - 2 * 86_400_000, Date.now()],
+    );
+    await testDb.pool.query(
+      `insert into vendor_auth_email_limits (key, count, window_started_at)
+       values ('vendor-old@example.com', 1, now() - interval '2 days'),
+              ('vendor-fresh@example.com', 1, now())`,
+    );
+    await testDb.pool.query(
+      `insert into vendor_auth_two_factors (id, secret, backup_codes, user_id)
+       values ($1, 'secret', 'codes', $2)`,
+      [twoFactorId, vendorUserId],
+    );
+    await testDb.pool.query(
+      `insert into vendor_auth_passkeys (id, public_key, user_id, credential_id, device_type)
+       values ($1, 'public-key', $2, $3, 'singleDevice')`,
+      [passkeyId, vendorUserId, `credential-${passkeyId}`],
+    );
+
+    const result = await runTtlCleanup(db, {
+      sessionRetentionDays: 7,
+      verificationRetentionDays: 1,
+      heartbeatRetentionDays: 90,
+    });
+
+    expect(result.vendorAuthSessions).toBe(1);
+    expect(result.vendorAuthVerifications).toBe(1);
+    expect(result.vendorAuthRateLimits).toBe(1);
+    expect(result.vendorAuthEmailLimits).toBe(1);
+
+    const sessions = await testDb.pool.query<{ id: string }>(
+      "select id from vendor_auth_sessions order by id",
+    );
+    expect(sessions.rows.map((row) => row.id)).toEqual([freshVendorSession]);
+
+    const verifications = await testDb.pool.query<{ id: string }>(
+      "select id from vendor_auth_verifications order by id",
+    );
+    expect(verifications.rows.map((row) => row.id)).toEqual([freshVendorVerification]);
+
+    const rateLimits = await testDb.pool.query<{ key: string }>(
+      "select key from vendor_auth_rate_limits order by key",
+    );
+    expect(rateLimits.rows.map((row) => row.key)).toEqual(["vendor-fresh-ip"]);
+
+    const emailLimits = await testDb.pool.query<{ key: string }>(
+      "select key from vendor_auth_email_limits order by key",
+    );
+    expect(emailLimits.rows.map((row) => row.key)).toEqual(["vendor-fresh@example.com"]);
+
+    const twoFactors = await testDb.pool.query("select 1 from vendor_auth_two_factors");
+    expect(twoFactors.rowCount).toBe(1);
+
+    const passkeys = await testDb.pool.query("select 1 from vendor_auth_passkeys");
+    expect(passkeys.rowCount).toBe(1);
   });
 });
