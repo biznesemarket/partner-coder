@@ -19,22 +19,24 @@ function fakeAuth(): VendorAuth {
   return { api: { getSession: async () => null } } as unknown as VendorAuth;
 }
 
-function createRuntime(): VendorAuthRuntime {
+function createRuntime(vendorBaseUrlOverride: string = vendorBaseUrl): VendorAuthRuntime {
   return {
     auth: fakeAuth(),
     db: {} as Database,
     authDb: {} as Database,
-    vendorBaseUrl,
+    vendorBaseUrl: vendorBaseUrlOverride,
     stepUpMinutes: 5,
   };
 }
 
 function createApp(
-  options: { readonly withVendorRuntime?: boolean } = {},
+  options: { readonly withVendorRuntime?: boolean; readonly vendorBaseUrl?: string } = {},
 ): ReturnType<typeof buildServer> {
   const server = buildServer({
     apiBaseUrl,
-    ...(options.withVendorRuntime === true ? { vendorRuntime: createRuntime() } : {}),
+    ...(options.withVendorRuntime === true
+      ? { vendorRuntime: createRuntime(options.vendorBaseUrl) }
+      : {}),
   });
   openApps.push(server);
   return server;
@@ -87,6 +89,27 @@ describe("регистрация вендорских маршрутов", () =>
       });
       expect(response.statusCode).toBe(401);
     }
+  });
+
+  it("принимает консольный Origin при vendorBaseUrl с завершающим слэшем", async () => {
+    const app = createApp({ withVendorRuntime: true, vendorBaseUrl: `${vendorBaseUrl}/` });
+
+    const allowed = await app.inject({
+      method: "POST",
+      url: "/v1/vendor/users",
+      headers: { origin: vendorBaseUrl },
+      payload: {},
+    });
+    expect(allowed.statusCode).toBe(401);
+
+    const denied = await app.inject({
+      method: "POST",
+      url: "/v1/vendor/users",
+      headers: { origin: "https://evil.example" },
+      payload: {},
+    });
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json()).toMatchObject({ error: { code: "vendor_origin_denied" } });
   });
 
   it("не применяет Origin-guard к безопасным методам", async () => {

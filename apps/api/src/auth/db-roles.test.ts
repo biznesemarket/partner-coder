@@ -88,6 +88,15 @@ describe("проверка разделения ролей БД", () => {
     }
   });
 
+  it("vendor_auth-логин не допустим для api и auth", () => {
+    expect(
+      roleSeparationErrors("api", facts({ apiMember: true, vendorAuthMember: true })),
+    ).toHaveLength(1);
+    expect(
+      roleSeparationErrors("auth", facts({ authMember: true, vendorAuthMember: true })),
+    ).toHaveLength(1);
+  });
+
   it("требует нужную роль", () => {
     expect(roleSeparationErrors("api", facts()).join("\n")).toMatch(/partner_coder_api/);
     expect(roleSeparationErrors("auth", facts()).join("\n")).toMatch(/partner_coder_auth/);

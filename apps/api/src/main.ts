@@ -126,13 +126,13 @@ const vendorAuth = createVendorAuth({
     }
   },
   onPasswordReset: async (vendorUserId) => {
-    await activateAfterPasswordReset(vendorDb, vendorUserId);
+    const user = await activateAfterPasswordReset(vendorDb, vendorUserId);
     try {
       await writeVendorAudit(vendorDb, {
         actorId: null,
         action: "vendor.auth.password_reset_completed",
         entity: "vendor_user",
-        after: { userId: vendorUserId },
+        after: { userId: vendorUserId, status: user.status },
         ip: null,
       });
     } catch (error) {
