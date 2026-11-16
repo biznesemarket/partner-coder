@@ -2,11 +2,14 @@ import { randomUUID } from "node:crypto";
 
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware } from "better-auth/api";
+import { twoFactor } from "better-auth/plugins";
 
 import {
   vendorAuthAccounts,
   vendorAuthRateLimits,
   vendorAuthSessions,
+  vendorAuthTwoFactors,
   vendorAuthVerifications,
   vendorUsers,
   type Database,
@@ -26,6 +29,10 @@ export interface CreateVendorAuthOptions {
   readonly mailer: AuthMailer;
   /** Статус вендорского пользователя; неизвестный пользователь не получает письмо. */
   readonly getVendorStatus: (vendorUserId: string) => Promise<VendorUserStatus | null | undefined>;
+  /** Статус по email для блокировки входа suspended/disabled. */
+  readonly getVendorStatusByEmail: (email: string) => Promise<VendorUserStatus | null | undefined>;
+  /** Отметка входа и активация приглашённого после создания сессии. */
+  readonly onSessionCreated: (vendorUserId: string) => Promise<void>;
   /** Активация и аудит после успешного сброса пароля. */
   readonly onPasswordReset: (vendorUserId: string) => Promise<void>;
   /** В тестах можно отключить rate limit. */
@@ -39,8 +46,8 @@ export interface CreateVendorAuthOptions {
 }
 
 /**
- * Отдельный инстанс Better Auth вендорской консоли: email/password и сброс
- * пароля. TOTP и блокировка сессий suspended/disabled добавляются в Task 7.
+ * Отдельный инстанс Better Auth вендорской консоли: email/password, сброс
+ * пароля, TOTP и блокировка сессий suspended/disabled.
  */
 export function createVendorAuth(options: CreateVendorAuthOptions) {
   const vendorBaseURL = options.vendorBaseURL.replace(/\/+$/, "");
@@ -58,9 +65,55 @@ export function createVendorAuth(options: CreateVendorAuthOptions) {
         session: vendorAuthSessions,
         account: vendorAuthAccounts,
         verification: vendorAuthVerifications,
+        twoFactor: vendorAuthTwoFactors,
         ...(options.rateLimitStorage === "database" ? { rateLimit: vendorAuthRateLimits } : {}),
       },
     }),
+    plugins: [
+      twoFactor({
+        issuer: "Партнер кодер (вендор)",
+        backupCodeOptions: { amount: 10, storeBackupCodes: "encrypted" },
+        accountLockout: { maxFailedAttempts: 5 },
+      }),
+    ],
+    databaseHooks: {
+      session: {
+        create: {
+          async before(session) {
+            const status = await options.getVendorStatus(session.userId);
+            if (status === "suspended" || status === "disabled") {
+              return false;
+            }
+            return;
+          },
+          async after(session) {
+            try {
+              await options.onSessionCreated(session.userId);
+            } catch {
+              return;
+            }
+          },
+        },
+      },
+    },
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== "/sign-in/email") {
+          return;
+        }
+        const body = ctx.body as { email?: unknown } | undefined;
+        if (typeof body?.email !== "string") {
+          return;
+        }
+        const status = await options.getVendorStatusByEmail(body.email);
+        if (status === "suspended" || status === "disabled") {
+          throw new APIError("FORBIDDEN", {
+            message: "Вендорская учётная запись заблокирована",
+            code: "VENDOR_INACTIVE",
+          });
+        }
+      }),
+    },
     advanced: {
       database: {
         generateId: () => randomUUID(),
