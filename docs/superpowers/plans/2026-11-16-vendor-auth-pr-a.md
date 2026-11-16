@@ -172,6 +172,7 @@ git commit -m "feat(config): add vendor auth environment"
 **Files:**
 
 - Create: `packages/db/src/schema/vendor-auth.ts`
+- Create (generated): `packages/db/drizzle/0006_*.sql`, `packages/db/drizzle/meta/*`
 - Modify: `packages/db/src/schema/vendor.ts:49-66` (колонки `email_verified`, `image`; `mfaEnabled` → `twoFactorEnabled`)
 - Modify: `packages/db/src/schema/index.ts`
 - Modify: `tools/seed/src/seed.ts:123-133`
@@ -248,10 +249,21 @@ Expected: FAIL — таблиц и поля нет.
 (колонка остаётся `mfa_enabled`). Обновить seed/фикстуры/все ссылки.
 В `schema/index.ts` добавить `export * from "./vendor-auth.js";`.
 
-- [ ] **Step 4: Прогнать тесты**
+Сгенерировать миграцию `0006`:
+
+```bash
+pnpm --filter @partner-coder/db db:generate
+```
+
+Ожидается: `packages/db/drizzle/0006_*.sql` создаёт таблицы и колонки
+`vendor_users`; роль/гранты/функция добавляются в Task 3.
+
+- [ ] **Step 4: Прогнать тесты и drift-check**
 
 Run: `pnpm vitest run packages/db/test/vendor-auth-schema.test.ts packages/db/test/schema.test.ts tools/seed/test/seed.test.ts`
 Expected: PASS.
+Run: `pnpm db:check`
+Expected: drift не найден.
 
 - [ ] **Step 5: Коммит**
 
@@ -266,18 +278,19 @@ git commit -m "feat(db): add vendor auth schema"
 
 **Files:**
 
-- Create: `packages/db/drizzle/0006_*.sql`, `packages/db/drizzle/meta/*` (генерируется)
+- Modify: `packages/db/drizzle/0006_*.sql` (сгенерирован в Task 2)
 - Test: `packages/db/test/vendor-auth-roles.test.ts`
 
 **Interfaces:**
 
-- Consumes: таблицы Task 2, `createTestDatabase`, `asRole`, `VENDOR_ROLE`.
+- Consumes: таблицы и миграция Task 2, `createTestDatabase`, `asRole`, `VENDOR_ROLE`.
 - Produces: роль `partner_coder_vendor_auth`, гранты, `vendor_audit(...)`.
 
-- [ ] **Step 1: Сгенерировать миграцию**
+- [ ] **Step 1: Проверить сгенерированную миграцию**
 
-Run: `pnpm --filter @partner-coder/db db:generate`
-Ожидается: новый файл `0006_*.sql` с таблицами и колонками `vendor_users`.
+Открыть `packages/db/drizzle/0006_*.sql`, убедиться, что она создаёт семь
+таблиц `vendor_auth_*`, добавляет `vendor_users.email_verified`/`image`.
+Новые schema-изменения здесь не генерировать.
 
 - [ ] **Step 2: Дописать роль, гранты и функцию**
 
