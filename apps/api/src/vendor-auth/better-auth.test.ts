@@ -34,7 +34,7 @@ afterAll(async () => {
   await database?.drop();
 }, 60_000);
 
-function buildAuth() {
+function buildAuth(options: { onSessionCreated?: (vendorUserId: string) => Promise<void> } = {}) {
   return createVendorAuth({
     db: database.db,
     secret: authSecret,
@@ -49,9 +49,11 @@ function buildAuth() {
       (await getVendorUserById(database.db, vendorUserId))?.status ?? null,
     getVendorStatusByEmail: async (email) =>
       (await getVendorUserByEmail(database.db, email))?.status ?? null,
-    onSessionCreated: async (vendorUserId) => {
-      await markVendorLogin(database.db, vendorUserId);
-    },
+    onSessionCreated:
+      options.onSessionCreated ??
+      (async (vendorUserId) => {
+        await markVendorLogin(database.db, vendorUserId);
+      }),
     onPasswordReset: async (vendorUserId) => {
       await activateAfterPasswordReset(database.db, vendorUserId);
       await writeVendorAudit(database.db, {
@@ -156,7 +158,7 @@ function totpSecretFromUri(uri: string): string {
 async function enableTotp(
   auth: ReturnType<typeof buildAuth>,
   email: string,
-): Promise<{ secret: string; backupCodes: string[] }> {
+): Promise<{ secret: string; backupCodes: string[]; totpURI: string }> {
   const signIn = await signInThroughHandler(auth, email);
   expect(signIn.status).toBe(200);
   expect(signIn.body.twoFactorRedirect).toBeUndefined();
@@ -179,7 +181,7 @@ async function enableTotp(
   expect(verified.user.id).toBeTruthy();
   expect((await getVendorUserById(database.db, verified.user.id))?.twoFactorEnabled).toBe(true);
 
-  return { secret, backupCodes: enabled.backupCodes };
+  return { secret, backupCodes: enabled.backupCodes, totpURI: enabled.totpURI };
 }
 
 async function resetTokenFromLastMail(): Promise<string> {
@@ -227,6 +229,9 @@ describe("Vendor Better Auth: password", () => {
     });
     expect(signIn.token).toBeTruthy();
     expect(await countSessions(database.pool, userId)).toBe(1);
+
+    await updateVendorUser(database.db, userId, { status: "invited" });
+    expect((await getVendorUserById(database.db, userId))?.status).toBe("invited");
 
     mailer.vendorPasswordResets.length = 0;
     const requested = await auth.api.requestPasswordReset({
@@ -300,6 +305,39 @@ describe("Vendor Better Auth: password", () => {
       expect((await getVendorUserById(database.db, userId))?.status).toBe(status);
     }
   });
+
+  it("не проваливает вход, если onSessionCreated падает", async () => {
+    const auth = buildAuth({
+      onSessionCreated: async () => {
+        throw new Error("session hook unavailable");
+      },
+    });
+    const email = uniqueEmail("session-hook");
+    const userId = await signUp(auth, email);
+
+    const signIn = await signInThroughHandler(auth, email);
+    expect(signIn.status).toBe(200);
+    expect(signIn.body.twoFactorRedirect).toBeUndefined();
+    expect(await countSessions(database.pool, userId)).toBe(1);
+  });
+
+  it("успешный вход пишет last_login_at и активирует invited", async () => {
+    const auth = buildAuth();
+    const email = uniqueEmail("login-mark");
+    const userId = await signUp(auth, email);
+    expect((await getVendorUserById(database.db, userId))?.status).toBe("invited");
+
+    const signIn = await signInThroughHandler(auth, email);
+    expect(signIn.status).toBe(200);
+
+    const row = await database.pool.query<{ last_login_at: Date | null; status: string }>(
+      "select last_login_at, status from vendor_users where id = $1",
+      [userId],
+    );
+    expect(row.rows[0]?.last_login_at).not.toBeNull();
+    expect(row.rows[0]?.status).toBe("active");
+    expect(await countSessions(database.pool, userId)).toBe(1);
+  });
 });
 
 describe("Vendor Better Auth: TOTP и блокировка", () => {
@@ -308,7 +346,14 @@ describe("Vendor Better Auth: TOTP и блокировка", () => {
     const email = uniqueEmail("totp");
     const userId = await signUp(auth, email);
 
-    const { secret: plainSecret, backupCodes } = await enableTotp(auth, email);
+    const { secret: plainSecret, backupCodes, totpURI } = await enableTotp(auth, email);
+
+    const totpUrl = new URL(totpURI);
+    expect(totpUrl.searchParams.get("issuer")).toBe("Партнер кодер (вендор)");
+    expect(decodeURIComponent(totpUrl.pathname.replace(/^\//, "")).split(":")[0]).toBe(
+      "Партнер кодер (вендор)",
+    );
+    expect(backupCodes).toHaveLength(10);
 
     const stored = await database.pool.query<{ secret: string; backup_codes: string }>(
       "select secret, backup_codes from vendor_auth_two_factors where user_id = $1",
@@ -320,7 +365,10 @@ describe("Vendor Better Auth: TOTP и блокировка", () => {
     expect(secret).not.toBe(plainSecret);
     expect(secret).not.toMatch(/^[A-Z2-7]+=*$/);
     expect(storedBackupCodes).not.toBe(backupCodes.join(","));
-    expect(storedBackupCodes).not.toContain(backupCodes[0]!);
+    expect(storedBackupCodes).not.toBe(JSON.stringify(backupCodes));
+    for (const code of backupCodes) {
+      expect(storedBackupCodes).not.toContain(code);
+    }
 
     expect((await getVendorUserById(database.db, userId))?.twoFactorEnabled).toBe(true);
 
