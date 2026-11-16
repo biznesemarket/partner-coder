@@ -198,6 +198,8 @@ export const vendorRolesSchema = z.enum(["superadmin", "finance", "support", "re
 
 export const vendorUserStatusesSchema = z.enum(["invited", "active", "suspended", "disabled"]);
 
+export const vendorUserStatusUpdateSchema = z.enum(["active", "suspended", "disabled"]);
+
 export const vendorUserSchema = z.object({
   id: z.uuid(),
   email: z.string(),
@@ -225,7 +227,7 @@ export const vendorUserCreateSchema = z.object({
 
 export const vendorUserUpdateSchema = z.object({
   role: vendorRolesSchema.optional(),
-  status: vendorUserStatusesSchema.optional(),
+  status: vendorUserStatusUpdateSchema.optional(),
   confirmSuperadmin: z.boolean().optional(),
 });
 

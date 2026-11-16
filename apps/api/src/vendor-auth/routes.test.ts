@@ -3,9 +3,18 @@ import { randomBytes, randomUUID } from "node:crypto";
 import Fastify, { type FastifyInstance } from "fastify";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import type { Database, VendorRole, VendorUserStatus } from "@partner-coder/db";
+import {
+  createDatabase,
+  type Database,
+  type VendorRole,
+  type VendorUserStatus,
+} from "@partner-coder/db";
 
-import { createTestDatabase, type TestDatabase } from "../../../../packages/db/test/helpers.js";
+import {
+  createPoolForUrl,
+  createTestDatabase,
+  type TestDatabase,
+} from "../../../../packages/db/test/helpers.js";
 import { MemoryMailer } from "../auth/mailer.js";
 import { ApiError } from "../errors.js";
 import { registerVendorRoutes } from "../routes/vendor.js";
@@ -17,14 +26,42 @@ const apiBaseUrl = "http://localhost:4000";
 const password = "correct horse battery staple";
 
 let database: TestDatabase;
+let dataPool: ReturnType<typeof createPoolForUrl>;
+let authPool: ReturnType<typeof createPoolForUrl>;
+let dataDb: Database;
+let authDb: Database;
+let dataRole: string;
+let authRole: string;
 let mailer: MemoryMailer;
 let auth: VendorAuth;
 let currentSession: unknown = null;
 
 const openApps: FastifyInstance[] = [];
 
+function roleUrl(base: string, role: string, rolePassword: string): string {
+  const url = new URL(base);
+  url.username = role;
+  url.password = rolePassword;
+  return url.toString();
+}
+
 beforeAll(async () => {
   database = await createTestDatabase();
+  const unique = randomBytes(6).toString("hex");
+  dataRole = `test_vendor_data_${unique}`;
+  authRole = `test_vendor_auth_${unique}`;
+  const dataPassword = randomBytes(16).toString("hex");
+  const authPassword = randomBytes(16).toString("hex");
+  await database.pool.query(
+    `create role "${dataRole}" login password '${dataPassword}' in role partner_coder_vendor`,
+  );
+  await database.pool.query(
+    `create role "${authRole}" login password '${authPassword}' in role partner_coder_vendor_auth`,
+  );
+  dataPool = createPoolForUrl(roleUrl(database.url, dataRole, dataPassword));
+  authPool = createPoolForUrl(roleUrl(database.url, authRole, authPassword));
+  dataDb = createDatabase(dataPool);
+  authDb = createDatabase(authPool);
   mailer = new MemoryMailer();
   auth = createVendorAuth({
     db: database.db,
@@ -71,7 +108,17 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await Promise.all(openApps.splice(0).map((app) => app.close()));
-  await database?.drop();
+  await dataPool?.end().catch(() => undefined);
+  await authPool?.end().catch(() => undefined);
+  if (database) {
+    try {
+      for (const role of [dataRole, authRole]) {
+        await database.pool.query(`drop role if exists "${role}"`);
+      }
+    } finally {
+      await database.drop();
+    }
+  }
 }, 60_000);
 
 afterEach(async () => {
@@ -82,8 +129,8 @@ afterEach(async () => {
 function runtime(): VendorAuthRuntime {
   return {
     auth,
-    db: database.db as unknown as Database,
-    authDb: database.db as unknown as Database,
+    db: dataDb,
+    authDb,
     vendorBaseUrl,
     stepUpMinutes: 5,
   };
@@ -247,6 +294,15 @@ async function signInAndCookie(
 }
 
 describe("vendor auth routes", () => {
+  it("держит vendor-данные и vendor-auth в разных ролях", async () => {
+    await expect(dataPool.query("select count(*) from vendor_auth_sessions")).rejects.toMatchObject(
+      { code: "42501" },
+    );
+    await expect(authPool.query("select count(*) from customers")).rejects.toMatchObject({
+      code: "42501",
+    });
+  });
+
   it("GET /v1/vendor/auth/me возвращает mfaEnrollmentRequired", async () => {
     const user = await seedUser({ role: "superadmin", twoFactorEnabled: false });
     const sessionId = await seedSession(user.id);
@@ -340,6 +396,14 @@ describe("vendor auth routes", () => {
     expect(denied.json()).toMatchObject({ error: { code: "superadmin_confirmation_required" } });
 
     const target = await seedUser({ role: "support" });
+    const invitedDenied = await app.inject({
+      method: "PATCH",
+      url: `/v1/vendor/users/${target.id}`,
+      payload: { status: "invited" },
+    });
+    expect(invitedDenied.statusCode).toBe(400);
+    expect(invitedDenied.json()).toMatchObject({ error: { code: "validation_error" } });
+
     const promotedDenied = await app.inject({
       method: "PATCH",
       url: `/v1/vendor/users/${target.id}`,
@@ -388,6 +452,10 @@ describe("vendor auth routes", () => {
       actor_id: admin.id,
       after: { userId: other.id, status: "suspended" },
     });
+    expect(await latestAudit("vendor.session.revoked")).toMatchObject({
+      actor_id: admin.id,
+      after: { userId: other.id, count: 1, reason: "suspended" },
+    });
   });
 
   it("reset-mfa удаляет TOTP/passkeys и аудирует", async () => {
@@ -426,6 +494,10 @@ describe("vendor auth routes", () => {
     expect(passkeys.rows[0]?.count).toBe("0");
     expect((await latestAudit("vendor.user.mfa_reset"))?.after).toMatchObject({
       userId: target.id,
+    });
+    expect(await latestAudit("vendor.session.revoked")).toMatchObject({
+      actor_id: admin.id,
+      after: { userId: target.id, count: 1, reason: "mfa_reset" },
     });
 
     const auditBefore = await countAudit("vendor.user.mfa_reset");
@@ -518,6 +590,34 @@ describe("vendor auth routes", () => {
     expect(await latestAudit("vendor.auth.step_up_failed")).toMatchObject({
       actor_id: signedUp.user.id,
     });
+  });
+
+  it("step-up не маскирует внутренние ошибки под invalid_password", async () => {
+    const user = await seedUser({ role: "superadmin", twoFactorEnabled: true });
+    const sessionId = await seedSession(user.id);
+    setSession(identity({ userId: user.id, email: user.email, sessionId }));
+    const app = buildApp();
+    const auditBefore = await countAudit("vendor.auth.step_up_failed");
+    const api = auth.api as unknown as {
+      verifyPassword: (input: unknown) => Promise<unknown>;
+    };
+    const original = api.verifyPassword.bind(auth.api);
+    api.verifyPassword = async () => {
+      throw new Error("database unavailable");
+    };
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/vendor/auth/step-up",
+        payload: { password },
+      });
+
+      expect(response.statusCode).toBe(500);
+      expect(response.json()).toMatchObject({ error: { code: "internal_error" } });
+      expect(await countAudit("vendor.auth.step_up_failed")).toBe(auditBefore);
+    } finally {
+      api.verifyPassword = original;
+    }
   });
 
   it("step-up ограничивает попытки пятью за пять минут", async () => {

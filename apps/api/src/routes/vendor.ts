@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 
 import { fromNodeHeaders } from "better-auth/node";
+import { isAPIError } from "better-auth/api";
 import { sql } from "drizzle-orm";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
@@ -153,7 +154,10 @@ export function registerVendorRoutes(server: FastifyInstance, runtime: VendorAut
           body: { password: input.password },
           headers: fromNodeHeaders(request.headers),
         });
-      } catch {
+      } catch (error) {
+        if (!isAPIError(error) || (error.statusCode !== 400 && error.statusCode !== 401)) {
+          throw error;
+        }
         await auditBestEffort(request, runtime, {
           actorId: identity.userId,
           action: "vendor.auth.step_up_failed",
@@ -302,7 +306,14 @@ export function registerVendorRoutes(server: FastifyInstance, runtime: VendorAut
 
     if (updated.status === "suspended" || updated.status === "disabled") {
       try {
-        await revokeVendorSessions(runtime.authDb, id);
+        const count = await revokeVendorSessions(runtime.authDb, id);
+        await auditBestEffort(request, runtime, {
+          actorId: identity.userId,
+          action: "vendor.session.revoked",
+          entity: "vendor_user",
+          after: { userId: id, count, reason: updated.status },
+          ip: request.ip || null,
+        });
       } catch (error) {
         request.log.warn({ err: error, vendorUserId: id }, "vendor_session_revoke_failed");
       }

@@ -60,6 +60,13 @@ export async function resetVendorMfa(
       after: { userId: vendorUserId, ...result },
       ip: input.ip ?? null,
     });
+    await writeVendorAudit(tx, {
+      actorId: input.actorId,
+      action: "vendor.session.revoked",
+      entity: "vendor_user",
+      after: { userId: vendorUserId, count: result.sessions, reason: "mfa_reset" },
+      ip: input.ip ?? null,
+    });
 
     return result;
   });

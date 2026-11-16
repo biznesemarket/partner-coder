@@ -201,6 +201,25 @@ describe("vendor auth: сессии и MFA", () => {
       entity: "vendor_user",
       ip: "127.0.0.1",
     });
+
+    const revoked = await database.pool.query<{
+      actor_id: string;
+      action: string;
+      entity: string;
+      after: Record<string, unknown>;
+    }>(
+      `select actor_id, action, entity, after
+         from vendor_audit_events
+        where action = 'vendor.session.revoked'
+        order by chain_seq desc
+        limit 1`,
+    );
+    expect(revoked.rows[0]).toMatchObject({
+      actor_id: vendorUserId,
+      action: "vendor.session.revoked",
+      entity: "vendor_user",
+      after: { userId: vendorUserId, count: 1, reason: "mfa_reset" },
+    });
   });
 
   it("revokeVendorSessions удаляет только сессии пользователя", async () => {
