@@ -82,16 +82,21 @@ tenant-маршруты ему закрыты, выпуск/ротация до�
 запрещены. Passkeys и UI-страницы в PR A не реализованы (PR B); tenant-auth
 не менялся.
 
-| Маршрут                                    | Доступ                           | Назначение                               |
-| ------------------------------------------ | -------------------------------- | ---------------------------------------- |
-| `GET                                       | POST /api/vendor-auth/*`         | публично/сессия по endpoint              | прокси Better Auth: password, reset, TOTP, get-session |
-| `GET /v1/vendor/auth/me`                   | валидная сессия, в т.ч. без TOTP | пользователь, статус MFA, `stepUpUntil`  |
-| `POST /v1/vendor/auth/step-up`             | сессия + TOTP                    | повторный пароль, окно 5 минут           |
-| `GET /v1/vendor/users`                     | superadmin + TOTP                | список вендорских пользователей          |
-| `POST /v1/vendor/users`                    | superadmin + TOTP                | создание/повторное приглашение           |
-| `PATCH /v1/vendor/users/:id`               | superadmin + TOTP                | роль/статус, отзыв сессий при блокировке |
-| `POST /v1/vendor/users/:id/reset-password` | superadmin + TOTP                | ссылка установки пароля                  |
-| `POST /v1/vendor/users/:id/reset-mfa`      | superadmin + TOTP                | удаление TOTP/passkeys и сессий          |
+| Маршрут                                    | Доступ                           | Назначение                                             |
+| ------------------------------------------ | -------------------------------- | ------------------------------------------------------ |
+| `GET/POST /api/vendor-auth/*`              | публично/сессия по endpoint      | прокси Better Auth: password, reset, TOTP, get-session |
+| `GET /v1/vendor/auth/me`                   | валидная сессия, в т.ч. без TOTP | пользователь, статус MFA, `stepUpUntil`                |
+| `POST /v1/vendor/auth/step-up`             | сессия + TOTP                    | повторный пароль, окно 5 минут                         |
+| `GET /v1/vendor/users`                     | superadmin + TOTP                | список вендорских пользователей                        |
+| `POST /v1/vendor/users`                    | superadmin + TOTP                | создание/повторное приглашение                         |
+| `PATCH /v1/vendor/users/:id`               | superadmin + TOTP                | роль/статус, отзыв сессий при блокировке               |
+| `POST /v1/vendor/users/:id/reset-password` | superadmin + TOTP                | ссылка установки пароля                                |
+| `POST /v1/vendor/users/:id/reset-mfa`      | superadmin + TOTP                | удаление TOTP/passkeys и сессий                        |
+
+`requireVendorStepUp` и поле сессии `step_up_until` реализованы, а
+`POST /v1/vendor/auth/step-up` обновляет окно. При этом ни один маршрут PR A
+не требует step-up: обязательная проверка появится у первого опасного
+действия M3.1 (счета, платежи, смена финансового статуса).
 
 Прокси пропускает только нужные Better Auth endpoints. На `/sign-in/email` и
 `/request-password-reset` действует per-email лимит 5/60 секунд (memory
@@ -106,22 +111,22 @@ tenant-маршруты ему закрыты, выпуск/ротация до�
 
 Собственные ошибки идут в `ErrorEnvelope`:
 
-| Код                                | HTTP | Ситуация                                      |
-| ---------------------------------- | ---- | --------------------------------------------- |
-| `vendor_unauthenticated`           | 401  | нет сессии                                    |
-| `vendor_inactive`                  | 403  | сессия suspended/disabled; сессия отзывается  |
-| `vendor_mfa_required`              | 403  | TOTP не включён                               |
-| `vendor_role_denied`               | 403  | роль не допущена; пишется в аудит             |
-| `vendor_step_up_required`          | 403  | `stepUpUntil` истёк                           |
-| `invalid_password`                 | 400  | неверный пароль на step-up                    |
-| `superadmin_confirmation_required` | 400  | нет `confirmSuperadmin: true`                 |
-| `vendor_user_exists`               | 409  | пользователь уже active                       |
-| `vendor_user_inactive`             | 409  | пользователь suspended/disabled               |
-| `vendor_user_not_found`            | 404  | неизвестный id                                |
-| `vendor_self_change_denied`        | 409  | попытка изменить собственную запись           |
-| `email_rate_limited`               | 429  | превышен per-email лимит входа/сброса/step-up |
-| `vendor_origin_denied`             | 403  | чужой `Origin`                                |
-| `vendor_auth_path_forbidden`       | 403  | запрещённый путь прокси                       |
+| Код                                | HTTP | Ситуация                                              |
+| ---------------------------------- | ---- | ----------------------------------------------------- |
+| `vendor_unauthenticated`           | 401  | нет сессии                                            |
+| `vendor_inactive`                  | 403  | сессия suspended/disabled; сессия отзывается          |
+| `vendor_mfa_required`              | 403  | TOTP не включён                                       |
+| `vendor_role_denied`               | 403  | роль не допущена; пишется в аудит                     |
+| `vendor_step_up_required`          | 403  | `stepUpUntil` истёк (guard есть; в PR A не требуется) |
+| `invalid_password`                 | 400  | неверный пароль на step-up                            |
+| `superadmin_confirmation_required` | 400  | нет `confirmSuperadmin: true`                         |
+| `vendor_user_exists`               | 409  | пользователь уже active                               |
+| `vendor_user_inactive`             | 409  | пользователь suspended/disabled                       |
+| `vendor_user_not_found`            | 404  | неизвестный id                                        |
+| `vendor_self_change_denied`        | 409  | попытка изменить собственную запись                   |
+| `email_rate_limited`               | 429  | превышен per-email лимит входа/сброса/step-up         |
+| `vendor_origin_denied`             | 403  | чужой `Origin`                                        |
+| `vendor_auth_path_forbidden`       | 403  | запрещённый путь прокси                               |
 
 Прокси возвращает ошибки Better Auth в его формате; в частности,
 `POST /api/vendor-auth/sign-in/email` для suspended/disabled отвечает

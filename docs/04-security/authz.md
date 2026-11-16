@@ -91,7 +91,8 @@ Device-токен не является заменой веб-сессии: он
 4. `requireVendorRole([...])` — роль из `vendor_users`; иначе 403
    `vendor_role_denied` и событие `vendor.auth.role_denied`;
 5. `requireVendorStepUp` — `stepUpUntil > now()`, иначе 403
-   `vendor_step_up_required`.
+   `vendor_step_up_required`; guard и `step_up_until` реализованы, но в PR A
+   ни один маршрут его не требует.
 
 | Маршрут                                    | superadmin | finance | support | readonly |
 | ------------------------------------------ | ---------- | ------- | ------- | -------- |
@@ -105,7 +106,10 @@ Device-токен не является заменой веб-сессии: он
 `GET /v1/vendor/auth/me` и шаги включения TOTP доступны без MFA, чтобы
 пользователь мог завершить настройку; остальные `/v1/vendor/*` требуют TOTP.
 `finance`/`support`/`readonly` получают профильные действия в следующих
-этапах M3; в PR A их доступ ограничен профилем и step-up. Назначение роли
-`superadmin` требует `confirmSuperadmin: true`; изменить собственную запись
-нельзя (409 `vendor_self_change_denied`). Прямой доступ к прокси
-`/api/vendor-auth/*` после входа не даёт вендорских данных вне guard-ов.
+этапах M3; в PR A их доступ ограничен профилем, а самостоятельный step-up
+доступен, но не обязателен. `requireVendorStepUp` и `vendor_step_up_required`
+не подключены ни к одному маршруту PR A: обязательная проверка появится у
+первого опасного действия M3.1 (счета, платежи, смена финансового статуса).
+Назначение роли `superadmin` требует `confirmSuperadmin: true`; изменить
+собственную запись нельзя (409 `vendor_self_change_denied`). Прямой доступ к
+прокси `/api/vendor-auth/*` после входа не даёт вендорских данных вне guard-ов.
