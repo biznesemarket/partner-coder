@@ -12,6 +12,7 @@
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js",
     "openapi:emit": "tsx src/openapi/emit.ts",
+    "vendor:admin": "tsx src/cli/provision-vendor-admin.ts",
     "openapi:types": "openapi-typescript openapi.json -o src/generated/openapi.d.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
