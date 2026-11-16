@@ -14,6 +14,7 @@
 | [0010](0010-better-auth-and-authz.md)          | Better Auth, приглашения и матрица прав    | принято |
 | [0011](0011-worker-jobs-observability.md)      | Фоновые задания, аудит и наблюдаемость     | принято |
 | [0012](0012-shared-rate-limit-store.md)        | Общий rate-limit store в PostgreSQL        | принято |
+| [0013](0013-vendor-auth-contour.md)            | Отдельный контур аутентификации вендора    | принято |
 
 Новый ADR = файл `NNNN-kebab-title.md` в этом каталоге + строка в таблице.
 Изменение принятого решения оформляется новым ADR, а не правкой старого.
