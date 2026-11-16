@@ -42,6 +42,15 @@ export const envSchema = z
      */
     RATE_LIMIT_STORAGE: optionalString.pipe(z.enum(["memory", "database"]).optional()),
 
+    // Вендорский контур аутентификации: отдельные БД и секрет, локально
+    // допустим fallback на DATABASE_URL/AUTH_SECRET.
+    VENDOR_DATABASE_URL: optionalString,
+    VENDOR_AUTH_DATABASE_URL: optionalString,
+    VENDOR_AUTH_SECRET: optionalString.pipe(z.string().min(32).optional()),
+    VENDOR_SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(24).default(8),
+    VENDOR_PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().min(5).max(120).default(30),
+    VENDOR_PASSWORD_MIN_LENGTH: z.coerce.number().int().min(12).max(64).default(12),
+
     S3_ENDPOINT: z.string().url(),
     S3_REGION: z.string().min(1).default("ru-central-1"),
     S3_BUCKET: z.string().min(1),
@@ -105,6 +114,41 @@ export const envSchema = z
         code: "custom",
         path: ["AUTH_SECRET"],
         message: "AUTH_SECRET не должен совпадать с примером вне local",
+      });
+    }
+    if (value.APP_ENV !== "local" && !value.VENDOR_DATABASE_URL) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["VENDOR_DATABASE_URL"],
+        message:
+          "VENDOR_DATABASE_URL обязателен вне local: вендорский контур ходит под partner_coder_vendor",
+      });
+    }
+    if (value.APP_ENV !== "local" && !value.VENDOR_AUTH_DATABASE_URL) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["VENDOR_AUTH_DATABASE_URL"],
+        message:
+          "VENDOR_AUTH_DATABASE_URL обязателен вне local: Better Auth вендоров ходит под partner_coder_vendor_auth",
+      });
+    }
+    if (value.APP_ENV !== "local" && !value.VENDOR_AUTH_SECRET) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["VENDOR_AUTH_SECRET"],
+        message:
+          "VENDOR_AUTH_SECRET обязателен вне local: локальный fallback на AUTH_SECRET запрещён",
+      });
+    }
+    if (
+      value.APP_ENV !== "local" &&
+      value.VENDOR_AUTH_SECRET !== undefined &&
+      value.VENDOR_AUTH_SECRET === value.AUTH_SECRET
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["VENDOR_AUTH_SECRET"],
+        message: "VENDOR_AUTH_SECRET не должен совпадать с AUTH_SECRET вне local",
       });
     }
   });

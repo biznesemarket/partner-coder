@@ -87,4 +87,44 @@ describe("валидация окружения", () => {
       "memory",
     );
   });
+
+  it("применяет дефолты vendor-auth", () => {
+    const env = parseEnv(validEnv);
+    expect(env.VENDOR_SESSION_TTL_HOURS).toBe(8);
+    expect(env.VENDOR_PASSWORD_RESET_TTL_MINUTES).toBe(30);
+    expect(env.VENDOR_PASSWORD_MIN_LENGTH).toBe(12);
+    expect(env.VENDOR_AUTH_SECRET).toBeUndefined();
+  });
+
+  it("вне local требует vendor URL и секрет", () => {
+    expect(() =>
+      parseEnv({
+        ...validEnv,
+        APP_ENV: "staging",
+        AUTH_DATABASE_URL: "postgres://auth@localhost/partner_coder",
+      }),
+    ).toThrow(/VENDOR_DATABASE_URL/);
+  });
+
+  it("запрещает VENDOR_AUTH_SECRET === AUTH_SECRET вне local", () => {
+    expect(() =>
+      parseEnv({
+        ...validEnv,
+        APP_ENV: "staging",
+        AUTH_DATABASE_URL: "postgres://auth@localhost/partner_coder",
+        VENDOR_DATABASE_URL: "postgres://vendor@localhost/partner_coder",
+        VENDOR_AUTH_DATABASE_URL: "postgres://vendor_auth@localhost/partner_coder",
+        VENDOR_AUTH_SECRET: validEnv.AUTH_SECRET,
+      }),
+    ).toThrow(/VENDOR_AUTH_SECRET/);
+  });
+
+  it("ограничивает длину пароля и TTL", () => {
+    expect(() => parseEnv({ ...validEnv, VENDOR_PASSWORD_MIN_LENGTH: "8" })).toThrow(
+      /VENDOR_PASSWORD_MIN_LENGTH/,
+    );
+    expect(() => parseEnv({ ...validEnv, VENDOR_SESSION_TTL_HOURS: "25" })).toThrow(
+      /VENDOR_SESSION_TTL_HOURS/,
+    );
+  });
 });
