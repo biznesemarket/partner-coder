@@ -856,6 +856,485 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/vendor/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Текущий вендор и состояние MFA */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Профиль вендора */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorAuthMeResponse"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Учётная запись заблокирована */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vendor/auth/step-up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Повторное подтверждение пароля */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VendorStepUpRequest"];
+                };
+            };
+            responses: {
+                /** @description Step-up активен */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorStepUpResponse"];
+                    };
+                };
+                /** @description Неверный пароль */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Слишком много попыток */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vendor/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Список вендорских пользователей */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Пользователи */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorUserListResponse"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль superadmin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Создать или пригласить вендорского пользователя */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VendorUserCreate"];
+                };
+            };
+            responses: {
+                /** @description Приглашение отправлено повторно */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorUserResponse"];
+                    };
+                };
+                /** @description Пользователь создан */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorUserResponse"];
+                    };
+                };
+                /** @description Некорректный запрос или нет подтверждения superadmin */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль superadmin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Пользователь уже существует или заблокирован */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vendor/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Изменить роль или статус вендорского пользователя */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VendorUserUpdate"];
+                };
+            };
+            responses: {
+                /** @description Пользователь обновлён */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorUserResponse"];
+                    };
+                };
+                /** @description Некорректный запрос или нет подтверждения superadmin */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль superadmin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Пользователь не найден */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Нельзя изменить себя */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/vendor/users/{id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отправить ссылку сброса пароля */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ссылка отправлена */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorPasswordResetResponse"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль superadmin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Пользователь не найден */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Учётная запись заблокирована */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vendor/users/{id}/reset-mfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Сбросить TOTP, passkeys и сессии пользователя */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description MFA сброшен */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorMfaResetResponse"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль superadmin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Пользователь не найден */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1052,6 +1531,107 @@ export interface components {
                 poolPending: boolean;
                 closedAt: string;
             }[];
+        };
+        VendorUser: {
+            /** Format: uuid */
+            id: string;
+            email: string;
+            name: string;
+            emailVerified: boolean;
+            image: string | null;
+            /** @enum {string} */
+            role: "superadmin" | "finance" | "support" | "readonly";
+            /** @enum {string} */
+            status: "invited" | "active" | "suspended" | "disabled";
+            twoFactorEnabled: boolean;
+            lastLoginAt: string | null;
+            createdAt: string;
+            updatedAt: string;
+        };
+        VendorUserResponse: {
+            user: {
+                /** Format: uuid */
+                id: string;
+                email: string;
+                name: string;
+                emailVerified: boolean;
+                image: string | null;
+                /** @enum {string} */
+                role: "superadmin" | "finance" | "support" | "readonly";
+                /** @enum {string} */
+                status: "invited" | "active" | "suspended" | "disabled";
+                twoFactorEnabled: boolean;
+                lastLoginAt: string | null;
+                createdAt: string;
+                updatedAt: string;
+            };
+        };
+        VendorUserListResponse: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                email: string;
+                name: string;
+                emailVerified: boolean;
+                image: string | null;
+                /** @enum {string} */
+                role: "superadmin" | "finance" | "support" | "readonly";
+                /** @enum {string} */
+                status: "invited" | "active" | "suspended" | "disabled";
+                twoFactorEnabled: boolean;
+                lastLoginAt: string | null;
+                createdAt: string;
+                updatedAt: string;
+            }[];
+        };
+        VendorUserCreate: {
+            /** Format: email */
+            email: string;
+            name: string;
+            /**
+             * @default support
+             * @enum {string}
+             */
+            role: "superadmin" | "finance" | "support" | "readonly";
+            confirmSuperadmin?: boolean;
+        };
+        VendorUserUpdate: {
+            /** @enum {string} */
+            role?: "superadmin" | "finance" | "support" | "readonly";
+            /** @enum {string} */
+            status?: "active" | "suspended" | "disabled";
+            confirmSuperadmin?: boolean;
+        };
+        VendorAuthMeResponse: {
+            user: {
+                /** Format: uuid */
+                id: string;
+                email: string;
+                name: string;
+                /** @enum {string} */
+                role: "superadmin" | "finance" | "support" | "readonly";
+                /** @enum {string} */
+                status: "invited" | "active" | "suspended" | "disabled";
+                twoFactorEnabled: boolean;
+            };
+            mfaEnrollmentRequired: boolean;
+            sessionExpiresAt: string;
+            stepUpUntil: string | null;
+        };
+        VendorStepUpRequest: {
+            password: string;
+        };
+        VendorStepUpResponse: {
+            stepUpUntil: string;
+        };
+        VendorPasswordResetResponse: {
+            /** @constant */
+            status: true;
+        };
+        VendorMfaResetResponse: {
+            twoFactors: number;
+            passkeys: number;
+            sessions: number;
         };
     };
     responses: never;
