@@ -1054,6 +1054,15 @@ Expected: FAIL.
   slash.
 - `server.ts`: `BuildServerOptions.vendorRuntime`, `vendorEmailRateLimitStore`;
   `registerVendorAuthRoutes` + `registerVendorRoutes` при наличии runtime.
+- `server.ts`: `onRequest`-хук для небезопасных методов `/v1/vendor/*`
+  (не GET/HEAD/OPTIONS): если `Origin` присутствует и не равен
+  нормализованному `vendorBaseUrl`/`apiBaseUrl`, вернуть 403
+  `vendor_origin_denied`; отсутствие `Origin` допускается (curl/tests).
+  Это закрывает разрыв из §8.3 дизайна; прокси `/api/vendor-auth/*` уже
+  проверяет Origin сам.
+- Тесты: `server.test.ts` или `vendor-auth/server.test.ts` — evil Origin на
+  `POST /v1/vendor/users` → 403, отсутствие Origin проходит до guard (401),
+  vendor routes 404 без runtime.
 
 - [ ] **Step 4: Прогнать тесты и typecheck**
 
