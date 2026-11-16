@@ -33,7 +33,7 @@
 | Подделка вебхука               | HMAC сырого тела, сравнение постоянным временем, dedupe                                           |
 | Взлом суперадмина              | TOTP обязателен, короткая сессия, аудит, IP allowlist (позже); passkeys — PR B                    |
 | Подбор пароля вендора          | password ≥ 12, per-email 5/60, Better Auth rate limit, lockout TOTP, единый ответ на reset        |
-| Кража/повтор reset-токена      | одноразовый токен, TTL 30 минут, хеш в БД, отзыв сессий после сброса, письмо не уходит suspended  |
+| Кража/повтор reset-токена      | одноразовый токен, TTL 30 минут, verification identifier (не хеш), отзыв сессий после сброса      |
 | Кража вендорской сессии        | HttpOnly/SameSite cookie, TTL 8 часов, отзыв при suspend/reset, origin guard, step-up             |
 | Обход TOTP / сброс MFA         | TOTP обязателен для всех ролей, `/two-factor/disable` запрещён, reset-mfa только superadmin+аудит |
 | Эскалация вендорской роли      | guard `superadmin`, `confirmSuperadmin`, отказ `vendor_role_denied` в аудите                      |
@@ -43,6 +43,15 @@
 | Подмена счета/оплаты           | append-only, аудит с хеш-цепочкой, права финансов                                                 |
 | Компрометация цепочки поставок | lockfile, Dependabot, CodeQL, SBOM, подписанные релизы                                            |
 | Утечка секретов                | secret scanning, `.env.example`, запрет секретов в PR                                             |
+
+Reset-токены вендора в Better Auth 1.7.25 хранятся как
+`vendor_auth_verifications.identifier = reset-password:<raw token>`: TTL 30
+минут и одна активация, но **не хешируются**. Строку читает только роль
+`partner_coder_vendor_auth`; остаточный риск — компрометация этой роли или
+дампа БД в пределах TTL. Tenant magic-link и invitation-токены по-прежнему
+хранятся хешами (`auth_verifications`, `invitations.token_hash`); вендорский
+reset-токен — осознанное отличие нативного Better Auth, хеширование не
+реализовано.
 
 ## 3. Приватность
 
@@ -80,9 +89,11 @@
 - Все опасные действия (политика, выплаты, споры, отзыв устройства,
   перевыпуск пакета) — обязательная запись.
 - Вендорский контур пишет приглашения, bootstrap, смену роли/статуса, сброс
-  пароля/MFA, отзыв сессий, step-up и `vendor.auth.role_denied` через
-  `vendor_audit()`; пароли, TOTP-секреты, backup-коды и reset-токены в журнал
-  не попадают. Целостность проверяется `verify_vendor_audit_chain()`.
+  пароля/MFA, отзыв сессий, step-up, вход/неуспешный вход, второй фактор,
+  выход, смену пароля и `vendor.auth.role_denied` через `vendor_audit()`;
+  пароли, TOTP-секреты, backup-коды и reset-токены в журнал не попадают.
+  Неуспешный вход хранит только `sha256(normalizedEmail)`. Целостность
+  проверяется `verify_vendor_audit_chain()`.
 
 ## 6. План проверок
 

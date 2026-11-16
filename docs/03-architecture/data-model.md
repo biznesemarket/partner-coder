@@ -101,6 +101,14 @@
   только функцию.
 - `vendor_auth_passkeys` создана заранее, но плагин passkey и UI в PR A не
   подключены (PR B). Сброс MFA удаляет и TOTP, и passkey-строки.
+- Reset-токен вендора Better Auth 1.7.25 хранит как
+  `vendor_auth_verifications.identifier = reset-password:<raw token>`:
+  TTL 30 минут, одна активация, без хеширования. Строку видит только
+  `partner_coder_vendor_auth`; tenant magic-link/invitation токены остаются
+  хешированными. Это остаточный риск, зафиксированный в threat model.
+- Аудит вендорского контура дополнен событиями `vendor.auth.sign_in_succeeded`,
+  `sign_in_failed` (sha256 email), `mfa_failed`, `signed_out`,
+  `password_changed`, `session_revoked` и `vendor.user.mfa_enabled`.
 - TTL: worker удаляет просроченные `vendor_auth_sessions`,
   `vendor_auth_verifications`, окна `vendor_auth_rate_limits` и
   `vendor_auth_email_limits`. TOTP-секреты и passkeys по TTL не удаляются.

@@ -323,7 +323,9 @@ betterAuth({
    случайного повышения прав через UI.
 3. Нормализация email (`trim().toLowerCase()`), проверка существования
    `vendor_users` по `lower(email)`.
-   - `invited` — повторная отправка ссылки, 200;
+   - `invited` — повторная отправка ссылки, 200, если запрошенная роль
+     совпадает; иначе 409 `vendor_user_exists` с существующей ролью и
+     указанием на `PATCH /v1/vendor/users/:id`;
    - `active` — 409 `vendor_user_exists`;
    - `suspended`/`disabled` — 409 `vendor_user_inactive`.
 4. Серверный `vendorAuth.api.signUpEmail({ email, name, password: randomBytes(32) })`
@@ -384,7 +386,11 @@ pnpm --filter @partner-coder/api vendor:admin -- --email ops@example.com --name 
 5. Пользователь входит с email и паролем, если статус позволяет.
 
 Ссылка одноразовая, TTL 30 минут по умолчанию. Токен не логируется;
-query-redaction pino уже покрывает `token`.
+query-redaction pino уже покрывает `token`. Нативный Better Auth 1.7.25 хранит
+его как `vendor_auth_verifications.identifier = reset-password:<raw token>`:
+TTL и одна активация, но без хеширования; строку читает только
+`partner_coder_vendor_auth`. Это остаточный риск (компрометация роли/дампа в
+пределах TTL); tenant magic-link и invitation-токены остаются хешированными.
 
 `sendResetPassword` перед отправкой проверяет `vendor_users.status`:
 для `suspended`/`disabled` письмо не отправляется, а публичный запрос
@@ -613,16 +619,20 @@ guard). Для административных изменений аудит п
 
 ## 11. Окружение
 
-| Переменная                          | По умолчанию                    | Правило                                                                                       |
-| ----------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------- |
-| `VENDOR_DATABASE_URL`               | —                               | Логин `partner_coder_vendor`; вне local обязателен, локально fallback на `DATABASE_URL`.      |
-| `VENDOR_AUTH_DATABASE_URL`          | —                               | Логин `partner_coder_vendor_auth`; вне local обязателен, локально fallback на `DATABASE_URL`. |
-| `VENDOR_AUTH_SECRET`                | fallback `AUTH_SECRET` локально | Минимум 32 символа; вне local обязателен и не равен `AUTH_SECRET`.                            |
-| `VENDOR_SESSION_TTL_HOURS`          | 8                               | 1…24.                                                                                         |
-| `VENDOR_PASSWORD_RESET_TTL_MINUTES` | 30                              | 5…120.                                                                                        |
-| `VENDOR_PASSWORD_MIN_LENGTH`        | 12                              | 12…64.                                                                                        |
-| `VENDOR_WEBAUTHN_RP_ID`             | hostname из `VENDOR_BASE_URL`   | Домен RP; в prod может быть родительским (`partnercoder.ru` для `admin.partnercoder.ru`).     |
-| `VENDOR_BASE_URL`                   | `http://localhost:3001`         | Уже существует; используется как trusted origin и passkey origin.                             |
+| Переменная                          | По умолчанию                     | Правило                                                                                                                          |
+| ----------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `VENDOR_DATABASE_URL`               | —                                | Логин `partner_coder_vendor`; вне local обязателен, локально fallback на `DATABASE_URL`.                                         |
+| `VENDOR_AUTH_DATABASE_URL`          | —                                | Логин `partner_coder_vendor_auth`; вне local обязателен, локально fallback на `DATABASE_URL`.                                    |
+| `VENDOR_AUTH_SECRET`                | fallback `AUTH_SECRET` локально  | Минимум 32 символа; вне local обязателен и не равен `AUTH_SECRET`.                                                               |
+| `VENDOR_SESSION_TTL_HOURS`          | 8                                | 1…24.                                                                                                                            |
+| `VENDOR_PASSWORD_RESET_TTL_MINUTES` | 30                               | 5…120.                                                                                                                           |
+| `VENDOR_PASSWORD_MIN_LENGTH`        | 12                               | 12…64.                                                                                                                           |
+| `VENDOR_WEBAUTHN_RP_ID`             | hostname из `VENDOR_BASE_URL`    | Домен RP; в prod может быть родительским (`partnercoder.ru` для `admin.partnercoder.ru`).                                        |
+| `VENDOR_BASE_URL`                   | локально `http://localhost:3001` | Origin консоли без path/query/fragment. Вне local обязателен и только `https`; используется как trusted origin и passkey origin. |
+
+`resolveVendorBaseUrl(env)` подставляет локальный default; в staging/prod
+значение обязательно. Если `API_CORS_ORIGINS` задан явно, он должен включать
+`VENDOR_BASE_URL`, иначе браузерная консоль не пройдёт CORS.
 
 `resolveRateLimitStorage` переиспользуется: local — memory, staging/prod —
 database. `AUTH_IP_HEADERS`/`AUTH_TRUSTED_PROXIES` применяются и к

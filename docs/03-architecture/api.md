@@ -120,7 +120,7 @@ tenant-маршруты ему закрыты, выпуск/ротация до�
 | `vendor_step_up_required`          | 403  | `stepUpUntil` истёк (guard есть; в PR A не требуется) |
 | `invalid_password`                 | 400  | неверный пароль на step-up                            |
 | `superadmin_confirmation_required` | 400  | нет `confirmSuperadmin: true`                         |
-| `vendor_user_exists`               | 409  | пользователь уже active                               |
+| `vendor_user_exists`               | 409  | пользователь active или invited с другой ролью        |
 | `vendor_user_inactive`             | 409  | пользователь suspended/disabled                       |
 | `vendor_user_not_found`            | 404  | неизвестный id                                        |
 | `vendor_self_change_denied`        | 409  | попытка изменить собственную запись                   |
@@ -150,8 +150,10 @@ tenant-маршруты ему закрыты, выпуск/ротация до�
   `vendor_auth_email_limits` (те же 5/60 на email для входа и сброса,
   5/5 минут на step-up); worker удаляет просроченные окна.
 - Действия вендора пишутся в `vendor_audit_events` с хеш-цепочкой
-  (`vendor_audit()`); `GET /openapi.json` содержит только собственные
-  `/v1/vendor/*` маршруты.
+  (`vendor_audit()`): приглашения, роли/статусы, reset/MFA, step-up,
+  `sign_in_succeeded`/`sign_in_failed` (sha256 email), `mfa_failed`,
+  `signed_out`, `password_changed`, `session_revoked`. `GET /openapi.json`
+  содержит только собственные `/v1/vendor/*` маршруты.
 - Security-заголовки: CSP `default-src 'none'`, `frame-ancestors 'none'`,
   HSTS вне local, `x-content-type-options`, `referrer-policy`.
 

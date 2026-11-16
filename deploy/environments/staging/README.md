@@ -24,8 +24,10 @@
 Вендорский контур (ADR-0013): `VENDOR_SESSION_TTL_HOURS=8`,
 `VENDOR_PASSWORD_RESET_TTL_MINUTES=30`, `VENDOR_PASSWORD_MIN_LENGTH=12`
 (допустимые диапазоны 1…24, 5…120, 12…64). `VENDOR_BASE_URL` — origin
-консоли; локально `http://localhost:3001`, в staging — реальный домен
-консоли. Passkeys и UI-страницы в PR A не включены; вход проверяется через
+консоли без path/query/fragment: локально `http://localhost:3001`, в staging —
+только `https://` с реальным доменом консоли. Вне local значение обязательно;
+если `API_CORS_ORIGINS` задан явно, он должен включать `VENDOR_BASE_URL`.
+Passkeys и UI-страницы в PR A не включены; вход проверяется через
 SMTP/Mailpit и HTTP, `VENDOR_WEBAUTHN_RP_ID` пока не задаётся.
 
 Rate limit: вне local по умолчанию используется общий PostgreSQL-store;
@@ -36,6 +38,28 @@ Rate limit: вне local по умолчанию используется общ
 Метрики: `METRICS_TOKEN` (если `/metrics` доступен не только из private
 network). Worker: `WORKER_METRICS_PORT=4100`, cron-переменные
 `DAY_CLOSE_CRON`, `AUDIT_ANCHOR_CRON`, `TTL_CLEANUP_CRON`.
+
+## Секрет вендорского auth
+
+`VENDOR_AUTH_SECRET` (>= 32 байт, не равен `AUTH_SECRET`) шифрует TOTP-секреты
+и backup-коды в `vendor_auth_two_factors` и подписывает вендорские сессии.
+Храните его только в секрет-менеджере и включите в тот же backup/PITR-контур,
+что и БД: без секрета существующие TOTP и backup-коды не читаются.
+
+Ротация — плановая операция: новый секрет делает сохранённые TOTP-секреты
+нерасшифровываемыми, поэтому после смены всем вендорам нужно заново
+зарегистрировать TOTP (старые сессии также станут невалидны). Порядок:
+объявить окно, сменить секрет, раздать reset через вход по паролю, проверить
+`vendor:admin` и `verify_vendor_audit_chain()`.
+
+## Сбой SMTP
+
+Если SMTP недоступен при приглашении, пользователь остаётся в статусе
+`invited`, письмо не уходит, API отвечает ошибкой отправки. Повторный
+`POST /v1/vendor/users` для того же `invited` пользователя или
+`POST /v1/vendor/users/:id/reset-password` переотправляет ссылку. Пароль и
+TOTP при этом не меняются; `vendor.user.invited`/`password_reset_requested`
+пишутся в аудит по факту запроса.
 
 ## Роли БД
 
