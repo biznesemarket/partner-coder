@@ -958,12 +958,23 @@ Expected: FAIL — маршрутов нет.
     `updateVendorUser`, `requestPasswordReset`;
   - `confirmSuperadmin` обязателен для роли superadmin.
     Список — `listVendorUsers`.
-- `PATCH` — нельзя менять себя; update + аудит в одной транзакции; при
-  `suspended`/`disabled` — `revokeVendorSessions` + аудит; role change
-  аудируется.
-- `reset-password` — только superadmin; suspended/disabled → 409
-  `vendor_user_inactive`; иначе `requestPasswordReset`.
-- `reset-mfa` — только superadmin; `resetVendorMfa` с actor/IP; аудит.
+- Пулы: `runtime.db` — `partner_coder_vendor` (данные, `updateVendorUser`,
+  `getVendorUserById`, `listVendorUsers`, аудит через `vendor_audit()`);
+  `runtime.authDb` — `partner_coder_vendor_auth` (`revokeVendorSessions`,
+  `resetVendorMfa`, обновление `step_up_until`). Не передавать `runtime.db`
+  в `revokeVendorSessions`/`resetVendorMfa`: у vendor-роли нет грантов на
+  `vendor_auth_*`.
+- `PATCH` — нельзя менять себя; `updateVendorUser(runtime.db, ...)` + аудит
+  в одной транзакции; при `suspended`/`disabled` —
+  `revokeVendorSessions(runtime.authDb, id)`; role change аудируется.
+- `reset-password` — только superadmin; сначала `getVendorUserById(runtime.db)`;
+  404 если нет; suspended/disabled → 409 `vendor_user_inactive`; иначе
+  `requestPasswordReset`.
+- `reset-mfa` — только superadmin; сначала `getVendorUserById(runtime.db)`;
+  404 если нет (не писать фантомный аудит); затем
+  `resetVendorMfa(runtime.authDb, id, { actorId, ip })`.
+- `step-up` — обновляет `vendor_auth_sessions.step_up_until` через
+  `runtime.authDb`.
 - Zod-схемы и paths в OpenAPI; ошибки через `ApiError`.
 
 - [ ] **Step 4: Прогнать тесты**
