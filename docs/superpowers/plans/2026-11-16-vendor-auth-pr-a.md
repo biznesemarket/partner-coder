@@ -1043,11 +1043,15 @@ Expected: FAIL.
   ветки для `vendor`/`vendor_auth`, запрет пересечений.
 - `main.ts`: `vendorPool`/`vendorAuthPool` (fallback `DATABASE_URL` локально),
   `vendorDb`/`vendorAuthDb`, role checks вне local, `createVendorAuth` с
-  колбэками `onSessionCreated → markVendorLogin(vendorDb, id)`,
-  `onPasswordReset → activateAfterPasswordReset(vendorDb, id) + аудит`,
+  колбэками `onSessionCreated → markVendorLogin(vendorDb, id)` (best-effort,
+  try/catch), `onPasswordReset → activateAfterPasswordReset(vendorDb, id) +
+аудит` (аудит best-effort: сбой аудита не отменяет сброс пароля),
   `getVendorStatus → getVendorUserById(vendorAuthDb, id)?.status`,
+  `getVendorStatusByEmail → getVendorUserByEmail(vendorAuthDb, email)?.status`,
   `DatabaseEmailRateLimiter` с `vendor_auth_email_limits`, `VendorAuthRuntime`,
-  `buildServer({ vendorRuntime })`, закрытие пулов.
+  `buildServer({ vendorRuntime })`, закрытие пулов. `redirectTo` для
+  `requestPasswordReset` — `${VENDOR_BASE_URL}/reset-password` без trailing
+  slash.
 - `server.ts`: `BuildServerOptions.vendorRuntime`, `vendorEmailRateLimitStore`;
   `registerVendorAuthRoutes` + `registerVendorRoutes` при наличии runtime.
 
