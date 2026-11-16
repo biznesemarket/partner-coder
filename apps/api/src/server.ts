@@ -12,8 +12,10 @@ import type { AuthRuntime } from "./auth/runtime.js";
 import { createHttpMetrics } from "./metrics.js";
 import { buildOpenApiDocument } from "./openapi/index.js";
 import type { EmailRateLimitStore } from "./auth/email-rate-limit.js";
+import type { VendorAuthRuntime } from "./vendor-auth/runtime.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerTenantRoutes } from "./routes/tenant.js";
+import { registerVendorAuthRoutes } from "./routes/vendor-auth.js";
 
 export { ApiError } from "./errors.js";
 
@@ -65,6 +67,8 @@ export interface BuildServerOptions {
   readonly apiBaseUrl?: string;
   readonly emailRateLimit?: number | false;
   readonly emailRateLimitStore?: EmailRateLimitStore;
+  readonly vendorRuntime?: VendorAuthRuntime;
+  readonly vendorEmailRateLimitStore?: EmailRateLimitStore;
   readonly onError?: (error: unknown, request: FastifyRequest) => void;
 }
 
@@ -229,6 +233,15 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
         : { emailRateLimitStore: options.emailRateLimitStore }),
     });
     registerTenantRoutes(server, options.authRuntime);
+  }
+
+  if (options.vendorRuntime) {
+    registerVendorAuthRoutes(server, options.vendorRuntime, {
+      ...(options.apiBaseUrl === undefined ? {} : { apiBaseUrl: options.apiBaseUrl }),
+      ...(options.vendorEmailRateLimitStore === undefined
+        ? {}
+        : { emailRateLimitStore: options.vendorEmailRateLimitStore }),
+    });
   }
 
   return server;
