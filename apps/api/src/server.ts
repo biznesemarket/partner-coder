@@ -15,7 +15,8 @@ import type { EmailRateLimitStore } from "./auth/email-rate-limit.js";
 import type { VendorAuthRuntime } from "./vendor-auth/runtime.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerTenantRoutes } from "./routes/tenant.js";
-import { registerVendorAuthRoutes } from "./routes/vendor-auth.js";
+import { normalizeBaseUrl, registerVendorAuthRoutes } from "./routes/vendor-auth.js";
+import { registerVendorRoutes } from "./routes/vendor.js";
 
 export { ApiError } from "./errors.js";
 
@@ -77,6 +78,21 @@ function requireApiBaseUrl(value: string | undefined): string {
     throw new Error("apiBaseUrl is required when vendorRuntime is configured");
   }
   return value;
+}
+
+function isUnsafeMethod(method: string): boolean {
+  return method !== "GET" && method !== "HEAD" && method !== "OPTIONS";
+}
+
+function isVendorApiPath(url: string): boolean {
+  const path = url.split("?")[0] ?? url;
+  let normalized = path;
+  try {
+    normalized = decodeURIComponent(path).replace(/\/{2,}/g, "/");
+  } catch {
+    normalized = path;
+  }
+  return normalized === "/v1/vendor" || normalized.startsWith("/v1/vendor/");
 }
 
 /**
@@ -250,12 +266,30 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
   }
 
   if (vendorSetup) {
+    const vendorOrigin = normalizeBaseUrl(vendorSetup.runtime.vendorBaseUrl);
+    const apiOrigin = normalizeBaseUrl(vendorSetup.apiBaseUrl);
+
+    server.addHook("onRequest", async (request) => {
+      if (!isUnsafeMethod(request.method) || !isVendorApiPath(request.url)) {
+        return;
+      }
+      const origin = request.headers.origin;
+      if (typeof origin !== "string" || origin.length === 0) {
+        return;
+      }
+      const normalizedOrigin = normalizeBaseUrl(origin);
+      if (normalizedOrigin !== vendorOrigin && normalizedOrigin !== apiOrigin) {
+        throw new ApiError(403, "vendor_origin_denied", "Недопустимый источник запроса");
+      }
+    });
+
     registerVendorAuthRoutes(server, vendorSetup.runtime, {
       apiBaseUrl: vendorSetup.apiBaseUrl,
       ...(options.vendorEmailRateLimitStore === undefined
         ? {}
         : { emailRateLimitStore: options.vendorEmailRateLimitStore }),
     });
+    registerVendorRoutes(server, vendorSetup.runtime);
   }
 
   return server;

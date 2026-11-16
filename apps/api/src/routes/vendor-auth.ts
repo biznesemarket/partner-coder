@@ -59,7 +59,7 @@ function isUnsafeMethod(method: string): boolean {
   return method !== "GET" && method !== "HEAD" && method !== "OPTIONS";
 }
 
-function normalizeBaseUrl(value: string): string {
+export function normalizeBaseUrl(value: string): string {
   return value.trim().replace(/\/+$/, "");
 }
 
