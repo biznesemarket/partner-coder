@@ -94,4 +94,46 @@ CREATE INDEX "vendor_auth_sessions_user_idx" ON "vendor_auth_sessions" USING btr
 CREATE INDEX "vendor_auth_sessions_expires_idx" ON "vendor_auth_sessions" USING btree ("expires_at");--> statement-breakpoint
 CREATE INDEX "vendor_auth_two_factors_user_idx" ON "vendor_auth_two_factors" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "vendor_auth_verifications_identifier_idx" ON "vendor_auth_verifications" USING btree ("identifier");--> statement-breakpoint
-CREATE INDEX "vendor_auth_verifications_expires_idx" ON "vendor_auth_verifications" USING btree ("expires_at");
+CREATE INDEX "vendor_auth_verifications_expires_idx" ON "vendor_auth_verifications" USING btree ("expires_at");--> statement-breakpoint
+
+-- M3: отдельная роль Better Auth для вендорского контура. Прямого доступа к
+-- журналу аудита у нее нет: события пишутся через SECURITY DEFINER-функцию.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'partner_coder_vendor_auth') THEN
+    CREATE ROLE partner_coder_vendor_auth NOLOGIN;
+  END IF;
+END
+$$;--> statement-breakpoint
+
+GRANT USAGE ON SCHEMA public TO partner_coder_vendor_auth;--> statement-breakpoint
+GRANT SELECT, INSERT, UPDATE ON TABLE vendor_users TO partner_coder_vendor_auth;--> statement-breakpoint
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
+  vendor_auth_accounts, vendor_auth_sessions, vendor_auth_verifications,
+  vendor_auth_two_factors, vendor_auth_passkeys, vendor_auth_rate_limits,
+  vendor_auth_email_limits
+TO partner_coder_vendor_auth;--> statement-breakpoint
+GRANT SELECT, DELETE ON TABLE
+  vendor_auth_sessions, vendor_auth_verifications,
+  vendor_auth_rate_limits, vendor_auth_email_limits
+TO partner_coder_worker;--> statement-breakpoint
+
+CREATE OR REPLACE FUNCTION vendor_audit(
+  p_actor_id uuid, p_customer_id uuid, p_action text, p_entity text,
+  p_before jsonb DEFAULT NULL, p_after jsonb DEFAULT NULL, p_ip inet DEFAULT NULL
+) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp
+AS $$
+DECLARE v_id uuid;
+BEGIN
+  INSERT INTO vendor_audit_events (actor_id, customer_id, action, entity, before, after, ip)
+  VALUES (p_actor_id, p_customer_id, p_action, p_entity, p_before, p_after, p_ip)
+  RETURNING id INTO v_id;
+  RETURN v_id;
+END
+$$;--> statement-breakpoint
+REVOKE EXECUTE ON FUNCTION vendor_audit(uuid, uuid, text, text, jsonb, jsonb, inet) FROM PUBLIC;--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION vendor_audit(uuid, uuid, text, text, jsonb, jsonb, inet)
+  TO partner_coder_vendor, partner_coder_vendor_auth;--> statement-breakpoint
+ALTER FUNCTION vendor_audit(uuid, uuid, text, text, jsonb, jsonb, inet)
+  OWNER TO partner_coder_worker;
