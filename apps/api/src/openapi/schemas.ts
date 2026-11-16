@@ -194,6 +194,69 @@ export const tenantDaySchema = z.object({
 
 export const tenantDaysResponseSchema = z.object({ items: z.array(tenantDaySchema) });
 
+export const vendorRolesSchema = z.enum(["superadmin", "finance", "support", "readonly"]);
+
+export const vendorUserStatusesSchema = z.enum(["invited", "active", "suspended", "disabled"]);
+
+export const vendorUserSchema = z.object({
+  id: z.uuid(),
+  email: z.string(),
+  name: z.string(),
+  emailVerified: z.boolean(),
+  image: z.string().nullable(),
+  role: vendorRolesSchema,
+  status: vendorUserStatusesSchema,
+  twoFactorEnabled: z.boolean(),
+  lastLoginAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const vendorUserResponseSchema = z.object({ user: vendorUserSchema });
+
+export const vendorUserListResponseSchema = z.object({ items: z.array(vendorUserSchema) });
+
+export const vendorUserCreateSchema = z.object({
+  email: z.email(),
+  name: z.string().trim().min(1).max(120),
+  role: vendorRolesSchema.default("support"),
+  confirmSuperadmin: z.boolean().optional(),
+});
+
+export const vendorUserUpdateSchema = z.object({
+  role: vendorRolesSchema.optional(),
+  status: vendorUserStatusesSchema.optional(),
+  confirmSuperadmin: z.boolean().optional(),
+});
+
+export const vendorUserParamsSchema = z.object({ id: z.uuid() });
+
+export const vendorAuthMeResponseSchema = z.object({
+  user: z.object({
+    id: z.uuid(),
+    email: z.string(),
+    name: z.string(),
+    role: vendorRolesSchema,
+    status: vendorUserStatusesSchema,
+    twoFactorEnabled: z.boolean(),
+  }),
+  mfaEnrollmentRequired: z.boolean(),
+  sessionExpiresAt: z.string(),
+  stepUpUntil: z.string().nullable(),
+});
+
+export const vendorStepUpSchema = z.object({ password: z.string().min(1).max(128) });
+
+export const vendorStepUpResponseSchema = z.object({ stepUpUntil: z.string() });
+
+export const vendorPasswordResetResponseSchema = z.object({ status: z.literal(true) });
+
+export const vendorMfaResetResponseSchema = z.object({
+  twoFactors: z.number().int().nonnegative(),
+  passkeys: z.number().int().nonnegative(),
+  sessions: z.number().int().nonnegative(),
+});
+
 export type InvitationCreateInput = z.infer<typeof invitationCreateSchema>;
 export type DeviceCreateInput = z.infer<typeof deviceCreateSchema>;
 export type DaysQueryInput = z.infer<typeof daysQuerySchema>;
