@@ -8,9 +8,10 @@ describe("MemoryMailer", () => {
     await mailer.sendVendorPasswordReset({
       email: "ops@example.com",
       url: "https://x/reset?token=t",
+      ttlMinutes: 45,
     });
     expect(mailer.vendorPasswordResets).toEqual([
-      { email: "ops@example.com", url: "https://x/reset?token=t" },
+      { email: "ops@example.com", url: "https://x/reset?token=t", ttlMinutes: 45 },
     ]);
   });
 });

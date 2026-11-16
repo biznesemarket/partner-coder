@@ -84,6 +84,25 @@ describe("per-email rate limit (PostgreSQL)", () => {
     expect(rows.rows).toEqual([{ key: "ops@example.com", count: 2 }]);
   });
 
+  it("делит окно vendor_auth_email_limits между двумя инстансами", async () => {
+    const instanceA = new DatabaseEmailRateLimiter(first, {
+      table: "vendor_auth_email_limits",
+      limit: 2,
+      windowMs: 60_000,
+    });
+    const instanceB = new DatabaseEmailRateLimiter(second, {
+      table: "vendor_auth_email_limits",
+      limit: 2,
+      windowMs: 60_000,
+    });
+
+    expect(await instanceA.consume("Vendor-Shared@Example.com")).toBe(true);
+    expect(await instanceB.consume("vendor-shared@example.com")).toBe(true);
+    expect(await instanceA.consume("vendor-shared@example.com")).toBe(false);
+    expect(await instanceB.consume("vendor-shared@example.com")).toBe(false);
+    expect(await instanceB.consume("vendor-other@example.com")).toBe(true);
+  });
+
   it("при сбое БД откатывается на memory-лимитер и сообщает об ошибке", async () => {
     const broken = {
       execute: async () => {

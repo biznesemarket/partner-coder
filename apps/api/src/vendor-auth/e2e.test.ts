@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -15,6 +15,7 @@ import { createTestDatabase, type TestDatabase } from "../../../../packages/db/t
 import { MemoryMailer } from "../auth/mailer.js";
 import { provisionVendorAdmin } from "../cli/provision-vendor-admin.js";
 import { buildServer } from "../server.js";
+import { VENDOR_AUDIT_ACTIONS } from "./audit-actions.js";
 import { createVendorAuth, type VendorAuth } from "./config.js";
 import type { VendorAuthRuntime } from "./runtime.js";
 
@@ -23,7 +24,7 @@ const vendorBaseUrl = "http://localhost:3001";
 const apiBaseUrl = `http://${host}`;
 const authSecret = "vendor-e2e-secret-vendor-e2e-secret-1234";
 const adminPassword = "correct horse battery staple";
-const financePassword = "finance horse battery staple";
+let financePassword = "finance horse battery staple";
 
 let database: TestDatabase;
 let server: FastifyInstance;
@@ -190,8 +191,15 @@ beforeAll(async () => {
       (await getVendorUserById(db, vendorUserId))?.status ?? null,
     getVendorStatusByEmail: async (email) =>
       (await getVendorUserByEmail(db, email))?.status ?? null,
-    onSessionCreated: async (vendorUserId) => {
+    onSessionCreated: async (vendorUserId, ip) => {
       await markVendorLogin(db, vendorUserId);
+      await writeVendorAudit(db, {
+        actorId: vendorUserId,
+        action: VENDOR_AUDIT_ACTIONS.signInSucceeded,
+        entity: "vendor_session",
+        after: { userId: vendorUserId },
+        ip,
+      });
     },
     onPasswordReset: async (vendorUserId) => {
       const user = await activateAfterPasswordReset(db, vendorUserId);
@@ -364,6 +372,38 @@ describe("E2E: вендорская аутентификация на реаль
     expect(deniedByRole.statusCode).toBe(403);
     expect(deniedByRole.json()).toMatchObject({ error: { code: "vendor_role_denied" } });
 
+    // 8.1. Неуспешный TOTP, успешный TOTP-вход и смена пароля.
+    const mfaSignIn = await signIn(financeEmail, financePassword);
+    expect(mfaSignIn.statusCode).toBe(200);
+    expect(mfaSignIn.json().twoFactorRedirect).toBe(true);
+    const mfaSignInCookie = extractCookies(mfaSignIn);
+    const badTotp = await post(
+      "/api/vendor-auth/two-factor/verify-totp",
+      { code: totpCode(financeSecret, Date.now() - 5 * 30_000) },
+      mfaSignInCookie,
+    );
+    expect(badTotp.statusCode).toBe(401);
+    const goodTotp = await post(
+      "/api/vendor-auth/two-factor/verify-totp",
+      { code: totpCode(financeSecret) },
+      mfaSignInCookie,
+    );
+    expect(goodTotp.statusCode).toBe(200);
+    const financeActiveCookie = extractCookies(goodTotp);
+    expect(financeActiveCookie).toContain("session_token");
+
+    const changedPassword = "finance2 horse battery staple";
+    const passwordChanged = await post(
+      "/api/vendor-auth/change-password",
+      { currentPassword: financePassword, newPassword: changedPassword },
+      financeActiveCookie,
+    );
+    expect(passwordChanged.statusCode).toBe(200);
+    financePassword = changedPassword;
+
+    const badCredentials = await signIn(financeEmail, "definitely wrong password");
+    expect(badCredentials.statusCode).toBe(401);
+
     // 9. Приостановка отзывает сессии; вход возвращает VENDOR_INACTIVE.
     const suspended = await server.inject({
       method: "PATCH",
@@ -407,6 +447,12 @@ describe("E2E: вендорская аутентификация на реаль
     expect(passkeyRows.rowCount).toBe(0);
     expect((await getVendorUserById(database.db, finance.id))?.twoFactorEnabled).toBe(false);
 
+    // 10.1. Пользовательский отзыв других сессий и выход.
+    const revokeOthers = await post("/api/vendor-auth/revoke-other-sessions", {}, adminMfaCookie);
+    expect(revokeOthers.statusCode).toBe(200);
+    const signedOut = await post("/api/vendor-auth/sign-out", {}, adminMfaCookie);
+    expect(signedOut.statusCode).toBe(200);
+
     // 11. Аудит: нужные действия записаны, хеш-цепочка цела.
     expect(await auditCount("vendor.user.bootstrap_admin")).toBe(1);
     expect(await auditCount("vendor.user.invited")).toBe(1);
@@ -415,6 +461,46 @@ describe("E2E: вендорская аутентификация на реаль
     expect(await auditCount("vendor.session.revoked")).toBe(2);
     expect(await auditCount("vendor.auth.role_denied")).toBe(1);
     expect(await auditCount("vendor.auth.step_up_succeeded")).toBe(1);
+    expect(await auditCount("vendor.auth.sign_in_succeeded")).toBeGreaterThan(0);
+    expect(await auditCount("vendor.auth.sign_in_failed")).toBe(2);
+    expect(await auditCount("vendor.auth.mfa_failed")).toBe(1);
+    expect(await auditCount("vendor.user.mfa_enabled")).toBe(2);
+    expect(await auditCount("vendor.auth.password_changed")).toBe(1);
+    expect(await auditCount("vendor.auth.signed_out")).toBe(1);
+    expect(await auditCount("vendor.auth.session_revoked")).toBe(1);
+
+    const signInFailures = await database.pool.query<{
+      after: { emailHash: string; reason: string };
+    }>(
+      `select after
+         from vendor_audit_events
+        where action = 'vendor.auth.sign_in_failed'
+        order by chain_seq`,
+    );
+    expect(signInFailures.rows.map((row) => row.after.reason)).toEqual([
+      "invalid_credentials",
+      "inactive",
+    ]);
+    const expectedHash = createHash("sha256").update(financeEmail.toLowerCase()).digest("hex");
+    for (const row of signInFailures.rows) {
+      expect(row.after.emailHash).toBe(expectedHash);
+    }
+    expect(JSON.stringify(signInFailures.rows)).not.toContain(financeEmail);
+
+    const mfaFailure = await database.pool.query<{
+      actor_id: string | null;
+      after: { path: string; reason: string };
+    }>(
+      `select actor_id, after
+         from vendor_audit_events
+        where action = 'vendor.auth.mfa_failed'
+        order by chain_seq desc
+        limit 1`,
+    );
+    expect(mfaFailure.rows[0]).toMatchObject({
+      actor_id: null,
+      after: { path: "/two-factor/verify-totp", reason: "invalid_totp" },
+    });
 
     const chain = await database.pool.query<{ ok: boolean }>(
       "select verify_vendor_audit_chain() as ok",

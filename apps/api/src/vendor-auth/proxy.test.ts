@@ -95,6 +95,8 @@ describe("vendor auth proxy", () => {
     ["POST", "/sign-up"],
     ["POST", "/sign-up/email"],
     ["POST", "/sign-up/email?redirect=/x"],
+    ["POST", "/sign-up/future"],
+    ["POST", "/sign-up/email/verify"],
     ["POST", "/two-factor/disable"],
     ["POST", "/two-factor/send-otp"],
     ["POST", "/two-factor/verify-otp"],

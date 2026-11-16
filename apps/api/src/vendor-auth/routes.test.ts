@@ -380,6 +380,38 @@ describe("vendor auth routes", () => {
     expect(rows.rows[0]?.count).toBe("1");
   });
 
+  it("отклоняет повторное приглашение invited с другой ролью", async () => {
+    const admin = await seedUser({ role: "superadmin", twoFactorEnabled: true });
+    setSession(identity({ userId: admin.id, email: admin.email }));
+    const app = buildApp();
+    const email = `role-${randomUUID()}@example.com`;
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/vendor/users",
+      payload: { email, name: "Роль", role: "finance" },
+    });
+    expect(created.statusCode).toBe(201);
+
+    const mismatched = await app.inject({
+      method: "POST",
+      url: "/v1/vendor/users",
+      payload: { email, name: "Роль", role: "support" },
+    });
+    expect(mismatched.statusCode).toBe(409);
+    expect(mismatched.json()).toMatchObject({ error: { code: "vendor_user_exists" } });
+    expect(mismatched.json().error.message).toMatch(/finance.*PATCH \/v1\/vendor\/users\/:id/);
+
+    mailer.vendorPasswordResets.length = 0;
+    const matched = await app.inject({
+      method: "POST",
+      url: "/v1/vendor/users",
+      payload: { email, name: "Роль", role: "finance" },
+    });
+    expect(matched.statusCode).toBe(200);
+    expect(mailer.vendorPasswordResets).toHaveLength(1);
+  });
+
   it("не даёт создать второго superadmin без confirmSuperadmin", async () => {
     const admin = await seedUser({ role: "superadmin", twoFactorEnabled: true });
     setSession(identity({ userId: admin.id, email: admin.email }));
