@@ -50,7 +50,7 @@ export function createVendorAuth(options: CreateVendorAuthOptions) {
     baseURL: options.baseURL,
     basePath: "/api/vendor-auth",
     secret: options.secret,
-    trustedOrigins: [options.vendorBaseURL, options.baseURL],
+    trustedOrigins: [vendorBaseURL, options.baseURL],
     database: drizzleAdapter(options.db, {
       provider: "pg",
       schema: {

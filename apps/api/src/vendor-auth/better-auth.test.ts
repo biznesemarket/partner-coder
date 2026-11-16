@@ -154,6 +154,12 @@ describe("Vendor Better Auth: password", () => {
     mailer.vendorPasswordResets.length = 0;
     await auth.api.requestPasswordReset({ body: { email, redirectTo: resetRedirect } });
     const token = await resetTokenFromLastMail();
+    const ttl = await database.pool.query<{ minutes: number }>(
+      "select round(extract(epoch from (expires_at - now())) / 60)::int as minutes from vendor_auth_verifications where identifier = $1",
+      [`reset-password:${token}`],
+    );
+    expect(ttl.rows[0]?.minutes).toBeGreaterThanOrEqual(29);
+    expect(ttl.rows[0]?.minutes).toBeLessThanOrEqual(31);
     await auth.api.resetPassword({ body: { token, newPassword: "first correct horse battery" } });
 
     await expect(
