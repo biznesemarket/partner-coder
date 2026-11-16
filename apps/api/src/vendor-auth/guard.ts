@@ -18,6 +18,15 @@ function requireIdentity(request: FastifyRequest): VendorIdentity {
   return request.vendorAuth;
 }
 
+function auditPath(request: FastifyRequest): string {
+  const routeUrl = request.routeOptions?.url;
+  if (routeUrl) {
+    return routeUrl;
+  }
+  const queryIndex = request.url.indexOf("?");
+  return queryIndex === -1 ? request.url : request.url.slice(0, queryIndex);
+}
+
 async function revokeInactiveSessions(
   request: FastifyRequest,
   runtime: VendorAuthRuntime,
@@ -48,7 +57,7 @@ async function auditRoleDenied(
         role: identity.role,
         requiredRoles: [...roles],
         method: request.method,
-        path: request.url,
+        path: auditPath(request),
       },
       ip: request.ip || null,
     });
@@ -59,7 +68,7 @@ async function auditRoleDenied(
 
 export function createVendorGuards(runtime: VendorAuthRuntime) {
   async function authenticateVendor(request: FastifyRequest): Promise<void> {
-    const identity = await resolveVendorIdentity(runtime, request.headers);
+    const identity = await resolveVendorIdentity(runtime, request.headers, request.log);
     if (!identity) {
       throw new ApiError(401, "vendor_unauthenticated", "Требуется вход вендора");
     }

@@ -59,14 +59,17 @@ function createRuntime(
   };
 }
 
-function makeRequest(options: { vendorAuth?: VendorIdentity } = {}): FastifyRequest {
+function makeRequest(
+  options: { vendorAuth?: VendorIdentity; url?: string; routeUrl?: string } = {},
+): FastifyRequest {
   return {
     headers,
     vendorAuth: options.vendorAuth,
     id: "req-test",
-    url: "/v1/vendor/users",
+    url: options.url ?? "/v1/vendor/users",
     method: "GET",
     ip: "127.0.0.1",
+    routeOptions: { url: options.routeUrl },
     log: { error: () => undefined },
   } as unknown as FastifyRequest;
 }
@@ -203,6 +206,32 @@ describe("vendor guards", () => {
         makeRequest({ vendorAuth: identity({ role: "support" }) }),
       ),
     ).resolves.toBeUndefined();
+  });
+
+  it("аудит отказа по роли не содержит query string", async () => {
+    const vendorUserId = await seedUser({ role: "support", status: "active" });
+    const guards = createVendorGuards(createRuntime(null));
+
+    await expect(
+      guards.requireVendorRole(["superadmin"])(
+        makeRequest({
+          vendorAuth: identity({ userId: vendorUserId, role: "support" }),
+          url: "/v1/vendor/users/abc?token=secret&page=2",
+          routeUrl: "/v1/vendor/users/:id",
+        }),
+      ),
+    ).rejects.toMatchObject({ statusCode: 403, code: "vendor_role_denied" });
+
+    const audit = await database.pool.query<{ path: string }>(
+      `select after->>'path' as path
+         from vendor_audit_events
+        where actor_id = $1
+        order by created_at desc
+        limit 1`,
+      [vendorUserId],
+    );
+    expect(audit.rows[0]?.path).toBe("/v1/vendor/users/:id");
+    expect(audit.rows[0]?.path).not.toContain("?");
   });
 
   it("step-up истек — 403 vendor_step_up_required", async () => {
