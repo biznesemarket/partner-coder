@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { EnvValidationError, parseEnv, parseList, resolveRateLimitStorage } from "./env.js";
+import {
+  EnvValidationError,
+  parseEnv,
+  parseList,
+  resolveRateLimitStorage,
+  resolveVendorBaseUrl,
+} from "./env.js";
 
 const validEnv = {
   NODE_ENV: "test",
@@ -15,6 +21,16 @@ const validEnv = {
   S3_SECRET_KEY: "partner-secret",
   SMTP_HOST: "localhost",
   SMTP_FROM: "Партнер кодер <no-reply@partnercoder.local>",
+};
+
+const validStagingEnv = {
+  ...validEnv,
+  APP_ENV: "staging",
+  AUTH_DATABASE_URL: "postgres://auth@localhost/partner_coder",
+  VENDOR_DATABASE_URL: "postgres://vendor@localhost/partner_coder",
+  VENDOR_AUTH_DATABASE_URL: "postgres://vendor_auth@localhost/partner_coder",
+  VENDOR_AUTH_SECRET: "vendor-secret-0123456789abcdef0123456789",
+  VENDOR_BASE_URL: "https://vendor.example.test",
 };
 
 describe("валидация окружения", () => {
@@ -94,6 +110,31 @@ describe("валидация окружения", () => {
     expect(env.VENDOR_PASSWORD_RESET_TTL_MINUTES).toBe(30);
     expect(env.VENDOR_PASSWORD_MIN_LENGTH).toBe(12);
     expect(env.VENDOR_AUTH_SECRET).toBeUndefined();
+    expect(env.VENDOR_BASE_URL).toBeUndefined();
+    expect(resolveVendorBaseUrl(env)).toBe("http://localhost:3001");
+  });
+
+  it("вне local требует VENDOR_BASE_URL", () => {
+    const { VENDOR_BASE_URL: _omitted, ...rest } = validStagingEnv;
+    expect(() => parseEnv(rest)).toThrow(/VENDOR_BASE_URL/);
+    expect(() => resolveVendorBaseUrl({ APP_ENV: "staging" })).toThrow(/VENDOR_BASE_URL/);
+  });
+
+  it("вне local запрещает http VENDOR_BASE_URL", () => {
+    expect(() =>
+      parseEnv({ ...validStagingEnv, VENDOR_BASE_URL: "http://vendor.example.test" }),
+    ).toThrow(/VENDOR_BASE_URL.*https/);
+  });
+
+  it("отклоняет VENDOR_BASE_URL с path, query или fragment", () => {
+    for (const value of [
+      "http://localhost:3001/path",
+      "http://localhost:3001/?a=1",
+      "http://localhost:3001/#fragment",
+    ]) {
+      expect(() => parseEnv({ ...validEnv, VENDOR_BASE_URL: value })).toThrow(/origin/);
+    }
+    expect(parseEnv(validStagingEnv).VENDOR_BASE_URL).toBe("https://vendor.example.test");
   });
 
   it("вне local требует vendor URL и секрет", () => {
