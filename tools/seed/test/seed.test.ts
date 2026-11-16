@@ -111,6 +111,15 @@ describe("seed демо-данных", () => {
     });
   });
 
+  it("создаёт демо-вендора с twoFactorEnabled = false", async () => {
+    const { rows } = await database.pool.query<{ two_factor_enabled: boolean }>(
+      `select mfa_enabled as two_factor_enabled
+         from vendor_users
+        where email = 'vendor@demo.partnercoder.local'`,
+    );
+    expect(rows[0]?.two_factor_enabled).toBe(false);
+  });
+
   it("данные видны через RLS своего tenant и вендорской роли", async () => {
     const { rows } = await database.pool.query<{ tenant_id: string }>(
       "select tenant_id from day_records limit 1",

@@ -48,6 +48,13 @@ const expectedTables = [
   "valuation_versions",
   "vendor_audit_anchors",
   "vendor_audit_events",
+  "vendor_auth_accounts",
+  "vendor_auth_email_limits",
+  "vendor_auth_passkeys",
+  "vendor_auth_rate_limits",
+  "vendor_auth_sessions",
+  "vendor_auth_two_factors",
+  "vendor_auth_verifications",
   "vendor_users",
   "work_sessions",
 ] as const;

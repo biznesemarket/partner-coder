@@ -128,7 +128,7 @@ async function seedDemoRows(db: SeedDb): Promise<SeedSummary> {
       name: "Демо Вендор",
       role: "superadmin",
       status: "active",
-      mfaEnabled: true,
+      twoFactorEnabled: false,
     })
     .onConflictDoNothing();
 

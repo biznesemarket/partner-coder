@@ -1,6 +1,7 @@
 export * from "./enums.js";
 export * from "./columns.js";
 export * from "./vendor.js";
+export * from "./vendor-auth.js";
 export * from "./identity.js";
 export * from "./projects.js";
 export * from "./ops.js";
