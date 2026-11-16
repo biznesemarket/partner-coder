@@ -8,6 +8,7 @@ import { writeVendorAudit, type VendorAuditEvent } from "@partner-coder/db";
 import { EmailRateLimiter, type EmailRateLimitStore } from "../auth/email-rate-limit.js";
 import { ApiError } from "../errors.js";
 import { VENDOR_AUDIT_ACTIONS } from "../vendor-auth/audit-actions.js";
+import { normalizeBaseUrl, stripTrailingSlashes } from "../vendor-auth/base-url.js";
 import {
   resolveVendorIdentity,
   type VendorAuthRuntime,
@@ -47,6 +48,8 @@ const IDENTITY_PATHS = new Set([
   ...MFA_VERIFY_PATHS,
 ]);
 
+export { normalizeBaseUrl };
+
 export interface VendorAuthRouteOptions {
   /** База API; разрешена как Origin наравне с vendorBaseUrl. */
   readonly apiBaseUrl: string;
@@ -59,7 +62,7 @@ function relativePath(pathname: string): string {
   if (!relative) {
     return "/";
   }
-  return relative.length > 1 && relative.endsWith("/") ? relative.replace(/\/+$/, "") : relative;
+  return relative.length > 1 && relative.endsWith("/") ? stripTrailingSlashes(relative) : relative;
 }
 
 /** Декодирует и схлопывает слэши, чтобы deny-list нельзя было обойти кодированием. */
@@ -80,10 +83,6 @@ function isDeniedPath(path: string): boolean {
 
 function isUnsafeMethod(method: string): boolean {
   return method !== "GET" && method !== "HEAD" && method !== "OPTIONS";
-}
-
-export function normalizeBaseUrl(value: string): string {
-  return value.trim().replace(/\/+$/, "");
 }
 
 function normalizedEmail(body: unknown): string | null {
@@ -110,7 +109,7 @@ async function auditBestEffort(
   try {
     await writeVendorAudit(runtime.db, event);
   } catch (error) {
-    request.log.warn({ err: error, action: event.action }, "vendor_auth_audit_failed");
+    request.log.warn({ err: error }, "vendor_auth_audit_failed");
   }
 }
 

@@ -28,6 +28,7 @@ import {
   vendorUserParamsSchema,
   vendorUserUpdateSchema,
 } from "../openapi/schemas.js";
+import { normalizeBaseUrl } from "../vendor-auth/base-url.js";
 import { createVendorGuards } from "../vendor-auth/guard.js";
 import type { VendorAuthRuntime } from "../vendor-auth/runtime.js";
 import { parseBody, parseParams } from "./validation.js";
@@ -41,7 +42,7 @@ function maskEmail(email: string): string {
 }
 
 function resetRedirect(runtime: VendorAuthRuntime): string {
-  return `${runtime.vendorBaseUrl.replace(/\/+$/, "")}/reset-password`;
+  return `${normalizeBaseUrl(runtime.vendorBaseUrl)}/reset-password`;
 }
 
 function statusAuditAction(status: VendorUserStatus): string {

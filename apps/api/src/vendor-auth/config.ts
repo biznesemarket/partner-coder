@@ -17,6 +17,7 @@ import {
 } from "@partner-coder/db";
 
 import type { AuthMailer } from "../auth/mailer.js";
+import { normalizeBaseUrl } from "./base-url.js";
 
 export interface CreateVendorAuthOptions {
   readonly db: Database;
@@ -50,7 +51,7 @@ export interface CreateVendorAuthOptions {
  * пароля, TOTP и блокировка сессий suspended/disabled.
  */
 export function createVendorAuth(options: CreateVendorAuthOptions) {
-  const vendorBaseURL = options.vendorBaseURL.replace(/\/+$/, "");
+  const vendorBaseURL = normalizeBaseUrl(options.vendorBaseURL);
 
   return betterAuth({
     appName: "Партнер кодер — вендор",

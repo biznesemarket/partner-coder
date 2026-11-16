@@ -17,6 +17,7 @@ import {
 
 import { readRoleFacts, roleSeparationErrors } from "../auth/db-roles.js";
 import { SmtpMailer, type AuthMailer } from "../auth/mailer.js";
+import { normalizeBaseUrl } from "../vendor-auth/base-url.js";
 import { createVendorAuth, type VendorAuth } from "../vendor-auth/config.js";
 
 const USAGE =
@@ -67,7 +68,7 @@ async function sendResetLink(deps: ProvisionVendorAdminDeps, email: string): Pro
   await deps.auth.api.requestPasswordReset({
     body: {
       email,
-      redirectTo: `${deps.vendorBaseUrl.replace(/\/+$/, "")}/reset-password`,
+      redirectTo: `${normalizeBaseUrl(deps.vendorBaseUrl)}/reset-password`,
     },
   });
 }
