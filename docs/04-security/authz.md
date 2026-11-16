@@ -1,11 +1,11 @@
-# Матрица авторизации tenant-контура
+# Матрица авторизации
 
-| Поле      | Значение                                              |
-| --------- | ----------------------------------------------------- |
-| Код       | SEC-AUTHZ                                             |
-| Версия    | 1.0                                                   |
-| Статус    | реализовано в M2.2                                    |
-| Связанные | ADR-0006, ADR-0010, `packages/contracts/src/authz.ts` |
+| Поле      | Значение                                                        |
+| --------- | --------------------------------------------------------------- |
+| Код       | SEC-AUTHZ                                                       |
+| Версия    | 1.1                                                             |
+| Статус    | tenant — M2.2; вендорский контур — M3 PR A                      |
+| Связанные | ADR-0006, ADR-0010, ADR-0013, `packages/contracts/src/authz.ts` |
 
 Матрица — единственный источник прав в коде. API, worker и тесты используют
 `can()` и `authorize()` из `@partner-coder/contracts`; дублировать правила в
@@ -73,3 +73,39 @@ Device-токен не является заменой веб-сессии: он
 - `packages/db/test/rls.test.ts` проверяет изоляцию чтения/записи/вставки.
 - `apps/api/src/auth/e2e.test.ts` проходит вход, приглашение, device token и
   отзыв через HTTP API.
+- `apps/api/src/vendor-auth/e2e.test.ts` проходит bootstrap суперадмина,
+  пароль, TOTP, роли, блокировку, сброс MFA и проверку аудита через реальный
+  Fastify и Better Auth.
+
+## 5. Вендорский контур
+
+Вендорские роли не входят в tenant-матрицу: у них нет членств, tenant-контекста
+и device-токенов. Доступ к `/v1/vendor/*` строится цепочкой guard-ов:
+
+1. `authenticateVendor` — валидная сессия Better Auth; иначе 401
+   `vendor_unauthenticated`;
+2. статус `invited`/`active` допускается, `suspended`/`disabled` — 403
+   `vendor_inactive`, сессия отзывается;
+3. `requireVendorMfa` — `twoFactorEnabled === true`, иначе 403
+   `vendor_mfa_required`;
+4. `requireVendorRole([...])` — роль из `vendor_users`; иначе 403
+   `vendor_role_denied` и событие `vendor.auth.role_denied`;
+5. `requireVendorStepUp` — `stepUpUntil > now()`, иначе 403
+   `vendor_step_up_required`.
+
+| Маршрут                                    | superadmin | finance | support | readonly |
+| ------------------------------------------ | ---------- | ------- | ------- | -------- |
+| `GET /v1/vendor/auth/me`                   | да         | да      | да      | да       |
+| `POST /v1/vendor/auth/step-up`             | да         | да      | да      | да       |
+| `GET/POST /v1/vendor/users`                | да         | —       | —       | —        |
+| `PATCH /v1/vendor/users/:id`               | да         | —       | —       | —        |
+| `POST /v1/vendor/users/:id/reset-password` | да         | —       | —       | —        |
+| `POST /v1/vendor/users/:id/reset-mfa`      | да         | —       | —       | —        |
+
+`GET /v1/vendor/auth/me` и шаги включения TOTP доступны без MFA, чтобы
+пользователь мог завершить настройку; остальные `/v1/vendor/*` требуют TOTP.
+`finance`/`support`/`readonly` получают профильные действия в следующих
+этапах M3; в PR A их доступ ограничен профилем и step-up. Назначение роли
+`superadmin` требует `confirmSuperadmin: true`; изменить собственную запись
+нельзя (409 `vendor_self_change_denied`). Прямой доступ к прокси
+`/api/vendor-auth/*` после входа не даёт вендорских данных вне guard-ов.

@@ -1,14 +1,21 @@
 # Аутентификация вендорской консоли
 
-| Поле      | Значение                                             |
-| --------- | ---------------------------------------------------- |
-| Статус    | проект, ожидает утверждения                          |
-| Дата      | 2026-11-16                                           |
-| Связанные | ADR-0006, ADR-0009, ADR-0010, ADR-0012, ADR-0013, M3 |
+| Поле      | Значение                                                   |
+| --------- | ---------------------------------------------------------- |
+| Статус    | реализовано в PR A; passkeys/UI — PR B                     |
+| Дата      | 2026-11-16                                                 |
+| Связанные | ADR-0006, ADR-0009, ADR-0010, ADR-0012, ADR-0013, M3, R-45 |
 
 Документ описывает отдельный контур входа в вендорскую консоль (M3). Он не
 меняет tenant-аутентификацию директора и разработчика: email-OTP, magic-link,
 приглашения и device-токены остаются как есть.
+
+**Статус реализации PR A.** Работают password + TOTP для всех вендорских
+ролей, приглашения/reset, блокировка, step-up, origin guard, rate limit,
+worker TTL, bootstrap CLI и E2E. Таблица `vendor_auth_passkeys` создана, но
+плагин passkey и UI не подключены (PR B). Фактические коды ошибок и события
+аудита уточнены в §8–§9: step-up с неверным паролем отвечает
+400 `invalid_password`, отказ роли пишет `vendor.auth.role_denied`.
 
 ## 1. Зачем отдельный контур
 
@@ -515,11 +522,14 @@ query-redaction pino уже покрывает `token`.
 Коды ошибок: `vendor_unauthenticated` (401 — сессии нет),
 `vendor_inactive` (403 — сессия есть, статус `suspended`/`disabled`),
 `vendor_mfa_required` (403), `vendor_role_denied` (403),
-`vendor_step_up_required` (403), `vendor_user_exists` (409),
-`vendor_user_inactive` (409 — сброс пароля для suspended/disabled),
-`vendor_user_not_found` (404), `vendor_self_change_denied` (409),
-`email_rate_limited` (429). Все собственные ошибки идут в общем
-`ErrorEnvelope` с `requestId`.
+`vendor_step_up_required` (403), `invalid_password` (400 — неверный пароль
+step-up), `superadmin_confirmation_required` (400),
+`vendor_user_exists` (409), `vendor_user_inactive` (409 — сброс пароля для
+suspended/disabled), `vendor_user_not_found` (404),
+`vendor_self_change_denied` (409), `vendor_origin_denied` (403),
+`vendor_auth_path_forbidden` (403), `email_rate_limited` (429). Все собственные
+ошибки идут в общем `ErrorEnvelope` с `requestId`. Прокси возвращает ошибки
+Better Auth в его формате; вход suspended/disabled — 403 `VENDOR_INACTIVE`.
 
 OpenAPI: собственные маршруты описываются Zod-схемами и попадают в
 `/openapi.json`, `openapi.json` и `openapi.d.ts`; прокси Better Auth
@@ -574,6 +584,7 @@ worker-а). Actor — `vendor_users.id`; для неуспешного вход�
 | `vendor.session.revoked`                           | отзыв сессий при блокировке/сбросе (actor — админ)                                     |
 | `vendor.auth.session_revoked`                      | пользователь отозвал свою/другие сессии                                                |
 | `vendor.auth.step_up_succeeded` / `step_up_failed` | повторная проверка пароля                                                              |
+| `vendor.auth.role_denied`                          | роль вендора не прошла `requireVendorRole`                                             |
 
 `after` содержит только безопасные поля: masked email, role, status,
 user id, session id, причина. Пароли, TOTP-секреты, коды, backup-коды,

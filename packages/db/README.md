@@ -1,8 +1,9 @@
 # @partner-coder/db — схема, миграции, RLS, аудит
 
-Пакет реализует платформенное ядро M2.1–M2.2: PostgreSQL-схему вендорского,
-тенантского и auth-контуров, RLS, append-only журналы, хеш-цепочку аудита,
-идемпотентность, приглашения и device-токены.
+Пакет реализует платформенное ядро M2.1–M2.2 и вендорский auth-контур M3 PR A:
+PostgreSQL-схему вендорского, тенантского и auth-контуров, RLS, append-only
+журналы, хеш-цепочку аудита, идемпотентность, приглашения, device-токены и
+`vendor_auth_*`.
 
 ## Команды
 
@@ -31,6 +32,7 @@ src/schema/
   vendor.ts       vendor_users … onboarding_sessions, vendor_audit_events
   identity.ts     users, auth_sessions, tenants, memberships, devices, device_tokens, invitations
   auth.ts         Better Auth: auth_accounts, auth_verifications, 2FA/passkeys, rate limit
+  vendor-auth.ts  Better Auth вендорской консоли: vendor_auth_* (7 таблиц)
   rate-limit.ts   email_rate_limits: общий per-email лимит OTP/magic-link
   projects.ts     projects, политика, версии, сессии, дни, споры, выплаты
   ops.ts          git-интеграции, вебхуки, уведомления, дайджесты
@@ -39,6 +41,7 @@ src/schema/
 src/client.ts     пул, Drizzle, tenant-контекст транзакции
 src/idempotency.ts withIdempotency()
 src/auth/         приглашения, device-токены, членства, tenant-данные
+src/vendor-auth/  vendor_audit(), users, sessions/reset MFA, типы
 drizzle/          SQL-миграции и снапшоты
 test/             интеграционные тесты на реальном PostgreSQL
 ```
@@ -48,13 +51,14 @@ test/             интеграционные тесты на реальном 
 
 ## Роли БД
 
-| Роль                      | Назначение                                   | RLS                    |
-| ------------------------- | -------------------------------------------- | ---------------------- |
-| `partner_coder_api`       | API тенантского контура                      | включен                |
-| `partner_coder_vendor`    | вендорская консоль, только вендорский контур | не нужен               |
-| `partner_coder_worker`    | доверенные задания (закрытие дня, якоря)     | `BYPASSRLS`            |
-| `partner_coder_auth`      | Better Auth: users, сессии, OTP/аккаунты     | включен                |
-| `partner_coder_retention` | удаление старых heartbeat через функцию      | политика DELETE/SELECT |
+| Роль                        | Назначение                                   | RLS                    |
+| --------------------------- | -------------------------------------------- | ---------------------- |
+| `partner_coder_api`         | API тенантского контура                      | включен                |
+| `partner_coder_vendor`      | вендорская консоль, только вендорский контур | не нужен               |
+| `partner_coder_vendor_auth` | секреты `vendor_auth_*` и `vendor_users`     | не нужен               |
+| `partner_coder_worker`      | доверенные задания (закрытие дня, якоря)     | `BYPASSRLS`            |
+| `partner_coder_auth`        | Better Auth: users, сессии, OTP/аккаунты     | включен                |
+| `partner_coder_retention`   | удаление старых heartbeat через функцию      | политика DELETE/SELECT |
 
 Роли создаются миграцией как `NOLOGIN`-группы. Логин для приложения
 провижинится отдельно и получает членство в нужной роли. Пароли и секреты в
@@ -109,6 +113,28 @@ await withTenantContext(db, { tenantId, userId }, async (tx) => {
   Auth, `email_rate_limits` — API-роль для per-email лимита OTP/magic-link.
   Worker удаляет окна старше суток; таблицы не tenant-ские и не видны чужим
   контурам.
+
+## Вендорский auth-контур
+
+- `src/schema/vendor-auth.ts`: `vendor_auth_accounts`, `vendor_auth_sessions`,
+  `vendor_auth_verifications`, `vendor_auth_two_factors`,
+  `vendor_auth_passkeys`, `vendor_auth_rate_limits`,
+  `vendor_auth_email_limits`. Вендорские таблицы глобальные: без `tenant_id` и
+  без RLS; изоляция — гранты и отдельные логины (ADR-0013).
+- `partner_coder_vendor_auth` (NOLOGIN, миграция `0006`) видит `vendor_users`
+  (SELECT/INSERT/UPDATE) и `vendor_auth_*`; `partner_coder_vendor` не видит
+  секреты; API/auth не видят вендорский контур; worker чистит только
+  сессии, verifications и окна лимитов.
+- `src/vendor-auth/audit.ts`: `writeVendorAudit()` вызывает
+  `SECURITY DEFINER` функцию `vendor_audit(...)`; прямой INSERT в
+  `vendor_audit_events` у auth-роли отсутствует.
+- `src/vendor-auth/users.ts`: чтение/список/обновление статуса и роли,
+  `markVendorLogin` (только `invited → active`),
+  `activateAfterPasswordReset` (не реактивирует suspended/disabled).
+- `src/vendor-auth/sessions.ts`: `revokeVendorSessions()` и
+  `resetVendorMfa()` — транзакционное удаление TOTP/passkeys/сессий с аудитом.
+- Passkeys: таблица создана заранее, плагин и UI — PR B. TTL-очистка
+  `vendor_auth_*` выполняется worker-ом; TOTP и passkeys по TTL не удаляются.
 
 ## Append-only и аудит
 

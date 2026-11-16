@@ -50,6 +50,16 @@
   per-email, memory-fallback при сбое БД, TTL-очистка worker-ом; вне local
   включается по умолчанию, `RATE_LIMIT_STORAGE` переопределяет выбор
   (ADR-0012).
+- M3 PR A — вендорская аутентификация (ADR-0013): отдельный Better Auth
+  `/api/vendor-auth` (email + password + обязательный TOTP), таблицы
+  `vendor_auth_*`, роль `partner_coder_vendor_auth`, функция `vendor_audit()`;
+  приглашения и создание вендорских пользователей (`superadmin`, `finance`,
+  `support`, `readonly`), одноразовые reset-ссылки, TOTP/passkeys-сброс,
+  блокировка suspended/disabled с отзывом сессий, step-up, origin guard,
+  per-email и общий rate limit, worker TTL, bootstrap CLI
+  `vendor:admin`, seed без пароля и credential-строк; E2E на реальном Fastify
+  и Better Auth, OpenAPI drift, документация и ledger R-45. Passkeys и UI
+  отложены в PR B; tenant-auth не менялся.
 
 ### Changed
 
@@ -72,9 +82,9 @@
 ### Notes
 
 - Лицензия — source-available; финальный текст за юристом.
-- Passkeys/2FA: схема готова; плагин 2FA Better Auth не перехватывает
-  passwordless email-OTP/magic-link, поэтому решение для вендорской консоли
-  требует отдельного дизайна (M3).
+- Вендорская консоль M3 PR A реализована без passkeys и UI: вход
+  password+TOTP, passkeys и экраны — PR B. Tenant-аутентификация остаётся
+  passwordless (OTP/magic-link).
 - Общий rate-limit store внедрен (ADR-0012); глобальный лимит Fastify
   остается на инстанс, распределенный edge/WAF — при выборе хостинга.
-- M3–M11 не реализованы: см. `docs/05-process/development-process.md`.
+- M3 PR B и M4–M11 не реализованы: см. `docs/05-process/development-process.md`.

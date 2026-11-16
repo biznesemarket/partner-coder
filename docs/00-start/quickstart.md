@@ -48,7 +48,7 @@ pnpm check         # всё вместе: prettier + lint + typecheck + тест
 pnpm build         # turbo build
 ```
 
-Ожидаемый результат: `Tests 635 passed`, все 20 golden-сценариев совпадают
+Ожидаемый результат: `Tests 768 passed`, все 20 golden-сценариев совпадают
 точно. Интеграционные тесты создают отдельные БД, поэтому PostgreSQL должен
 быть запущен; в CI он поднимается сервисом GitHub Actions.
 
@@ -61,7 +61,8 @@ curl http://localhost:4000/healthz
 
 Отвечает `{ "status": "ok", "version": "0.0.1", … }`. В M2.2 работают
 `/api/auth/*` (Better Auth: OTP, magic link), `/v1/auth/me`,
-`/v1/auth/tenant`, приглашения, device-токены и tenant-маршруты; см.
+`/v1/auth/tenant`, приглашения, device-токены и tenant-маршруты; в M3 PR A —
+вендорский `/api/vendor-auth/*` и `/v1/vendor/*`; см.
 `docs/03-architecture/api.md`.
 
 ## 6. Вход в консоль вендора
@@ -83,12 +84,30 @@ superadmin только для другого email; существующего 
 
 1. Запросите ссылку: `POST /api/vendor-auth/request-password-reset` с
    `{ "email": "ops@example.com", "redirectTo": "http://localhost:3001/reset-password" }`.
-2. Заберите письмо в Mailpit (http://localhost:8025) и возьмите `token` из ссылки.
+2. Письмо придёт в Mailpit (http://localhost:8025). Ссылка ведёт на
+   `http://localhost:3001/reset-password?token=…`, но страницы консоли в
+   PR A ещё нет — не открывайте её, а скопируйте значение `token` из query.
 3. Установите пароль: `POST /api/vendor-auth/reset-password` с
    `{ "token": "...", "newPassword": "..." }` — учётная запись станет `active`.
+   Токен одноразовый и действует 30 минут.
 4. Войдите: `POST /api/vendor-auth/sign-in/email` с email и паролем.
 5. Включите TOTP: `POST /api/vendor-auth/two-factor/enable`, затем подтвердите
-   секрет через `POST /api/vendor-auth/two-factor/verify-totp`.
+   секрет через `POST /api/vendor-auth/two-factor/verify-totp`. После этого
+   `POST /api/vendor-auth/sign-in/email` отвечает `twoFactorRedirect: true`,
+   и вход завершается кодом из authenticator.
+
+Пример установки пароля (PowerShell, после копирования токена из Mailpit):
+
+```powershell
+$token = "вставьте-token-из-письма"
+Invoke-RestMethod -Method Post -Uri http://localhost:4000/api/vendor-auth/reset-password `
+  -ContentType "application/json" `
+  -Body (@{ token = $token; newPassword = "correct horse battery staple" } | ConvertTo-Json)
+```
+
+После сброса пароля все старые сессии отзываются. Проверить профиль и
+MFA-состояние можно через `GET /v1/vendor/auth/me` (cookie сессии), а список
+вендорских пользователей — `GET /v1/vendor/users` (только superadmin + TOTP).
 
 В staging на пустой БД первый superadmin создаётся без `--force` (боевые
 переменные окружения `DATABASE_URL`, `VENDOR_DATABASE_URL`,
