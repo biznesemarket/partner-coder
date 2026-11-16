@@ -632,9 +632,19 @@ Expected: FAIL — модуля нет.
   `onPasswordReset` → `onPasswordReset(user.id)`;
 - `rateLimit`: `enabled`, `window`, `max`, database storage при необходимости.
 
-В `sendResetPassword` проверять статус через `getVendorStatus(user.id)`:
-для `suspended`/`disabled` не отправлять письмо (return без ошибки).
+В `sendResetPassword({ user, token })`:
+
+1. проверить статус через `getVendorStatus(user.id)`: для
+   `suspended`/`disabled` не отправлять письмо (return без ошибки);
+2. собрать ссылку консоли
+   `${vendorBaseUrl}/reset-password?token=${encodeURIComponent(token)}`;
+   не отправлять сырой Better Auth URL (он указывает на API и не ведёт на
+   страницу консоли);
+3. `mailer.sendVendorPasswordReset({ email: user.email, url })`.
+
 `onPasswordReset` в тесте — обёртка над `activateAfterPasswordReset` + аудит.
+Тест извлекает токен из `mail.url` query и вызывает
+`auth.api.resetPassword({ body: { token, newPassword } })`.
 
 - [ ] **Step 4: Прогнать тесты**
 
