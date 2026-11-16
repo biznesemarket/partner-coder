@@ -6,7 +6,6 @@ import { ApiError } from "../errors.js";
 import type { VendorAuthRuntime } from "../vendor-auth/runtime.js";
 
 const MOUNT_PATH = "/api/vendor-auth";
-const DEFAULT_API_BASE_URL = "http://localhost:4000";
 
 const DENIED_PATHS = new Set([
   "/sign-up",
@@ -27,7 +26,7 @@ const EMAIL_RATE_LIMITED_PATHS = new Set(["/sign-in/email", "/request-password-r
 
 export interface VendorAuthRouteOptions {
   /** База API; разрешена как Origin наравне с vendorBaseUrl. */
-  readonly apiBaseUrl?: string;
+  readonly apiBaseUrl: string;
   /** Общий store (PostgreSQL); без него используется memory-лимитер 5/60. */
   readonly emailRateLimitStore?: EmailRateLimitStore;
 }
@@ -79,10 +78,10 @@ function normalizedEmail(body: unknown): string | null {
 export function registerVendorAuthRoutes(
   server: FastifyInstance,
   runtime: VendorAuthRuntime,
-  options: VendorAuthRouteOptions = {},
+  options: VendorAuthRouteOptions,
 ): void {
   const vendorOrigin = normalizeBaseUrl(runtime.vendorBaseUrl);
-  const apiOrigin = normalizeBaseUrl(options.apiBaseUrl ?? DEFAULT_API_BASE_URL);
+  const apiOrigin = normalizeBaseUrl(options.apiBaseUrl);
   const emailLimiter: EmailRateLimitStore = options.emailRateLimitStore ?? new EmailRateLimiter();
 
   server.route({

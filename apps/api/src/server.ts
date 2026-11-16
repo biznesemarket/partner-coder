@@ -72,12 +72,26 @@ export interface BuildServerOptions {
   readonly onError?: (error: unknown, request: FastifyRequest) => void;
 }
 
+function requireApiBaseUrl(value: string | undefined): string {
+  if (!value) {
+    throw new Error("apiBaseUrl is required when vendorRuntime is configured");
+  }
+  return value;
+}
+
 /**
  * Скелет REST API (M2.3). Аутентификация, RLS-контекст и тенантные маршруты
  * добавляются в M2; здесь зафиксированы общие правила: requestId, конверт
  * ошибок, health/readiness, security-заголовки.
  */
 export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
+  const vendorSetup = options.vendorRuntime
+    ? {
+        runtime: options.vendorRuntime,
+        apiBaseUrl: requireApiBaseUrl(options.apiBaseUrl),
+      }
+    : null;
+
   const server = Fastify({
     logger: options.logger ?? false,
     genReqId: (request) => {
@@ -235,9 +249,9 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
     registerTenantRoutes(server, options.authRuntime);
   }
 
-  if (options.vendorRuntime) {
-    registerVendorAuthRoutes(server, options.vendorRuntime, {
-      ...(options.apiBaseUrl === undefined ? {} : { apiBaseUrl: options.apiBaseUrl }),
+  if (vendorSetup) {
+    registerVendorAuthRoutes(server, vendorSetup.runtime, {
+      apiBaseUrl: vendorSetup.apiBaseUrl,
       ...(options.vendorEmailRateLimitStore === undefined
         ? {}
         : { emailRateLimitStore: options.vendorEmailRateLimitStore }),
