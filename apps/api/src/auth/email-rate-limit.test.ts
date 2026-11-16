@@ -72,6 +72,18 @@ describe("per-email rate limit (PostgreSQL)", () => {
     expect(await limiter.consume("reset@example.com")).toBe(true);
   });
 
+  it("DatabaseEmailRateLimiter пишет в vendor_auth_email_limits", async () => {
+    const limiter = new DatabaseEmailRateLimiter(first, {
+      table: "vendor_auth_email_limits",
+      limit: 1,
+      windowMs: 60_000,
+    });
+    expect(await limiter.consume("ops@example.com")).toBe(true);
+    expect(await limiter.consume("ops@example.com")).toBe(false);
+    const rows = await database.pool.query("select key, count from vendor_auth_email_limits");
+    expect(rows.rows).toEqual([{ key: "ops@example.com", count: 2 }]);
+  });
+
   it("при сбое БД откатывается на memory-лимитер и сообщает об ошибке", async () => {
     const broken = {
       execute: async () => {
