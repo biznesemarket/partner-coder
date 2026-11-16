@@ -86,6 +86,7 @@ function componentSchemas(): Record<string, JsonSchema> {
 }
 
 const sessionSecurity = [{ sessionCookie: [] }];
+const vendorSessionSecurity = [{ vendorSessionCookie: [] }];
 const anyAuthSecurity = [{ sessionCookie: [] }, { bearerAuth: [] }];
 
 const dayQueryParameters = [
@@ -136,6 +137,12 @@ export function buildOpenApiDocument(options: OpenApiOptions): Record<string, un
           in: "cookie",
           name: "better-auth.session_token",
           description: "Сессия Better Auth, выданная после OTP или magic link",
+        },
+        vendorSessionCookie: {
+          type: "apiKey",
+          in: "cookie",
+          name: "pc-vendor.session_token",
+          description: "Сессия Better Auth вендорской консоли (cookie pc-vendor.session_token)",
         },
         bearerAuth: {
           type: "http",
@@ -409,7 +416,7 @@ export function buildOpenApiDocument(options: OpenApiOptions): Record<string, un
         get: {
           tags: ["Vendor"],
           summary: "Текущий вендор и состояние MFA",
-          security: sessionSecurity,
+          security: vendorSessionSecurity,
           responses: {
             200: {
               description: "Профиль вендора",
@@ -424,7 +431,7 @@ export function buildOpenApiDocument(options: OpenApiOptions): Record<string, un
         post: {
           tags: ["Vendor"],
           summary: "Повторное подтверждение пароля",
-          security: sessionSecurity,
+          security: vendorSessionSecurity,
           requestBody: { required: true, content: jsonContent(schemaRef("VendorStepUpRequest")) },
           responses: {
             200: {
@@ -442,7 +449,7 @@ export function buildOpenApiDocument(options: OpenApiOptions): Record<string, un
         get: {
           tags: ["Vendor"],
           summary: "Список вендорских пользователей",
-          security: sessionSecurity,
+          security: vendorSessionSecurity,
           responses: {
             200: {
               description: "Пользователи",
@@ -455,7 +462,7 @@ export function buildOpenApiDocument(options: OpenApiOptions): Record<string, un
         post: {
           tags: ["Vendor"],
           summary: "Создать или пригласить вендорского пользователя",
-          security: sessionSecurity,
+          security: vendorSessionSecurity,
           requestBody: { required: true, content: jsonContent(schemaRef("VendorUserCreate")) },
           responses: {
             201: {
@@ -477,7 +484,7 @@ export function buildOpenApiDocument(options: OpenApiOptions): Record<string, un
         patch: {
           tags: ["Vendor"],
           summary: "Изменить роль или статус вендорского пользователя",
-          security: sessionSecurity,
+          security: vendorSessionSecurity,
           parameters: [
             { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
           ],
@@ -499,7 +506,7 @@ export function buildOpenApiDocument(options: OpenApiOptions): Record<string, un
         post: {
           tags: ["Vendor"],
           summary: "Отправить ссылку сброса пароля",
-          security: sessionSecurity,
+          security: vendorSessionSecurity,
           parameters: [
             { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
           ],
@@ -519,7 +526,7 @@ export function buildOpenApiDocument(options: OpenApiOptions): Record<string, un
         post: {
           tags: ["Vendor"],
           summary: "Сбросить TOTP, passkeys и сессии пользователя",
-          security: sessionSecurity,
+          security: vendorSessionSecurity,
           parameters: [
             { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
           ],

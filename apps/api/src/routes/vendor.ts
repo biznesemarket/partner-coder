@@ -15,6 +15,7 @@ import {
   writeVendorAudit,
   type Database,
   type VendorAuditEvent,
+  type VendorRole,
   type VendorUser,
   type VendorUserStatus,
 } from "@partner-coder/db";
@@ -94,6 +95,7 @@ async function inviteExisting(
   request: FastifyRequest,
   runtime: VendorAuthRuntime,
   user: VendorUser,
+  requestedRole: VendorRole,
   reply: FastifyReply,
 ): Promise<FastifyReply> {
   if (user.status === "active") {
@@ -101,6 +103,13 @@ async function inviteExisting(
   }
   if (user.status === "suspended" || user.status === "disabled") {
     throw new ApiError(409, "vendor_user_inactive", "Учётная запись вендора заблокирована");
+  }
+  if (user.role !== requestedRole) {
+    throw new ApiError(
+      409,
+      "vendor_user_exists",
+      `Пользователь уже приглашён с ролью ${user.role}; измените роль через PATCH /v1/vendor/users/:id`,
+    );
   }
   await sendInvite(request, runtime, user);
   return reply.status(200).send({ user });
@@ -210,7 +219,7 @@ export function registerVendorRoutes(server: FastifyInstance, runtime: VendorAut
 
     const existing = await getVendorUserByEmail(runtime.db, email);
     if (existing) {
-      return inviteExisting(request, runtime, existing, reply);
+      return inviteExisting(request, runtime, existing, input.role, reply);
     }
 
     let vendorUserId: string;
@@ -224,7 +233,7 @@ export function registerVendorRoutes(server: FastifyInstance, runtime: VendorAut
       if (!raced) {
         throw error;
       }
-      return inviteExisting(request, runtime, raced, reply);
+      return inviteExisting(request, runtime, raced, input.role, reply);
     }
 
     const user = await updateVendorUser(runtime.db, vendorUserId, {

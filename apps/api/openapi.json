@@ -1301,6 +1301,12 @@
         "name": "better-auth.session_token",
         "description": "Сессия Better Auth, выданная после OTP или magic link"
       },
+      "vendorSessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "pc-vendor.session_token",
+        "description": "Сессия Better Auth вендорской консоли (cookie pc-vendor.session_token)"
+      },
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
@@ -2057,7 +2063,7 @@
         "summary": "Текущий вендор и состояние MFA",
         "security": [
           {
-            "sessionCookie": []
+            "vendorSessionCookie": []
           }
         ],
         "responses": {
@@ -2102,7 +2108,7 @@
         "summary": "Повторное подтверждение пароля",
         "security": [
           {
-            "sessionCookie": []
+            "vendorSessionCookie": []
           }
         ],
         "requestBody": {
@@ -2177,7 +2183,7 @@
         "summary": "Список вендорских пользователей",
         "security": [
           {
-            "sessionCookie": []
+            "vendorSessionCookie": []
           }
         ],
         "responses": {
@@ -2220,7 +2226,7 @@
         "summary": "Создать или пригласить вендорского пользователя",
         "security": [
           {
-            "sessionCookie": []
+            "vendorSessionCookie": []
           }
         ],
         "requestBody": {
@@ -2305,7 +2311,7 @@
         "summary": "Изменить роль или статус вендорского пользователя",
         "security": [
           {
-            "sessionCookie": []
+            "vendorSessionCookie": []
           }
         ],
         "parameters": [
@@ -2401,7 +2407,7 @@
         "summary": "Отправить ссылку сброса пароля",
         "security": [
           {
-            "sessionCookie": []
+            "vendorSessionCookie": []
           }
         ],
         "parameters": [
@@ -2477,7 +2483,7 @@
         "summary": "Сбросить TOTP, passkeys и сессии пользователя",
         "security": [
           {
-            "sessionCookie": []
+            "vendorSessionCookie": []
           }
         ],
         "parameters": [

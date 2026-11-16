@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { parseEnv } from "@partner-coder/config";
+import { parseEnv, resolveVendorBaseUrl } from "@partner-coder/config";
 import {
   createDatabase,
   createPool,
@@ -15,6 +15,7 @@ import {
   type Database,
 } from "@partner-coder/db";
 
+import { readRoleFacts, roleSeparationErrors } from "../auth/db-roles.js";
 import { SmtpMailer, type AuthMailer } from "../auth/mailer.js";
 import { createVendorAuth, type VendorAuth } from "../vendor-auth/config.js";
 
@@ -180,6 +181,7 @@ async function main(): Promise<void> {
 
   const options = parseCliArgs(argv);
   const env = parseEnv();
+  const vendorBaseUrl = resolveVendorBaseUrl(env);
   const vendorPool = createPool(env.VENDOR_DATABASE_URL ?? env.DATABASE_URL, env.DATABASE_POOL_MAX);
   const vendorAuthPool = createPool(
     env.VENDOR_AUTH_DATABASE_URL ?? env.DATABASE_URL,
@@ -187,28 +189,42 @@ async function main(): Promise<void> {
   );
   const db = createDatabase(vendorPool);
   const authDb = createDatabase(vendorAuthPool);
-  const mailer = new SmtpMailer(env);
-  const auth = createVendorAuth({
-    db: authDb,
-    secret: env.VENDOR_AUTH_SECRET ?? env.AUTH_SECRET,
-    baseURL: env.API_BASE_URL,
-    vendorBaseURL: env.VENDOR_BASE_URL,
-    sessionTtlHours: env.VENDOR_SESSION_TTL_HOURS,
-    passwordResetTtlMinutes: env.VENDOR_PASSWORD_RESET_TTL_MINUTES,
-    passwordMinLength: env.VENDOR_PASSWORD_MIN_LENGTH,
-    mailer,
-    getVendorStatus: async (vendorUserId) =>
-      (await getVendorUserById(authDb, vendorUserId))?.status,
-    getVendorStatusByEmail: async (email) => (await getVendorUserByEmail(authDb, email))?.status,
-    onSessionCreated: async () => {},
-    onPasswordReset: async () => {},
-  });
 
   try {
-    await provisionVendorAdmin(
-      { db, authDb, auth, mailer, vendorBaseUrl: env.VENDOR_BASE_URL },
-      options,
-    );
+    if (env.APP_ENV !== "local") {
+      const errors = [
+        ...roleSeparationErrors("vendor", await readRoleFacts((sql) => vendorPool.query(sql))),
+        ...roleSeparationErrors(
+          "vendor_auth",
+          await readRoleFacts((sql) => vendorAuthPool.query(sql)),
+        ),
+      ];
+      if (errors.length > 0) {
+        throw new Error(
+          `Неверное разделение ролей БД:\n${errors.join("\n")}\n` +
+            "Проверьте VENDOR_DATABASE_URL и VENDOR_AUTH_DATABASE_URL",
+        );
+      }
+    }
+
+    const mailer = new SmtpMailer(env);
+    const auth = createVendorAuth({
+      db: authDb,
+      secret: env.VENDOR_AUTH_SECRET ?? env.AUTH_SECRET,
+      baseURL: env.API_BASE_URL,
+      vendorBaseURL: vendorBaseUrl,
+      sessionTtlHours: env.VENDOR_SESSION_TTL_HOURS,
+      passwordResetTtlMinutes: env.VENDOR_PASSWORD_RESET_TTL_MINUTES,
+      passwordMinLength: env.VENDOR_PASSWORD_MIN_LENGTH,
+      mailer,
+      getVendorStatus: async (vendorUserId) =>
+        (await getVendorUserById(authDb, vendorUserId))?.status,
+      getVendorStatusByEmail: async (email) => (await getVendorUserByEmail(authDb, email))?.status,
+      onSessionCreated: async () => {},
+      onPasswordReset: async () => {},
+    });
+
+    await provisionVendorAdmin({ db, authDb, auth, mailer, vendorBaseUrl }, options);
     process.stdout.write(`invite sent: ${options.email.trim().toLowerCase()}\n`);
   } finally {
     await Promise.all([vendorPool.end(), vendorAuthPool.end()]);
