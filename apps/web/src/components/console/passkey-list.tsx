@@ -42,6 +42,12 @@ const NAME_ID = "passkey-name";
 
 const UNSUPPORTED_ID = "passkey-unsupported";
 
+const UNSUPPORTED_PASSKEY_CODES = new Set([
+  "ERROR_AUTHENTICATOR_NO_SUPPORTED_PUBKEYCREDPARAMS_ALG",
+  "ERROR_AUTHENTICATOR_MISSING_DISCOVERABLE_CREDENTIAL_SUPPORT",
+  "ERROR_AUTHENTICATOR_MISSING_USER_VERIFICATION_SUPPORT",
+]);
+
 function readErrorCode(error: unknown): string | null {
   if (typeof error !== "object" || error === null || !("code" in error)) {
     return null;
@@ -62,11 +68,19 @@ function readErrorName(error: unknown): string | null {
 
 function isUnsupportedPasskey(error: unknown): boolean {
   const code = readErrorCode(error);
-  if (code === "NOT_SUPPORTED" || code === "ERROR_NOT_SUPPORTED") {
+  if (code !== null && UNSUPPORTED_PASSKEY_CODES.has(code)) {
     return true;
   }
 
-  return readErrorName(error) === "NotSupportedError";
+  if (readErrorName(error) === "NotSupportedError") {
+    return true;
+  }
+
+  if (typeof error !== "object" || error === null || !("cause" in error)) {
+    return false;
+  }
+
+  return readErrorName((error as { cause?: unknown }).cause) === "NotSupportedError";
 }
 
 function subscribeNoop(): () => void {
