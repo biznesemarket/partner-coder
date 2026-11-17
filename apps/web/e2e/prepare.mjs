@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
@@ -13,6 +13,11 @@ const e2eEnv = JSON.parse(readFileSync(resolve(here, "env.json"), "utf8"));
 const databaseUrl = new URL(e2eEnv.DATABASE_URL);
 const databaseName = decodeURIComponent(databaseUrl.pathname.replace(/^\//, ""));
 const adminUrl = new URL(databaseUrl.toString());
+const adminEmail = "e2e-superadmin@example.test";
+const buildArtifacts = [
+  resolve(repoRoot, "apps/api/dist/main.js"),
+  resolve(repoRoot, "apps/web/.next"),
+];
 
 if (!/^[a-z0-9_]+$/.test(databaseName) || !databaseName.endsWith("_e2e")) {
   throw new Error(`Неожиданное имя E2E-базы: ${databaseName}`);
@@ -24,6 +29,18 @@ const childEnv = { ...process.env, ...e2eEnv };
 
 function step(message) {
   process.stdout.write(`[e2e] ${message}\n`);
+}
+
+function assertBuildArtifacts() {
+  const missing = buildArtifacts.filter((artifact) => !existsSync(artifact));
+
+  if (missing.length === 0) {
+    return;
+  }
+
+  process.stderr.write(`[e2e] не найдены артефакты сборки: ${missing.join(", ")}\n`);
+  process.stderr.write("[e2e] run pnpm build\n");
+  process.exit(1);
 }
 
 function run(command) {
@@ -80,6 +97,7 @@ async function clearMailpit() {
     try {
       const response = await globalThis.fetch("http://localhost:8025/api/v1/messages", {
         method: "DELETE",
+        signal: globalThis.AbortSignal.timeout(5_000),
       });
 
       if (response.ok) {
@@ -97,13 +115,40 @@ async function clearMailpit() {
   throw lastError instanceof Error ? lastError : new Error("Mailpit: не удалось очистить письма");
 }
 
+function adminMissingError() {
+  const error = new Error(
+    `E2E-админ ${adminEmail} не найден в ${databaseName}; проверьте env precedence`,
+  );
+
+  error.name = "E2eAdminMissingError";
+
+  return error;
+}
+
+async function assertVendorAdminExists() {
+  const { Client } = pg;
+  const client = new Client({ connectionString: databaseUrl.toString() });
+  await client.connect();
+
+  try {
+    const result = await client.query("select 1 from vendor_users where email = $1", [adminEmail]);
+
+    if (result.rowCount !== 1) {
+      throw adminMissingError();
+    }
+  } finally {
+    await client.end();
+  }
+}
+
+assertBuildArtifacts();
+
 step(`Пересоздаю базу ${databaseName}`);
 await recreateDatabase();
 
 run("pnpm db:migrate");
-run(
-  'pnpm --filter @partner-coder/api vendor:admin --email e2e-superadmin@example.test --name "E2E Admin"',
-);
+run(`pnpm --filter @partner-coder/api vendor:admin --email ${adminEmail} --name "E2E Admin"`);
+await assertVendorAdminExists();
 
 step("Очищаю Mailpit");
 await clearMailpit();

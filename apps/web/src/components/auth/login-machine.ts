@@ -10,8 +10,7 @@ export type ResolveStep = {
 };
 
 export type SecondFactorStep =
-  | { kind: "enroll"; returnTo: string }
-  | { kind: "done"; returnTo: string };
+  { kind: "enroll"; returnTo: string } | { kind: "done"; returnTo: string };
 
 function hasTwoFactorRedirect(result: unknown): boolean {
   if (typeof result !== "object" || result === null) {
