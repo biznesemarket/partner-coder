@@ -13,6 +13,11 @@ type FieldProps = {
   className?: string;
 };
 
+/**
+ * Поле формы. Текст `hint`/`error` получает стабильные id: `${htmlFor}-hint` и
+ * `${htmlFor}-error`. Контрол связывается на стороне потребителя:
+ * `aria-describedby={error ? `${htmlFor}-error` : `${htmlFor}-hint`}` и `aria-invalid={Boolean(error)}`.
+ */
 const Field = forwardRef<HTMLDivElement, FieldProps>(function Field(
   { label, htmlFor, hint, error, children, className },
   ref,
@@ -22,12 +27,17 @@ const Field = forwardRef<HTMLDivElement, FieldProps>(function Field(
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {hint ? (
-        <p data-slot="field-hint" className="text-xs text-muted-foreground">
+        <p id={`${htmlFor}-hint`} data-slot="field-hint" className="text-xs text-muted-foreground">
           {hint}
         </p>
       ) : null}
       {error ? (
-        <p data-slot="field-error" role="alert" className="text-xs text-destructive">
+        <p
+          id={`${htmlFor}-error`}
+          data-slot="field-error"
+          role="alert"
+          className="text-xs text-destructive"
+        >
           {error}
         </p>
       ) : null}

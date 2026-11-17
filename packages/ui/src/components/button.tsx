@@ -36,7 +36,7 @@ type ButtonProps = ComponentPropsWithoutRef<"button"> &
   };
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { className, variant, size, asChild = false, type, ...props },
+  { className, variant, size, asChild = false, ...props },
   ref,
 ) {
   const Comp = asChild ? Slot : "button";
@@ -46,7 +46,6 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
       ref={ref}
       data-slot="button"
       className={cn(buttonVariants({ variant, size }), className)}
-      type={asChild ? undefined : (type ?? "button")}
       {...props}
     />
   );
