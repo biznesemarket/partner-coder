@@ -2,6 +2,11 @@ import { expect, test } from "@playwright/test";
 
 import { addVirtualAuthenticator, removeVirtualAuthenticator } from "./helpers/authenticator";
 import { logoutViaUserMenu } from "./helpers/auth";
+import { PASSKEY_STORAGE_STATE } from "./helpers/state";
+
+// Отдельная сохранённая сессия: выход в конце отзывает только её, а
+// admin.json остаётся валидным для read-only проверок (a11y).
+test.use({ storageState: PASSKEY_STORAGE_STATE });
 
 test.describe("ключи доступа", () => {
   test.setTimeout(120_000);

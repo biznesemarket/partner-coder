@@ -74,8 +74,16 @@ async function requestResetLink(page: Page, email: string): Promise<string> {
 async function resetToken(page: Page, email: string): Promise<string> {
   try {
     return await requestResetLink(page, email);
-  } catch {
-    return await requestResetLink(page, email);
+  } catch (firstError) {
+    try {
+      return await requestResetLink(page, email);
+    } catch (secondError) {
+      throw new AggregateError(
+        [firstError, secondError],
+        `Mailpit: не удалось получить ссылку сброса для ${email}`,
+        { cause: firstError },
+      );
+    }
   }
 }
 
@@ -99,9 +107,21 @@ export async function setPasswordViaReset(
 }
 
 /**
- * Вход в консоль по паролю и TOTP. Код генерируется из сохранённого URI;
- * если окно кода вот-вот сменится, ждём следующий, чтобы не отправить
- * протухшее значение.
+ * Свежий TOTP-код: если окно вот-вот сменится, ждём следующий, чтобы сервер
+ * не получил протухшее значение. Без page.sleep в happy path.
+ */
+export async function freshTotpCode(uri: string): Promise<string> {
+  const remaining = totpRemainingMs(uri);
+
+  if (remaining < TOTP_MIN_REMAINING_MS) {
+    await delay(remaining + 250);
+  }
+
+  return totpFromUri(uri);
+}
+
+/**
+ * Вход в консоль по паролю и TOTP. Код генерируется из сохранённого URI.
  */
 export async function loginWithTotp(page: Page, credentials: AdminCredentials): Promise<void> {
   await page.goto("/login");
@@ -111,13 +131,7 @@ export async function loginWithTotp(page: Page, credentials: AdminCredentials): 
 
   await expect(page.locator("#login-code")).toBeVisible();
 
-  const remaining = totpRemainingMs(credentials.totpUri);
-
-  if (remaining < TOTP_MIN_REMAINING_MS) {
-    await delay(remaining + 250);
-  }
-
-  await page.locator("#login-code").pressSequentially(totpFromUri(credentials.totpUri));
+  await page.locator("#login-code").pressSequentially(await freshTotpCode(credentials.totpUri));
   await page.getByRole("button", { name: "Подтвердить" }).click();
 
   await page.waitForURL((url) => url.pathname === "/me");

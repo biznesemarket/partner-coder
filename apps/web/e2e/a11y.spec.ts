@@ -58,10 +58,17 @@ test.describe("доступность: первый вход", () => {
 
 test.describe("доступность: консоль", () => {
   test("страница безопасности", async ({ page }) => {
+    const passkeysResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes("/passkey/list-user-passkeys") &&
+        response.request().method() === "GET",
+    );
+
     await page.goto("/me/security");
+    await passkeysResponse;
+
     await expect(page.getByRole("heading", { name: "Безопасность", level: 1 })).toBeVisible();
     await expect(page.getByRole("region", { name: "Ключи доступа" })).toBeVisible();
-    await expect(page.getByText("Загружаем ключи доступа…").first()).toBeHidden();
 
     await expectNoSeriousViolations(page);
   });

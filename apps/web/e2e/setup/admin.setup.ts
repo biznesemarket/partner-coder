@@ -2,12 +2,14 @@ import { expect, test } from "@playwright/test";
 
 import { ENROLLED_ADMIN } from "../helpers/accounts";
 import {
+  freshTotpCode,
+  loginWithTotp,
   resetSavedAuthState,
   saveAdminCredentials,
   saveAdminStorageState,
   setPasswordViaReset,
 } from "../helpers/auth";
-import { totpFromUri } from "../helpers/totp";
+import { PASSKEY_STORAGE_STATE } from "../helpers/state";
 
 /**
  * Playwright setup-проект: один раз за прогон готовит E2E-базу — сбрасывает
@@ -16,7 +18,7 @@ import { totpFromUri } from "../helpers/totp";
  * email/пароль/TOTP URI для входа. Зависимые проекты стартуют только после
  * успешного завершения, поэтому порядок spec-файлов не важен.
  */
-test("готовит админа: сброс пароля и включение TOTP", async ({ page }) => {
+test("готовит админа: сброс пароля и включение TOTP", async ({ page, browser }) => {
   test.setTimeout(180_000);
 
   resetSavedAuthState();
@@ -28,7 +30,24 @@ test("готовит админа: сброс пароля и включение
   await page.locator("#login-password").fill(ENROLLED_ADMIN.password);
   await page.getByRole("button", { name: "Войти", exact: true }).click();
 
-  await page.waitForURL((url) => url.pathname === "/setup-mfa");
+  // На пересозданной базе логин ведёт на /setup-mfa. Если база не пересоздана,
+  // админ уже включил TOTP и получает запрос кода — сообщаем это явно вместо
+  // невнятного таймаута waitForURL.
+  const outcome = await Promise.race([
+    page.waitForURL((url) => url.pathname === "/setup-mfa").then(() => "setup-mfa" as const),
+    page
+      .locator("#login-code")
+      .waitFor({ state: "visible" })
+      .then(() => "totp" as const),
+  ]);
+
+  if (outcome === "totp") {
+    throw new Error(
+      "E2E-админ уже включил TOTP: база не пересоздана. Запустите pnpm test:e2e " +
+        "(prepare пересоздаст partner_coder_e2e) или пересоздайте базу вручную.",
+    );
+  }
+
   await expect(
     page.getByRole("heading", { name: "Настройка двухфакторной аутентификации" }),
   ).toBeVisible();
@@ -63,7 +82,7 @@ test("готовит админа: сброс пароля и включение
   await page.getByRole("button", { name: "Продолжить" }).click();
   await expect(page.getByRole("heading", { name: "Шаг 3. Подтвердите код" })).toBeVisible();
 
-  await page.locator("#setup-mfa-code").pressSequentially(totpFromUri(enrollment.totpURI));
+  await page.locator("#setup-mfa-code").pressSequentially(await freshTotpCode(enrollment.totpURI));
   await page.getByRole("button", { name: "Завершить настройку" }).click();
 
   await page.waitForURL((url) => url.pathname === "/me");
@@ -78,4 +97,24 @@ test("готовит админа: сброс пароля и включение
     totpUri: enrollment.totpURI,
   });
   await saveAdminStorageState(page);
+
+  // Отдельная сессия для passkey-спеки: её logout не должен отзывать
+  // admin.json, которым пользуются read-only проверки. Отдельный контекст
+  // создаётся один раз здесь, чтобы не упираться в rate limit sign-in
+  // (3 запроса / 10 с) при повторных входах внутри прогона.
+  const baseURL = new URL(page.url()).origin;
+  const passkeyContext = await browser.newContext({ baseURL });
+
+  try {
+    const passkeyPage = await passkeyContext.newPage();
+
+    await loginWithTotp(passkeyPage, {
+      email: ENROLLED_ADMIN.email,
+      password: ENROLLED_ADMIN.password,
+      totpUri: enrollment.totpURI,
+    });
+    await passkeyContext.storageState({ path: PASSKEY_STORAGE_STATE });
+  } finally {
+    await passkeyContext.close();
+  }
 });
