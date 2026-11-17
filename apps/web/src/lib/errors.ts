@@ -10,6 +10,8 @@ const CODE_MESSAGES: Record<string, string> = {
   INVALID_EMAIL_OR_PASSWORD: errors.invalidCredentials,
   INVALID_CREDENTIALS: errors.invalidCredentials,
   INVALID_PASSWORD: errors.invalidPassword,
+  PASSWORD_TOO_SHORT: errors.passwordTooShort,
+  PASSWORD_TOO_LONG: errors.passwordTooLong,
   VENDOR_INACTIVE: errors.inactive,
   vendor_inactive: errors.inactive,
   ACCOUNT_TEMPORARILY_LOCKED: errors.tooManyAttempts,

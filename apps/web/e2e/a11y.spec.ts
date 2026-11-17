@@ -57,6 +57,15 @@ test.describe("доступность: первый вход", () => {
 });
 
 test.describe("доступность: консоль", () => {
+  test("страница профиля", async ({ page }) => {
+    await page.goto("/me");
+
+    await expect(page.getByRole("heading", { name: "Профиль", level: 1 })).toBeVisible();
+    await expect(page.getByText("Действует до")).toBeVisible();
+
+    await expectNoSeriousViolations(page);
+  });
+
   test("страница безопасности", async ({ page }) => {
     const passkeysResponse = page.waitForResponse(
       (response) =>

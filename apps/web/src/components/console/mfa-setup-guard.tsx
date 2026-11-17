@@ -29,7 +29,7 @@ export async function MfaSetupGuard({ returnTo, children }: MfaSetupGuardProps) 
   }
 
   if (!result.me.mfaEnrollmentRequired) {
-    redirect("/me");
+    redirect(safeReturnTo);
   }
 
   return <>{children(result.me)}</>;

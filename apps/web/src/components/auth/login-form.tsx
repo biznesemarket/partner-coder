@@ -55,6 +55,18 @@ function getServerPasskeySupport(): boolean {
   return false;
 }
 
+function subscribeToHydration(): () => void {
+  return () => undefined;
+}
+
+function getHydrated(): boolean {
+  return true;
+}
+
+function getServerHydrated(): boolean {
+  return false;
+}
+
 export function LoginForm({ returnTo, reason, outage }: LoginFormProps) {
   const router = useRouter();
   const passkeyAvailable = useSyncExternalStore(
@@ -62,6 +74,7 @@ export function LoginForm({ returnTo, reason, outage }: LoginFormProps) {
     getPasskeySupport,
     getServerPasskeySupport,
   );
+  const mounted = useSyncExternalStore(subscribeToHydration, getHydrated, getServerHydrated);
   const [step, setStep] = useState<LoginStep>({ kind: "credentials" });
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [email, setEmail] = useState("");
@@ -297,6 +310,8 @@ export function LoginForm({ returnTo, reason, outage }: LoginFormProps) {
                   {pending === "passkey" ? <Spinner className="h-4 w-4" /> : null}
                   {pending === "passkey" ? messages.auth.passkeyPending : messages.auth.passkey}
                 </Button>
+              ) : mounted ? (
+                <p className="text-sm text-muted-foreground">{messages.auth.passkeyUnavailable}</p>
               ) : null}
               <Button
                 type="button"

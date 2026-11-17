@@ -43,7 +43,7 @@ function buildAuth(options: { onSessionCreated?: (vendorUserId: string) => Promi
     sessionTtlHours: 8,
     passwordResetTtlMinutes: 30,
     passwordMinLength: 12,
-    webauthnRpId: "localhost",
+    webauthnRpId: "vendor.example.test",
     mailer,
     rateLimitEnabled: false,
     getVendorStatus: async (vendorUserId) =>
@@ -351,7 +351,7 @@ describe("Vendor Better Auth: passkey", () => {
     const options = await auth.api.generatePasskeyRegistrationOptions({
       headers: new Headers({ cookie: signedIn.cookie }),
     });
-    expect(options.rp.id).toBe("localhost");
+    expect(options.rp.id).toBe("vendor.example.test");
     expect(options.rp.name).toBe("Партнер кодер (вендор)");
     expect(options.authenticatorSelection).toMatchObject({
       residentKey: "required",

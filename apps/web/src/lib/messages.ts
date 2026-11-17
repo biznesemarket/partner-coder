@@ -120,6 +120,7 @@ export const auth = {
   signingIn: "Входим…",
   passkey: "Войти с ключом доступа",
   passkeyPending: "Ожидаем ключ доступа…",
+  passkeyUnavailable: "Ключи доступа не поддерживаются этим браузером.",
   forgotPassword: "Забыли пароль?",
   forgotPasswordTitle: "Восстановление пароля",
   forgotPasswordDescription: "Укажите email — мы отправим ссылку для сброса пароля.",
@@ -195,6 +196,8 @@ export const auth = {
 export const errors = {
   invalidCredentials: "Неверный email или пароль",
   invalidPassword: "Неверный пароль",
+  passwordTooShort: "Пароль слишком короткий",
+  passwordTooLong: "Пароль слишком длинный",
   inactive: "Учётная запись заблокирована. Обратитесь к администратору.",
   tooManyAttempts: "Слишком много попыток. Попробуйте позже.",
   invalidCode: "Неверный код подтверждения",

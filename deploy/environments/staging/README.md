@@ -42,7 +42,9 @@ Next-сервера** (внутренняя сеть), а не обязател�
 ходит только в `VENDOR_BASE_URL`, поэтому CORS для консоли не нужен; если
 `API_CORS_ORIGINS` задан явно, он должен включать `VENDOR_BASE_URL`.
 WebAuthn требует HTTPS (кроме `localhost`), поэтому staging-консоль
-публикуется по HTTPS; HSTS включается при `APP_ENV=staging`.
+публикуется по HTTPS; HSTS включается при сборке, когда `APP_ENV=staging`
+(значение считывается в `next.config.ts` на этапе `pnpm build` и попадает в
+build-манифест — задать только на runtime недостаточно).
 
 BFF видит egress-IP web-сервера: per-IP лимиты API и audit IP становятся
 общими на инстанс, пока не передан доверенный client IP (follow-up). CSP с

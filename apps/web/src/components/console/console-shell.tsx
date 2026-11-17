@@ -109,7 +109,7 @@ function UserMenu({ me }: { me: VendorMe }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="sm" className="gap-2 px-2">
+        <Button type="button" variant="ghost" size="sm" className="min-w-11 gap-2 px-2">
           <span className="sr-only">{messages.common.userMenu}</span>
           <span
             aria-hidden="true"
@@ -174,7 +174,7 @@ export function ConsoleShell({ me, children }: ConsoleShellProps) {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="md:hidden"
+                className="min-w-11 md:hidden"
                 aria-label={messages.common.openMenu}
               >
                 <MenuIcon />

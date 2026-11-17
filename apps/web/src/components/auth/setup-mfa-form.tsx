@@ -139,7 +139,7 @@ export function SetupMfaForm({ returnTo }: SetupMfaFormProps) {
 
       if (error) {
         if (error.code === "TOTP_ALREADY_ENABLED") {
-          router.replace("/me");
+          router.replace(returnTo);
           router.refresh();
           return;
         }

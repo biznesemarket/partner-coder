@@ -182,8 +182,9 @@ Passkey-специфика прокси:
   Fastify.
 
 BFF не попадает в OpenAPI и не является отдельным публичным API: это
-транспортный слой консоли. Ошибки BFF (`invalid_path`, `origin_forbidden`,
-`payload_too_large`, `query_too_long`, `upstream_unavailable`) — его
+транспортный слой консоли. Ошибки BFF (`invalid_path`, `invalid_body`,
+`origin_forbidden`, `payload_too_large`, `query_too_long`,
+`upstream_unavailable`) — его
 собственный конверт, а не `ErrorEnvelope` API.
 
 ## 3. Наблюдаемость и контракт

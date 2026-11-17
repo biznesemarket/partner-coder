@@ -14,7 +14,7 @@ const Spinner = forwardRef<SVGSVGElement, ComponentPropsWithoutRef<"svg">>(funct
       aria-hidden="true"
       viewBox="0 0 24 24"
       fill="none"
-      className={cn("size-4 animate-spin", className)}
+      className={cn("size-4 animate-spin motion-reduce:animate-none", className)}
       {...props}
     >
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />

@@ -4,6 +4,8 @@ import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
+import { cn } from "../lib/cn";
+
 import { Button } from "./button";
 import {
   DropdownMenu,
@@ -41,7 +43,7 @@ function ThemeToggle({ className }: ThemeToggleProps) {
           type="button"
           variant="ghost"
           size="sm"
-          className={className}
+          className={cn("min-w-11", className)}
           aria-label="Тема оформления"
           disabled={!mounted}
         >

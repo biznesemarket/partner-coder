@@ -66,5 +66,22 @@ describe("parseVendorMe", () => {
 
   it("отклоняет невалидный stepUpUntil", () => {
     expect(parseVendorMe({ ...validMe, stepUpUntil: 42 })).toBeNull();
+    expect(parseVendorMe({ ...validMe, stepUpUntil: "not-a-date" })).toBeNull();
+  });
+
+  it.each([
+    ["не дата", "not-a-date"],
+    ["только дата без времени", "2026-11-16"],
+    ["несуществующая дата", "2026-13-40T25:61:00.000Z"],
+    ["число", 42],
+  ])("отклоняет невалидный sessionExpiresAt (%s)", (_name, value) => {
+    expect(parseVendorMe({ ...validMe, sessionExpiresAt: value })).toBeNull();
+  });
+
+  it("принимает sessionExpiresAt со смещением часового пояса", () => {
+    expect(parseVendorMe({ ...validMe, sessionExpiresAt: "2026-11-16T18:00:00+03:00" })).toEqual({
+      ...validMe,
+      sessionExpiresAt: "2026-11-16T18:00:00+03:00",
+    });
   });
 });

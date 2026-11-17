@@ -14,6 +14,8 @@ const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 const SEGMENT_PATTERN = /^[A-Za-z0-9._~-]+$/;
 
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{1,128}$/;
+
 const MAX_BODY_BYTES = 64 * 1024;
 
 const MAX_QUERY_BYTES = 8 * 1024;
@@ -22,12 +24,29 @@ const UPSTREAM_TIMEOUT_MS = 15_000;
 
 export type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
 
+/** Куда BFF пишет единственную безопасную строку лога; в тестах подменяется. */
+export type ProxyLogger = (line: string) => void;
+
 export type ProxyVendorRequestOptions = {
   apiBaseUrl: string;
   targetPathPrefix: string;
   fetchImpl?: FetchLike;
   expectedOrigin?: string;
+  logger?: ProxyLogger;
 };
+
+function defaultLogger(line: string): void {
+  console.info(line);
+}
+
+function readRequestId(request: Request): string {
+  const incoming = request.headers.get("x-request-id");
+  if (incoming !== null && REQUEST_ID_PATTERN.test(incoming)) {
+    return incoming;
+  }
+
+  return crypto.randomUUID();
+}
 
 export function jsonError(
   status: number,
@@ -174,18 +193,28 @@ export async function proxyVendorRequest(
   pathSegments: readonly string[],
   options: ProxyVendorRequestOptions,
 ): Promise<Response> {
-  const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+  const startedAt = Date.now();
+  const requestId = readRequestId(request);
+  const log = options.logger ?? defaultLogger;
+  const url = new URL(request.url);
+  const method = request.method.toUpperCase();
+
+  const respond = (response: Response): Response => {
+    log(
+      `bff method=${method} path=${url.pathname} status=${response.status} requestId=${requestId} durationMs=${Date.now() - startedAt}`,
+    );
+    return response;
+  };
 
   if (!hasValidPath(pathSegments)) {
-    return jsonError(400, "invalid_path", "Некорректный путь запроса", requestId);
+    return respond(jsonError(400, "invalid_path", "Некорректный путь запроса", requestId));
   }
 
-  const { search } = new URL(request.url);
+  const { search } = url;
   if (Buffer.byteLength(search, "utf8") > MAX_QUERY_BYTES) {
-    return jsonError(414, "query_too_long", "Слишком длинная строка запроса", requestId);
+    return respond(jsonError(414, "query_too_long", "Слишком длинная строка запроса", requestId));
   }
 
-  const method = request.method.toUpperCase();
   const requestOrigin = request.headers.get("origin");
 
   if (requestOrigin !== null && isUnsafeMethod(method)) {
@@ -194,12 +223,12 @@ export async function proxyVendorRequest(
     );
 
     if (normalizeOrigin(requestOrigin) !== expectedOrigin) {
-      return jsonError(403, "origin_forbidden", "Запрос отклонён", requestId);
+      return respond(jsonError(403, "origin_forbidden", "Запрос отклонён", requestId));
     }
   }
 
   if (declaredBodyTooLarge(request)) {
-    return jsonError(413, "payload_too_large", "Слишком большое тело запроса", requestId);
+    return respond(jsonError(413, "payload_too_large", "Слишком большое тело запроса", requestId));
   }
 
   let body: ArrayBuffer | undefined;
@@ -207,10 +236,14 @@ export async function proxyVendorRequest(
     const result = await readBodyWithLimit(request);
     if (!result.ok) {
       if (result.reason === "too_large") {
-        return jsonError(413, "payload_too_large", "Слишком большое тело запроса", requestId);
+        return respond(
+          jsonError(413, "payload_too_large", "Слишком большое тело запроса", requestId),
+        );
       }
 
-      return jsonError(400, "invalid_body", "Не удалось прочитать тело запроса", requestId);
+      return respond(
+        jsonError(400, "invalid_body", "Не удалось прочитать тело запроса", requestId),
+      );
     }
 
     body = result.body;
@@ -234,8 +267,8 @@ export async function proxyVendorRequest(
   try {
     upstream = await (options.fetchImpl ?? fetch)(target, init);
   } catch {
-    return jsonError(502, "upstream_unavailable", "Сервис временно недоступен", requestId);
+    return respond(jsonError(502, "upstream_unavailable", "Сервис временно недоступен", requestId));
   }
 
-  return buildResponse(upstream, requestId);
+  return respond(buildResponse(upstream, requestId));
 }

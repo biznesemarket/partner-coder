@@ -21,7 +21,7 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(function 
         type={visible ? "text" : "password"}
         autoComplete={autoComplete}
         className={cn(
-          "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pr-10 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pr-12 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
           className,
         )}
         {...props}
@@ -31,7 +31,7 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(function 
         onClick={() => setVisible((current) => !current)}
         aria-pressed={visible}
         aria-label={visible ? "Скрыть пароль" : "Показать пароль"}
-        className="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+        className="absolute right-1 top-1/2 inline-flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
         disabled={props.disabled}
       >
         {visible ? (

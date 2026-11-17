@@ -6,6 +6,7 @@ import type { FetchLike } from "./proxy";
 const options = {
   apiBaseUrl: "http://localhost:4000",
   targetPathPrefix: "/api/vendor-auth",
+  logger: () => undefined,
 };
 
 const origin = "http://localhost:3001";
@@ -288,6 +289,81 @@ describe("proxyVendorRequest", () => {
     const requestId = (forwarded as Headers).get("x-request-id");
     expect(requestId).toMatch(/^[0-9a-f-]{36}$/);
     expect(response.headers.get("x-request-id")).toBe(requestId);
+  });
+
+  it("логирует одну безопасную строку без query, cookie и body", async () => {
+    const lines: string[] = [];
+    const fetchImpl: FetchLike = async () => new Response("{}", { status: 200 });
+
+    const response = await proxyVendorRequest(
+      createRequest("/api/vendor-auth/sign-in/email?token=QuerySecret", {
+        method: "POST",
+        headers: {
+          origin,
+          cookie: "pc-vendor.session_token=CookieSecret",
+          "content-type": "application/json",
+          "x-request-id": "req_1.ok-2",
+        },
+        body: JSON.stringify({ password: "BodySecret" }),
+      }),
+      ["sign-in", "email"],
+      { ...options, fetchImpl, logger: (line) => lines.push(line) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-request-id")).toBe("req_1.ok-2");
+    expect(lines).toHaveLength(1);
+
+    const line = lines[0] ?? "";
+    expect(line).toContain("method=POST");
+    expect(line).toContain("path=/api/vendor-auth/sign-in/email");
+    expect(line).toContain("status=200");
+    expect(line).toContain("requestId=req_1.ok-2");
+    expect(line).toMatch(/durationMs=\d+/);
+    expect(line).not.toContain("QuerySecret");
+    expect(line).not.toContain("CookieSecret");
+    expect(line).not.toContain("BodySecret");
+    expect(line).not.toContain("token=");
+  });
+
+  it.each([
+    ["пробелы", "bad id with spaces"],
+    ["слишком длинный", "a".repeat(129)],
+    ["пустой", ""],
+  ])("заменяет невалидный x-request-id на UUID (%s)", async (_name, value) => {
+    const lines: string[] = [];
+    let forwardedId: string | null = null;
+    const fetchImpl: FetchLike = async (_url, init) => {
+      forwardedId = new Headers(init.headers).get("x-request-id");
+      return new Response("{}", { status: 200 });
+    };
+
+    const response = await proxyVendorRequest(
+      createRequest("/api/vendor-auth/me", { headers: { "x-request-id": value } }),
+      ["me"],
+      { ...options, fetchImpl, logger: (line) => lines.push(line) },
+    );
+
+    expect(forwardedId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(response.headers.get("x-request-id")).toBe(forwardedId);
+    expect(lines[0] ?? "").toContain(`requestId=${forwardedId ?? ""}`);
+  });
+
+  it("логирует отклонённый запрос без query-строки", async () => {
+    const lines: string[] = [];
+
+    const response = await proxyVendorRequest(
+      createRequest("/api/vendor-auth/x?secret=QuerySecret"),
+      [".."],
+      { ...options, logger: (line) => lines.push(line) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(lines).toHaveLength(1);
+    expect(lines[0] ?? "").toContain("status=400");
+    expect(lines[0] ?? "").toContain("path=/api/vendor-auth/x");
+    expect(lines[0] ?? "").not.toContain("QuerySecret");
+    expect(lines[0] ?? "").not.toContain("secret=");
   });
 
   it("копирует только разрешённые заголовки ответа и ставит no-store", async () => {

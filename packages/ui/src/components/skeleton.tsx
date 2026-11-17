@@ -11,7 +11,7 @@ const Skeleton = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<"div">>(fun
     <div
       ref={ref}
       data-slot="skeleton"
-      className={cn("animate-pulse rounded-md bg-muted", className)}
+      className={cn("animate-pulse rounded-md bg-muted motion-reduce:animate-none", className)}
       {...props}
     />
   );

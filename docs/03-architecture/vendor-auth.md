@@ -812,8 +812,8 @@ database. `AUTH_IP_HEADERS`/`AUTH_TRUSTED_PROXIES` применяются и к
    проходит passkey-вход.
 7. **Web unit** (`apps/web/src/lib/*.test.ts`): BFF (валидация пути,
    whitelist заголовков, несколько `Set-Cookie`, лимит тела, таймаут/502,
-   origin-check), `sanitizeReturnTo`, `mapAuthError`, `validatePassword`,
-   `passkeyLabel`, `formatDateTime`.
+   origin-check), `sanitizeReturnTo`, `mapAuthError`, `passwordError`/
+   `passwordsMatchError`, `passkeyLabel`, `formatDateTime`.
 8. **E2E API** (`apps/api/src/vendor-auth/e2e.test.ts`): суперадминистратор
    создаёт пользователя → письмо → установка пароля → вход → включение TOTP →
    доступ → приостановка → сессия отозвана.

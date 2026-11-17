@@ -32,6 +32,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
+
+function isIsoDate(value: unknown): value is string {
+  return (
+    typeof value === "string" && ISO_DATE_PATTERN.test(value) && !Number.isNaN(Date.parse(value))
+  );
+}
+
 export function isVendorRole(value: unknown): value is VendorRole {
   return typeof value === "string" && (VENDOR_ROLES as readonly string[]).includes(value);
 }
@@ -61,15 +69,12 @@ export function parseVendorMe(value: unknown): VendorMe | null {
     return null;
   }
 
-  if (
-    typeof value.mfaEnrollmentRequired !== "boolean" ||
-    typeof value.sessionExpiresAt !== "string"
-  ) {
+  if (typeof value.mfaEnrollmentRequired !== "boolean" || !isIsoDate(value.sessionExpiresAt)) {
     return null;
   }
 
   const stepUpUntil = value.stepUpUntil ?? null;
-  if (stepUpUntil !== null && typeof stepUpUntil !== "string") {
+  if (stepUpUntil !== null && !isIsoDate(stepUpUntil)) {
     return null;
   }
 
