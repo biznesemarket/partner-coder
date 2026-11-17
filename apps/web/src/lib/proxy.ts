@@ -73,6 +73,51 @@ function declaredBodyTooLarge(request: Request): boolean {
   return Number.isFinite(length) && length > MAX_BODY_BYTES;
 }
 
+type BodyReadResult =
+  { ok: true; body: ArrayBuffer } | { ok: false; reason: "too_large" | "read_error" };
+
+async function readBodyWithLimit(request: Request): Promise<BodyReadResult> {
+  if (request.body === null) {
+    return { ok: true, body: new ArrayBuffer(0) };
+  }
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (value === undefined) {
+        continue;
+      }
+
+      total += value.byteLength;
+      if (total > MAX_BODY_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        return { ok: false, reason: "too_large" };
+      }
+
+      chunks.push(value);
+    }
+  } catch {
+    await reader.cancel().catch(() => undefined);
+    return { ok: false, reason: "read_error" };
+  }
+
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return { ok: true, body: body.buffer as ArrayBuffer };
+}
+
 function buildTargetUrl(
   apiBaseUrl: string,
   targetPathPrefix: string,
@@ -159,10 +204,16 @@ export async function proxyVendorRequest(
 
   let body: ArrayBuffer | undefined;
   if (method !== "GET" && method !== "HEAD") {
-    body = await request.arrayBuffer();
-    if (body.byteLength > MAX_BODY_BYTES) {
-      return jsonError(413, "payload_too_large", "Слишком большое тело запроса", requestId);
+    const result = await readBodyWithLimit(request);
+    if (!result.ok) {
+      if (result.reason === "too_large") {
+        return jsonError(413, "payload_too_large", "Слишком большое тело запроса", requestId);
+      }
+
+      return jsonError(400, "invalid_body", "Не удалось прочитать тело запроса", requestId);
     }
+
+    body = result.body;
   }
 
   const target = buildTargetUrl(options.apiBaseUrl, options.targetPathPrefix, pathSegments, search);

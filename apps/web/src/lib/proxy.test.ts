@@ -125,6 +125,82 @@ describe("proxyVendorRequest", () => {
     });
   });
 
+  it("ограничивает потоковое тело без content-length во время чтения", async () => {
+    const cancel = vi.fn();
+    const chunk = new Uint8Array(16 * 1024);
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let index = 0; index < 5; index += 1) {
+          controller.enqueue(chunk);
+        }
+      },
+      cancel,
+    });
+    const fetchImpl = vi.fn<FetchLike>();
+    const init = {
+      method: "POST",
+      headers: { origin, "content-type": "application/octet-stream" },
+      body: stream,
+      duplex: "half",
+    } as RequestInit & { duplex: "half" };
+    const request = new Request(`${origin}/api/vendor-auth/sign-in/email`, init);
+
+    expect(request.headers.get("content-length")).toBeNull();
+
+    const response = await proxyVendorRequest(request, ["sign-in", "email"], {
+      ...options,
+      fetchImpl,
+    });
+
+    expect(response.status).toBe(413);
+    expect(cancel).toHaveBeenCalled();
+    expect(fetchImpl).not.toHaveBeenCalled();
+    await expect(jsonBody(response)).resolves.toMatchObject({
+      error: { code: "payload_too_large" },
+    });
+  });
+
+  it("возвращает invalid_body при ошибке чтения тела", async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.error(new Error("client aborted"));
+      },
+    });
+    const init = {
+      method: "POST",
+      headers: { origin, "content-type": "application/octet-stream" },
+      body: stream,
+      duplex: "half",
+    } as RequestInit & { duplex: "half" };
+    const fetchImpl = vi.fn<FetchLike>();
+    const request = new Request(`${origin}/api/vendor-auth/sign-in/email`, init);
+
+    const response = await proxyVendorRequest(request, ["sign-in", "email"], {
+      ...options,
+      fetchImpl,
+    });
+
+    expect(response.status).toBe(400);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    await expect(jsonBody(response)).resolves.toMatchObject({
+      error: { code: "invalid_body" },
+    });
+  });
+
+  it("пробрасывает 3xx/4xx ответы upstream без исключения", async () => {
+    for (const status of [302, 400, 403]) {
+      const response = await proxyVendorRequest(createRequest(), ["me"], {
+        ...options,
+        targetPathPrefix: "/v1/vendor",
+        fetchImpl: async () => new Response("error", { status }),
+      });
+
+      expect(response.status).toBe(status);
+      expect(await response.text()).toBe("error");
+      expect(response.headers.get("cache-control")).toBe("no-store");
+    }
+  });
+
   it("ограничивает query string 8 KiB", async () => {
     const fetchImpl = vi.fn<FetchLike>();
     const query = `?q=${"x".repeat(8 * 1024)}`;
