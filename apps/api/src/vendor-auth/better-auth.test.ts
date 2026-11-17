@@ -43,6 +43,7 @@ function buildAuth(options: { onSessionCreated?: (vendorUserId: string) => Promi
     sessionTtlHours: 8,
     passwordResetTtlMinutes: 30,
     passwordMinLength: 12,
+    webauthnRpId: "localhost",
     mailer,
     rateLimitEnabled: false,
     getVendorStatus: async (vendorUserId) =>
@@ -337,6 +338,25 @@ describe("Vendor Better Auth: password", () => {
     expect(row.rows[0]?.last_login_at).not.toBeNull();
     expect(row.rows[0]?.status).toBe("active");
     expect(await countSessions(database.pool, userId)).toBe(1);
+  });
+});
+
+describe("Vendor Better Auth: passkey", () => {
+  it("passkey-плагин использует rpID, origin и обязательный resident key", async () => {
+    const auth = buildAuth();
+    const email = uniqueEmail("passkey");
+    const userId = await signUp(auth, email);
+    await updateVendorUser(database.db, userId, { role: "superadmin", status: "active" });
+    const signedIn = await signInThroughHandler(auth, email);
+    const options = await auth.api.generatePasskeyRegistrationOptions({
+      headers: new Headers({ cookie: signedIn.cookie }),
+    });
+    expect(options.rp.id).toBe("localhost");
+    expect(options.rp.name).toBe("Партнер кодер (вендор)");
+    expect(options.authenticatorSelection).toMatchObject({
+      residentKey: "required",
+      userVerification: "required",
+    });
   });
 });
 

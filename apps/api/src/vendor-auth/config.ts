@@ -1,12 +1,14 @@
 import { randomUUID } from "node:crypto";
 
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
+import { passkey } from "@better-auth/passkey";
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { twoFactor } from "better-auth/plugins";
 
 import {
   vendorAuthAccounts,
+  vendorAuthPasskeys,
   vendorAuthRateLimits,
   vendorAuthSessions,
   vendorAuthTwoFactors,
@@ -28,6 +30,8 @@ export interface CreateVendorAuthOptions {
   readonly passwordResetTtlMinutes: number;
   readonly passwordMinLength: number;
   readonly mailer: AuthMailer;
+  /** rpID для WebAuthn: хост вендорской консоли без схемы и порта. */
+  readonly webauthnRpId: string;
   /** Статус вендорского пользователя; неизвестный пользователь не получает письмо. */
   readonly getVendorStatus: (vendorUserId: string) => Promise<VendorUserStatus | null | undefined>;
   /** Статус по email для блокировки входа suspended/disabled. */
@@ -67,6 +71,7 @@ export function createVendorAuth(options: CreateVendorAuthOptions) {
         account: vendorAuthAccounts,
         verification: vendorAuthVerifications,
         twoFactor: vendorAuthTwoFactors,
+        passkey: vendorAuthPasskeys,
         ...(options.rateLimitStorage === "database" ? { rateLimit: vendorAuthRateLimits } : {}),
       },
     }),
@@ -75,6 +80,13 @@ export function createVendorAuth(options: CreateVendorAuthOptions) {
         issuer: "Партнер кодер (вендор)",
         backupCodeOptions: { amount: 10, storeBackupCodes: "encrypted" },
         accountLockout: { maxFailedAttempts: 5 },
+      }),
+      passkey({
+        rpID: options.webauthnRpId,
+        rpName: "Партнер кодер (вендор)",
+        origin: [vendorBaseURL],
+        authenticatorSelection: { userVerification: "required", residentKey: "required" },
+        advanced: { webAuthnChallengeCookie: "pc-vendor-passkey" },
       }),
     ],
     databaseHooks: {

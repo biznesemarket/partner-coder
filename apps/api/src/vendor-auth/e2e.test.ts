@@ -185,6 +185,7 @@ beforeAll(async () => {
     sessionTtlHours: 8,
     passwordResetTtlMinutes: 30,
     passwordMinLength: 12,
+    webauthnRpId: "localhost",
     mailer,
     rateLimitEnabled: false,
     getVendorStatus: async (vendorUserId) =>
