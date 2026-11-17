@@ -1,10 +1,10 @@
 # Аутентификация вендорской консоли
 
-| Поле      | Значение                                                   |
-| --------- | ---------------------------------------------------------- |
-| Статус    | реализовано в PR A; passkeys/UI — PR B                     |
-| Дата      | 2026-11-16                                                 |
-| Связанные | ADR-0006, ADR-0009, ADR-0010, ADR-0012, ADR-0013, M3, R-45 |
+| Поле      | Значение                                                                   |
+| --------- | -------------------------------------------------------------------------- |
+| Статус    | PR A и PR B реализованы                                                    |
+| Дата      | 2026-11-17                                                                 |
+| Связанные | ADR-0006, ADR-0009, ADR-0010, ADR-0012, ADR-0013, ADR-0014, M3, R-45, R-46 |
 
 Документ описывает отдельный контур входа в вендорскую консоль (M3). Он не
 меняет tenant-аутентификацию директора и разработчика: email-OTP, magic-link,
@@ -12,10 +12,21 @@
 
 **Статус реализации PR A.** Работают password + TOTP для всех вендорских
 ролей, приглашения/reset, блокировка, step-up, origin guard, rate limit,
-worker TTL, bootstrap CLI и E2E. Таблица `vendor_auth_passkeys` создана, но
-плагин passkey и UI не подключены (PR B). Фактические коды ошибок и события
-аудита уточнены в §8–§9: step-up с неверным паролем отвечает
-400 `invalid_password`, отказ роли пишет `vendor.auth.role_denied`.
+worker TTL, bootstrap CLI и E2E. Фактические коды ошибок и события аудита
+уточнены в §8–§9: step-up с неверным паролем отвечает 400
+`invalid_password`, отказ роли пишет `vendor.auth.role_denied`.
+
+**Статус реализации PR B.** Подключён `@better-auth/passkey` 1.7.25: passkey
+регистрируется после TOTP, входит без email (discoverable credential),
+показывается в списке и удаляется; TOTP остаётся обязательным. В
+`apps/web` работают `/login`, `/reset-password`, `/setup-mfa`, `/me` и
+`/me/security`; защищённые страницы рендерятся на сервере. Браузер общается
+только с origin консоли (`http://localhost:3001` локально), запросы в Fastify
+проксирует same-origin BFF (ADR-0014). Управление passkeys, смена пароля и
+отзыв сессий закрыты до включения TOTP. Добавлены аудит
+`vendor.passkey.added/removed/renamed` и Playwright E2E на Chromium с
+виртуальным authenticator. Миграции БД в PR B нет: `vendor_auth_passkeys` уже
+соответствует схеме плагина.
 
 ## 1. Зачем отдельный контур
 
@@ -70,9 +81,11 @@ TOTP, короткая сессия, аудит каждого действия.
    доступны только `/v1/vendor/auth/me` и маршруты включения TOTP. Отключение
    TOTP через `/two-factor/disable` запрещено.
 5. **Passkey — дополнительный способ входа.** Пользователь регистрирует
-   passkey после включения TOTP. Passkey-вход создаёт полноценную сессию
-   (passkey сам по себе MFA: владение + user verification), но TOTP остаётся
-   обязательным резервным фактором. Passkey не заменяет TOTP.
+   passkey после включения TOTP. Плагин требует user verification и resident
+   key, а вход — usernameless (`signIn.passkey` без email и
+   `allowCredentials`). Passkey-вход создаёт полноценную сессию (passkey сам
+   по себе MFA: владение + user verification), но TOTP остаётся обязательным
+   резервным фактором. Passkey не заменяет TOTP.
 6. **Короткая сессия.** TTL по умолчанию 8 часов, `updateAge` 15 минут;
    cookie `HttpOnly`, `SameSite=Lax`, `Secure` вне local.
 7. **Step-up для опасных действий.** Повторный ввод пароля через
@@ -164,6 +177,10 @@ Drizzle-свойство `mfaEnabled` переименовывается в `two
 Миграция генерируется `drizzle-kit` для таблиц, затем в неё добавляются
 роль и гранты в стиле `0003`/`0005`. `pnpm db:check` должен подтвердить
 отсутствие дрейфа.
+
+PR B не добавляет миграций: `vendor_auth_passkeys` из `0006` уже содержит
+поля плагина (`credentialID`, `publicKey`, `counter`, `deviceType`,
+`backedUp`, `transports`, `aaguid`).
 
 ## 5. Роли БД и гранты
 
@@ -266,7 +283,8 @@ betterAuth({
       rpID: env.VENDOR_WEBAUTHN_RP_ID,
       rpName: "Партнер кодер (вендор)",
       origin: [env.VENDOR_BASE_URL],
-      authenticatorSelection: { userVerification: "required", residentKey: "preferred" },
+      authenticatorSelection: { userVerification: "required", residentKey: "required" },
+      advanced: { webAuthnChallengeCookie: "pc-vendor-passkey" },
     }),
   ],
   rateLimit: {
@@ -306,12 +324,16 @@ betterAuth({
 
 Требуется зависимость `@better-auth/passkey` (в 1.7 плагин passkey вынесен из
 `better-auth/plugins`). Версия ставится в пару с `better-auth` 1.7.25 и
-фиксируется в `pnpm-lock.yaml`.
+фиксируется в `pnpm-lock.yaml`. В PR B подключён `@better-auth/passkey`
+1.7.25.
 
-Конфиг выше — целевой. В PR A плагин `passkey()` и зависимость
-`@better-auth/passkey` не подключаются: PR A закрывает password + TOTP,
-таблица `vendor_auth_passkeys` создаётся заранее. Плагин, регистрация,
-вход и UI passkeys добавляются в PR B.
+`origin` задаётся явно: иначе плагин ожидает origin API, а ceremony в браузере
+идёт с origin консоли. `rpID` — хост консоли без схемы и порта, не origin с
+портом; локально `localhost`. `residentKey: "required"` нужен потому, что
+`signIn.passkey` в PR B не передаёт email и `allowCredentials`: без
+discoverable credential выбрать ключ нельзя. `preferred` мог создать
+непригодный для входа ключ, поэтому cross-platform ключи без resident key в
+PR B не поддерживаются как passkeys.
 
 ## 7. Потоки
 
@@ -432,27 +454,55 @@ TTL и одна активация, но без хеширования; стро
 
 ### 7.5 Passkey
 
-1. После включения TOTP пользователь вызывает
-   `POST /api/vendor-auth/passkey/add-passkey` (нужна сессия).
-2. Браузер выполняет WebAuthn-регистрацию; плагин сохраняет credential в
-   `vendor_auth_passkeys`.
-3. Вход: `POST /api/vendor-auth/passkey/...` (клиентский плагин
-   `signIn.passkey`). Passkey создаёт полноценную сессию; при
-   `two_factor_enabled = true` guard считает её MFA-сессией.
-4. Если TOTP ещё не включён, passkey-сессия тоже упирается в
+Плагин подключён в PR B; TOTP обязателен до любого управления passkeys.
+Регистрация (экраны `/me/security`):
+
+1. Пользователь с включённым TOTP открывает диалог «Добавить ключ» и задаёт
+   имя. Клиент вызывает `passkey.addPasskey`, который идёт через
+   `/api/vendor-auth/passkey/generate-register-options` и
+   `/api/vendor-auth/passkey/verify-registration`.
+2. Браузер выполняет WebAuthn-регистрацию с `userVerification: "required"` и
+   `residentKey: "required"`; challenge-cookie — `pc-vendor-passkey`.
+3. Плагин сохраняет credential в `vendor_auth_passkeys`; успешная регистрация
+   пишет `vendor.passkey.added`. Секреты, credential ID и public key в аудит
+   не попадают.
+
+Вход (экран `/login`, кнопка «Войти с ключом доступа»):
+
+1. `signIn.passkey` вызывает `/api/vendor-auth/passkey/generate-authenticate-options`
+   и `/api/vendor-auth/passkey/verify-authentication`; email и
+   `allowCredentials` не передаются, поэтому нужен discoverable credential.
+2. Passkey создаёт полноценную сессию; при `two_factor_enabled = true` guard
+   считает её MFA-сессией. Успешный вход пишется существующим
+   `vendor.auth.sign_in_succeeded` (`session.create.after`).
+3. Если TOTP ещё не включён, passkey-сессия упирается в
    `vendor_mfa_required`: passkey не заменяет обязательный TOTP.
-5. Список и удаление passkey — штатные маршруты плагина
-   (`list-user-passkeys`, `delete-passkey`); действия аудируются.
-6. Восстановление: потерянный passkey не блокирует вход, пока есть пароль и
-   TOTP/backup-коды. Сброс MFA суперадминистратором удаляет и TOTP, и
-   passkeys.
+
+Список и удаление:
+
+- `list-user-passkeys` и `delete-passkey` идут через тот же прокси и gate;
+  удаление пишет `vendor.passkey.removed`, переименование —
+  `vendor.passkey.renamed` (UI rename в PR B не выставляет, но путь закрыт
+  gate и аудируется).
+- Passkey-эндпоинты управления (`generate-register-options`,
+  `verify-registration`, `list-user-passkeys`, `delete-passkey`,
+  `update-passkey`) до TOTP отвечают 403 `vendor_mfa_required`; для
+  `suspended`/`disabled` — 403 `vendor_inactive`.
+- Не гейтятся `generate-authenticate-options` и `verify-authentication`:
+  иначе passkey-вход сломался бы.
+- Восстановление: потерянный passkey не блокирует вход, пока есть пароль и
+  TOTP/backup-коды. Сброс MFA суперадминистратором удаляет и TOTP, и
+  passkeys. Self-service сброса MFA нет.
 
 ### 7.6 Сброс пароля и смена пароля
 
 - Публичный `POST /api/vendor-auth/request-password-reset` (per-email лимит
   5/60) отправляет ссылку. Ответ не раскрывает существование пользователя.
 - Самостоятельная смена пароля — штатный `/change-password` Better Auth
-  (требует текущий пароль и сессию).
+  (требует текущий пароль и сессию). До включения TOTP путь отвечает 403
+  `vendor_mfa_required`; `sign-out` остаётся доступным.
+- `revoke-session` и `revoke-other-sessions` также требуют TOTP: парольная
+  сессия не должна отзывать чужие сессии и создавать DoS владельцу.
 - Сброс суперадминистратором — `POST /v1/vendor/users/:id/reset-password`;
   ссылка уходит на email пользователя, суперадминистратор пароль не видит.
 - После сброса все сессии пользователя отзываются.
@@ -493,6 +543,43 @@ TTL и одна активация, но без хеширования; стро
 - Step-up используется первым опасным действием M3 (создание счёта,
   фиксация платежа, смена финансового статуса). До этого endpoint и guard
   существуют, но ни один маршрут их не требует.
+
+### 7.9 Экраны веб-консоли
+
+Консоль — Next.js App Router в `apps/web`, локально на
+`http://localhost:3001`. Браузер не ходит в API напрямую: same-origin BFF
+(§8.4, ADR-0014) проксирует auth и vendor-запросы, поэтому cookie сессии
+first-party.
+
+| Маршрут           | Поведение                                                                                     |
+| ----------------- | --------------------------------------------------------------------------------------------- |
+| `/`               | `ok` + TOTP → `/me`; `ok` без TOTP → `/setup-mfa`; иначе `/login`                             |
+| `/login`          | email/password, шаг TOTP/backup-кода, ссылка на сброс, passkey-вход; причины inactive/expired |
+| `/reset-password` | токен из query, новый пароль; токен убирается из адресной строки, `noindex`, `no-referrer`    |
+| `/setup-mfa`      | принудительное включение TOTP: пароль → QR/секрет → backup-коды → verify-totp; `returnTo`     |
+| `/me`             | профиль, роль, статус, срок сессии, step-up, выход                                            |
+| `/me/security`    | статус TOTP, passkeys (список/добавление/удаление), смена пароля, отзыв других сессий         |
+| `/api/*`, `/v1/*` | BFF; не редиректят и не рендерят страницы                                                     |
+
+- Защита — на уровне страниц через server-компонент `ConsoleGuard` с явным
+  `returnTo`. Layout не знает pathname и не угадывает его. `ConsoleGuard`
+  делает `redirect()` для login/inactive/MFA и рендерит `ServiceUnavailable`
+  для ошибки API; страницы `force-dynamic`, `getVendorMe()` дедуплицирует
+  вызов через React `cache()`.
+- `reason=inactive` и `reason=session_expired` показываются на `/login`
+  безопасным текстом; query не влияет на авторизацию. `returnTo`
+  санитизируется: только pathname, начинающийся с одного `/`, без `//`, `\`,
+  схем, host, query и hash; невалидное значение заменяется на `/me`.
+- Ошибка API (таймаут/5xx) не редиректит и не выглядит как выход:
+  защищённые страницы показывают «Сервис временно недоступен» с повтором,
+  `/login` — форму с неблокирующим Alert об outage. Так нет цикла редиректов
+  при недоступном API.
+- Все действия на `/me/security` требуют TOTP; при 403 `vendor_mfa_required`
+  консоль ведёт на `/setup-mfa`, при `vendor_inactive` — на
+  `/login?reason=inactive`.
+- UI-строки — в `apps/web/src/lib/messages.ts`; общие примитивы, тема и
+  layout-компоненты — в `@partner-coder/ui`. Клиентская проверка — только UX,
+  безопасность остаётся в API.
 
 ## 8. API
 
@@ -565,6 +652,35 @@ OpenAPI: собственные маршруты описываются Zod-сх
 `sessionId`, `sessionExpiresAt`, `stepUpUntil`. Tenant-guard и
 `resolveIdentity` не переиспользуются: у вендора нет членств и tenant-контекста.
 
+### 8.4 BFF веб-консоли
+
+Same-origin BFF живёт в `apps/web` и не является частью Fastify API
+(ADR-0014). Браузер обращается только к `VENDOR_BASE_URL`:
+
+| Next path                    | Target                                | Methods                  |
+| ---------------------------- | ------------------------------------- | ------------------------ |
+| `/api/vendor-auth/[...path]` | `${API_BASE_URL}/api/vendor-auth/...` | GET, POST                |
+| `/v1/vendor/[...path]`       | `${API_BASE_URL}/v1/vendor/...`       | GET, POST, PATCH, DELETE |
+
+- Route handlers: `runtime = "nodejs"`, `dynamic = "force-dynamic"`,
+  `fetchCache = "force-no-store"`.
+- Пути валидируются по сегментам `^[A-Za-z0-9._~-]+$` без `.`/`..`; иначе 400. Query — не больше 8 KiB, тело — не больше 64 KiB; иначе 414/413.
+- В API-forward уходят только `cookie`, `content-type`, `accept`, `origin`,
+  `user-agent`, `x-request-id`, `idempotency-key`. `host`, `content-length`,
+  `connection`, `referer`, `x-forwarded-*` не уходят.
+- `x-request-id` генерируется BFF, если его нет, и возвращается браузеру.
+  Небезопасные методы при наличии `Origin` проверяют его на собственный
+  origin BFF; несовпадение — 403 `origin_forbidden`. Отсутствие `Origin`
+  допускается.
+- Ответ копирует `content-type`, `content-disposition`, `x-request-id` и все
+  `Set-Cookie` (включая `pc-vendor-passkey`), не копирует
+  `content-encoding`/`content-length` и ставит `cache-control: no-store`.
+  `redirect: "manual"`, таймаут 15 секунд; сеть/таймаут — 502
+  `upstream_unavailable` без upstream-деталей.
+- BFF не ослабляет guard и не добавляет прав: авторизация остаётся в API.
+  Server guard страниц вызывает `/v1/vendor/auth/me` с cookie из `cookies()`,
+  `cache: "no-store"` и различает `ok | unauthenticated | inactive | error`.
+
 ## 9. Аудит
 
 Пишем в `vendor_audit_events` (append-only, хеш-цепочка, дневной якорь
@@ -585,7 +701,7 @@ worker-а). Actor — `vendor_users.id`; для неуспешного вход�
 | `vendor.auth.signed_out`                           | выход через `/sign-out`                                                                |
 | `vendor.user.mfa_enabled`                          | TOTP включён                                                                           |
 | `vendor.user.mfa_reset`                            | админ сбросил TOTP/passkeys                                                            |
-| `vendor.user.passkey_added` / `passkey_removed`    | регистрация/удаление passkey                                                           |
+| `vendor.passkey.added` / `removed` / `renamed`     | регистрация/удаление/переименование passkey                                            |
 | `vendor.user.suspended` / `disabled` / `activated` | смена статуса                                                                          |
 | `vendor.session.revoked`                           | отзыв сессий при блокировке/сбросе (actor — админ)                                     |
 | `vendor.auth.session_revoked`                      | пользователь отозвал свою/другие сессии                                                |
@@ -598,6 +714,11 @@ user id, session id, причина. Пароли, TOTP-секреты, коды
 `sha256(normalizedEmail)` и IP; для неуспешного второго фактора actor
 неизвестен (временная 2FA-cookie не даёт полноценной сессии), поэтому
 пишутся path, IP и `reason` — корреляция через логи/метрики и lockout.
+
+Passkey-события пишутся best-effort после успешного ответа прокси; неуспешные
+попытки ceremony не аудируются, чтобы не шуметь отменами, но серверный rate
+limit остаётся. Passkey-вход отдельного события не создаёт: он покрыт
+`vendor.auth.sign_in_succeeded` из `session.create.after`.
 
 Сбой аудита не отменяет вход/сброс; ошибка логируется pino (как в tenant
 guard). Для административных изменений аудит пишется в той же транзакции,
@@ -617,22 +738,35 @@ guard). Для административных изменений аудит п
 (whitelist из двух имён) и переиспользуется для вендорского контура; SQL
 остаётся атомарным `INSERT … ON CONFLICT DO UPDATE`.
 
+За same-origin BFF (ADR-0014) per-IP лимиты Better Auth и глобальный
+Fastify-лимит видят egress-IP BFF и становятся instance-global. Для 4–10
+вендорских сотрудников это приемлемо; первичная защита — per-email 5/60 и
+account lockout, потому что ключ этих лимитов — email. По той же причине
+audit-события за BFF фиксируют egress-IP BFF, а не клиентский. Доверенный
+client IP — follow-up после выбора хостинга и подписи заголовка.
+
 ## 11. Окружение
 
-| Переменная                          | По умолчанию                     | Правило                                                                                                                          |
-| ----------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `VENDOR_DATABASE_URL`               | —                                | Логин `partner_coder_vendor`; вне local обязателен, локально fallback на `DATABASE_URL`.                                         |
-| `VENDOR_AUTH_DATABASE_URL`          | —                                | Логин `partner_coder_vendor_auth`; вне local обязателен, локально fallback на `DATABASE_URL`.                                    |
-| `VENDOR_AUTH_SECRET`                | fallback `AUTH_SECRET` локально  | Минимум 32 символа; вне local обязателен и не равен `AUTH_SECRET`.                                                               |
-| `VENDOR_SESSION_TTL_HOURS`          | 8                                | 1…24.                                                                                                                            |
-| `VENDOR_PASSWORD_RESET_TTL_MINUTES` | 30                               | 5…120.                                                                                                                           |
-| `VENDOR_PASSWORD_MIN_LENGTH`        | 12                               | 12…64.                                                                                                                           |
-| `VENDOR_WEBAUTHN_RP_ID`             | hostname из `VENDOR_BASE_URL`    | Домен RP; в prod может быть родительским (`partnercoder.ru` для `admin.partnercoder.ru`).                                        |
-| `VENDOR_BASE_URL`                   | локально `http://localhost:3001` | Origin консоли без path/query/fragment. Вне local обязателен и только `https`; используется как trusted origin и passkey origin. |
+| Переменная                          | По умолчанию                     | Правило                                                                                                                                                                      |
+| ----------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VENDOR_DATABASE_URL`               | —                                | Логин `partner_coder_vendor`; вне local обязателен, локально fallback на `DATABASE_URL`.                                                                                     |
+| `VENDOR_AUTH_DATABASE_URL`          | —                                | Логин `partner_coder_vendor_auth`; вне local обязателен, локально fallback на `DATABASE_URL`.                                                                                |
+| `VENDOR_AUTH_SECRET`                | fallback `AUTH_SECRET` локально  | Минимум 32 символа; вне local обязателен и не равен `AUTH_SECRET`.                                                                                                           |
+| `VENDOR_SESSION_TTL_HOURS`          | 8                                | 1…24.                                                                                                                                                                        |
+| `VENDOR_PASSWORD_RESET_TTL_MINUTES` | 30                               | 5…120.                                                                                                                                                                       |
+| `VENDOR_PASSWORD_MIN_LENGTH`        | 12                               | 12…64.                                                                                                                                                                       |
+| `VENDOR_WEBAUTHN_RP_ID`             | локально `localhost`             | WebAuthn RP ID: хост консоли в нижнем регистре без схемы, порта и пути. Вне local обязателен; должен совпадать с хостом `VENDOR_BASE_URL` или быть его родительским доменом. |
+| `VENDOR_BASE_URL`                   | локально `http://localhost:3001` | Origin консоли без path/query/fragment. Вне local обязателен и только `https`; используется как trusted origin и passkey origin.                                             |
+| `API_BASE_URL`                      | —                                | Цель BFF в `apps/web`; должен быть доступен с Next-сервера. Не нужен на этапе `next build`.                                                                                  |
 
-`resolveVendorBaseUrl(env)` подставляет локальный default; в staging/prod
-значение обязательно. Если `API_CORS_ORIGINS` задан явно, он должен включать
-`VENDOR_BASE_URL`, иначе браузерная консоль не пройдёт CORS.
+`resolveVendorWebauthnRpId(env)` возвращает `localhost` локально и требует
+значение вне local; `parseEnv` отклоняет схему, порт, path, query, fragment и
+несовпадение с хостом `VENDOR_BASE_URL`. `resolveVendorBaseUrl(env)`
+подставляет локальный default; в staging/prod значение обязательно.
+
+Same-origin BFF (ADR-0014) означает, что браузер больше не ходит в API
+напрямую и CORS для консоли не нужен. Если `API_CORS_ORIGINS` задан явно, он
+по-прежнему должен включать `VENDOR_BASE_URL`, но это не требование консоли.
 
 `resolveRateLimitStorage` переиспользуется: local — memory, staging/prod —
 database. `AUTH_IP_HEADERS`/`AUTH_TRUSTED_PROXIES` применяются и к
@@ -665,25 +799,37 @@ database. `AUTH_IP_HEADERS`/`AUTH_TRUSTED_PROXIES` применяются и к
    backup-код; lockout; reset-password TTL и отзыв сессий; `onPasswordReset`
    активирует только `invited → active` и не реактивирует
    `suspended`/`disabled`; письмо для неактивного пользователя не уходит.
-4. **Passkey**: регистрация требует сессию; passkey-вход создаёт сессию;
-   TOTP-инвариант; каталог и удаление. Полный WebAuthn-сценарий в браузере —
-   Playwright в M3.1 (UI), не в unit-тестах.
+4. **Passkey**: регистрация требует сессию и TOTP; passkey-вход создаёт
+   сессию; TOTP-инвариант; каталог и удаление; аудит `added/removed/renamed`.
+   Gate не пропускает управление passkeys и `change-password`/`revoke-*` до
+   TOTP; passkey-auth и sign-out не гейтятся.
 5. **Прокси** (`apps/api/src/vendor-auth/routes.test.ts`):
-   blocked paths, per-email 429, `set-cookie`, origin, ошибки Better Auth.
+   blocked paths, per-email 429, `set-cookie`, origin, ошибки Better Auth,
+   MFA-gate, статус suspended.
 6. **Guard и API**: 401/403 (`vendor_unauthenticated` vs `vendor_inactive`),
    `mfaEnrollmentRequired`, роли, self-change, suspend/revoke, reset-mfa,
    step-up, аудит-события; suspended/disabled не создаёт новую сессию и не
    проходит passkey-вход.
-7. **E2E** (`apps/api/src/vendor-auth/e2e.test.ts`): суперадминистратор
+7. **Web unit** (`apps/web/src/lib/*.test.ts`): BFF (валидация пути,
+   whitelist заголовков, несколько `Set-Cookie`, лимит тела, таймаут/502,
+   origin-check), `sanitizeReturnTo`, `mapAuthError`, `validatePassword`,
+   `passkeyLabel`, `formatDateTime`.
+8. **E2E API** (`apps/api/src/vendor-auth/e2e.test.ts`): суперадминистратор
    создаёт пользователя → письмо → установка пароля → вход → включение TOTP →
    доступ → приостановка → сессия отозвана.
-8. **Rate limit**: два пула/инстанса делят `vendor_auth_email_limits`;
-   окно сбрасывается; fallback при сбое БД.
-9. **Worker TTL**: сессии/verifications/лимиты чистятся, TOTP/passkeys — нет.
-10. **Конфиг**: новые env, дефолты, запрет `VENDOR_AUTH_SECRET === AUTH_SECRET`
-    вне local, обязательные URL.
-11. **OpenAPI drift**: `openapi:emit`/`openapi:types`, CI drift-check.
-12. **Полный `pnpm check`** — все существующие 642 теста остаются зелёными.
+9. **E2E консоли** (`apps/web/e2e/*.spec.ts`, Playwright + Chromium): сброс
+   пароля через Mailpit → TOTP → добавление passkey виртуальным
+   authenticator → выход → вход passkey; негативные сценарии и axe-проверки.
+   Команды и CI — в `docs/05-process/quality-gates.md`.
+10. **Rate limit**: два пула/инстанса делят `vendor_auth_email_limits`;
+    окно сбрасывается; fallback при сбое БД.
+11. **Worker TTL**: сессии/verifications/лимиты чистятся, TOTP/passkeys — нет.
+12. **Конфиг**: env, дефолты, `VENDOR_WEBAUTHN_RP_ID` (формат и суффикс
+    хоста), запрет `VENDOR_AUTH_SECRET === AUTH_SECRET` вне local,
+    обязательные URL.
+13. **OpenAPI drift**: `openapi:emit`/`openapi:types`, CI drift-check.
+14. **Полный `pnpm check`** — весь набор остаётся зелёным; интеграционные
+    тесты требуют PostgreSQL.
 
 ## 14. Этапы внедрения
 
@@ -699,12 +845,16 @@ database. `AUTH_IP_HEADERS`/`AUTH_TRUSTED_PROXIES` применяются и к
 5. worker TTL, тесты, документация (ADR-0013, api/data-model/threat-model/
    quickstart/staging README, ledger).
 
-**PR B — passkeys и UI:**
+**PR B — passkeys и UI (реализовано):**
 
-1. зависимость `@better-auth/passkey`, плагин, регистрация/вход/удаление;
-2. экраны входа, сброса пароля, включения TOTP, passkeys в `apps/web`;
-3. Playwright E2E с виртуальным authenticator;
-4. step-up подключается к первым опасным действиям M3.1.
+1. зависимость `@better-auth/passkey` 1.7.25, плагин, регистрация/вход/список/
+   удаление, resident key и gate до TOTP;
+2. same-origin BFF, экраны `/login`, `/reset-password`, `/setup-mfa`, `/me`,
+   `/me/security` и шелл консоли в `apps/web`;
+3. `@partner-coder/ui`: примитивы, токены и тема, используемые консолью;
+4. Playwright E2E с виртуальным authenticator (Chromium) и необязательный
+   CI job;
+5. step-up подключается к первым опасным действиям M3.1 (не в PR B).
 
 PR A можно смержить без UI: контракт проверяется тестами и runtime smoke
 через Mailpit. PR B не блокирует M3.1-данные, но нужен для удобного входа
@@ -728,6 +878,15 @@ PR A можно смержить без UI: контракт проверяет�
 - **Passkey-only и аппаратные ключи** не включаются: passkey дополнительный,
   TOTP обязателен. Если продукт захочет passkey-only, понадобится отдельное
   решение о восстановлении.
+- **Resident key** обязателен, поэтому non-discoverable cross-platform ключи
+  не подходят как passkeys. UI деградирует по возможностям браузера; E2E —
+  только Chromium, Safari/Firefox проверяются вручную.
+- **Passkey привязан к origin.** Смена `VENDOR_BASE_URL`, preview-домены и
+  другой порт ломают существующие ключи; перерегистрация обязательна.
+- **BFF как новая поверхность.** Whitelist путей/заголовков, лимиты 8 KiB/64
+  KiB, origin-check и unit-тесты обязательны; API остаётся энфорсером.
+  Per-IP лимиты и audit IP за BFF — egress BFF, пока не передан доверенный
+  client IP. CSP с nonce — follow-up.
 - **Полный WebAuthn E2E** — в браузере (Playwright), не в unit-тестах.
 - **Open sign-up** заблокирован на прокси; тест должен проверять, что
   `/api/vendor-auth/sign-up/*` не проходит. Другие способы создать
@@ -739,34 +898,40 @@ PR A можно смержить без UI: контракт проверяет�
 
 ## 16. Карта файлов
 
-| Файл                                                       | Изменение                                                     |
-| ---------------------------------------------------------- | ------------------------------------------------------------- |
-| `packages/db/src/schema/vendor-auth.ts`                    | Новые таблицы `vendor_auth_*`.                                |
-| `packages/db/src/schema/vendor.ts`                         | `email_verified`, `image`; `mfaEnabled` → `twoFactorEnabled`. |
-| `packages/db/src/schema/index.ts`                          | Экспорт новых таблиц.                                         |
-| `packages/db/drizzle/0006_*.sql`                           | Миграция, роль, гранты.                                       |
-| `packages/db/src/vendor-auth/users.ts`                     | Создание/обновление/список, активация, аудит.                 |
-| `packages/db/src/vendor-auth/audit.ts`                     | Вызов `vendor_audit()`.                                       |
-| `packages/db/src/vendor-auth/sessions.ts`                  | Отзыв сессий, сброс MFA.                                      |
-| `apps/api/src/cli/provision-vendor-admin.ts`               | Bootstrap первого суперадминистратора.                        |
-| `apps/api/src/vendor-auth/config.ts`                       | Инстанс Better Auth.                                          |
-| `apps/api/src/vendor-auth/runtime.ts`                      | `resolveVendorIdentity`.                                      |
-| `apps/api/src/vendor-auth/guard.ts`                        | Guard-функции.                                                |
-| `apps/api/src/routes/vendor-auth.ts`                       | Прокси `/api/vendor-auth/*`.                                  |
-| `apps/api/src/routes/vendor.ts`                            | `/v1/vendor/auth/*`, `/v1/vendor/users/*`.                    |
-| `apps/api/src/auth/mailer.ts`                              | `sendVendorPasswordReset`.                                    |
-| `apps/api/src/auth/email-rate-limit.ts`                    | Опция `table` для вендорской таблицы.                         |
-| `apps/api/src/main.ts`                                     | Пулы, роли, конфиг, закрытие.                                 |
-| `apps/api/src/server.ts`                                   | Регистрация вендорских маршрутов.                             |
-| `apps/api/src/openapi/*`                                   | Схемы и пути.                                                 |
-| `packages/config/src/env.ts`                               | Новые env и проверки.                                         |
-| `apps/worker/src/jobs/ttl-cleanup.ts`                      | TTL вендорских таблиц.                                        |
-| `tools/seed/src/seed.ts`                                   | `twoFactorEnabled: false` у демо-вендора.                     |
-| `packages/db/test/*`, `apps/api/src/vendor-auth/*.test.ts` | Тесты.                                                        |
-| `docs/adr/0013-vendor-auth-contour.md`                     | ADR.                                                          |
-| `docs/03-architecture/api.md`, `data-model.md`             | Маршруты и таблицы.                                           |
-| `docs/04-security/threat-model.md`, `authz.md`             | Вендорские угрозы и роли.                                     |
-| `docs/00-start/quickstart.md`                              | Локальный вход вендора.                                       |
-| `deploy/environments/staging/README.md`                    | Роли и env staging.                                           |
-| `.env.example`, `CHANGELOG.md`, `packages/db/README.md`    | Примеры и статус.                                             |
-| `.superpowers/sdd/partner-coder-mega-plan/progress.md`     | R-45 и статус.                                                |
+| Файл                                                              | Изменение                                                     |
+| ----------------------------------------------------------------- | ------------------------------------------------------------- |
+| `packages/db/src/schema/vendor-auth.ts`                           | Новые таблицы `vendor_auth_*`.                                |
+| `packages/db/src/schema/vendor.ts`                                | `email_verified`, `image`; `mfaEnabled` → `twoFactorEnabled`. |
+| `packages/db/src/schema/index.ts`                                 | Экспорт новых таблиц.                                         |
+| `packages/db/drizzle/0006_*.sql`                                  | Миграция, роль, гранты.                                       |
+| `packages/db/src/vendor-auth/users.ts`                            | Создание/обновление/список, активация, аудит.                 |
+| `packages/db/src/vendor-auth/audit.ts`                            | Вызов `vendor_audit()`.                                       |
+| `packages/db/src/vendor-auth/sessions.ts`                         | Отзыв сессий, сброс MFA.                                      |
+| `apps/api/src/cli/provision-vendor-admin.ts`                      | Bootstrap первого суперадминистратора.                        |
+| `apps/api/src/vendor-auth/config.ts`                              | Инстанс Better Auth.                                          |
+| `apps/api/src/vendor-auth/runtime.ts`                             | `resolveVendorIdentity`.                                      |
+| `apps/api/src/vendor-auth/guard.ts`                               | Guard-функции.                                                |
+| `apps/api/src/routes/vendor-auth.ts`                              | Прокси `/api/vendor-auth/*`.                                  |
+| `apps/api/src/routes/vendor.ts`                                   | `/v1/vendor/auth/*`, `/v1/vendor/users/*`.                    |
+| `apps/api/src/auth/mailer.ts`                                     | `sendVendorPasswordReset`.                                    |
+| `apps/api/src/auth/email-rate-limit.ts`                           | Опция `table` для вендорской таблицы.                         |
+| `apps/api/src/main.ts`                                            | Пулы, роли, конфиг, закрытие.                                 |
+| `apps/api/src/server.ts`                                          | Регистрация вендорских маршрутов.                             |
+| `apps/api/src/openapi/*`                                          | Схемы и пути.                                                 |
+| `packages/config/src/env.ts`                                      | `VENDOR_WEBAUTHN_RP_ID` и проверки.                           |
+| `apps/worker/src/jobs/ttl-cleanup.ts`                             | TTL вендорских таблиц.                                        |
+| `tools/seed/src/seed.ts`                                          | `twoFactorEnabled: false` у демо-вендора.                     |
+| `apps/web/src/app/{api,v1}/**`, `src/lib/proxy.ts`                | Same-origin BFF (PR B).                                       |
+| `apps/web/src/app/**`, `src/components/**`, `src/lib/**`          | Экраны, server guard, auth client (PR B).                     |
+| `packages/ui/src/**`                                              | Примитивы, токены, тема (PR B).                               |
+| `apps/web/e2e/**`, `apps/web/playwright.config.ts`                | Playwright E2E (PR B).                                        |
+| `packages/db/test/*`, `apps/api/src/vendor-auth/*.test.ts`        | Тесты.                                                        |
+| `apps/web/src/lib/*.test.ts`, `packages/ui/src/**/*.test.ts`      | Web/UI unit-тесты.                                            |
+| `docs/adr/0013-vendor-auth-contour.md`, `0014-web-console-bff.md` | ADR.                                                          |
+| `docs/03-architecture/api.md`, `data-model.md`                    | Маршруты, BFF и таблицы.                                      |
+| `docs/04-security/threat-model.md`, `authz.md`                    | Вендорские угрозы и роли.                                     |
+| `docs/00-start/quickstart.md`                                     | Локальный вход вендора и консоль.                             |
+| `docs/05-process/quality-gates.md`                                | E2E команда и CI job.                                         |
+| `deploy/environments/staging/README.md`                           | Роли, env staging, BFF.                                       |
+| `.env.example`, `CHANGELOG.md`, `packages/db/README.md`           | Примеры и статус.                                             |
+| `.superpowers/sdd/partner-coder-mega-plan/progress.md`            | R-45, R-46 и статус.                                          |

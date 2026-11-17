@@ -60,6 +60,18 @@
   `vendor:admin`, seed без пароля и credential-строк; E2E на реальном Fastify
   и Better Auth, OpenAPI drift, документация и ledger R-45. Passkeys и UI
   отложены в PR B; tenant-auth не менялся.
+- M3 PR B — вендорская консоль (ADR-0014): `@better-auth/passkey` 1.7.25
+  с resident key и origin консоли, регистрация/вход/список/удаление
+  passkeys, обязательный TOTP; gate до TOTP для управления passkeys,
+  смены пароля и отзыва сессий; аудит `vendor.passkey.added/removed/renamed`.
+  Next.js App Router в `apps/web`: `/login`, `/reset-password`,
+  `/setup-mfa`, `/me`, `/me/security`, общий шелл и тема; same-origin BFF
+  с whitelist заголовков, лимитами 8/64 KiB и origin-check; server guard и
+  безопасный `returnTo`. `@partner-coder/ui`: примитивы, токены и тема.
+  Playwright E2E на Chromium с виртуальным authenticator (7 тестов,
+  включая setup) и необязательный CI job `e2e`. Миграции БД нет:
+  `vendor_auth_passkeys` уже соответствует схеме плагина; tenant-auth не
+  менялся.
 
 ### Changed
 
@@ -68,6 +80,12 @@
 - Локальный S3 в Docker Compose переведен с удаленных образов `minio/minio`
   и `minio/mc` на совместимый форк SILO (`pgsty/silo`, `pgsty/mc`); healthcheck
   и создание приватного bucket `partner-coder` проверены.
+- `apps/web` из манифеста стал рабочей вендорской консолью; `packages/ui`
+  собирается в `dist` (`tsc`) и используется через workspace-зависимость.
+- Новый env `VENDOR_WEBAUTHN_RP_ID`: локально `localhost`, вне local
+  обязателен и проверяется на формат и суффикс хоста `VENDOR_BASE_URL`.
+- `pnpm test:e2e` и `pnpm test:e2e:full` дополняют проверки; `pnpm check`
+  по-прежнему требует PostgreSQL.
 
 ### Security
 
@@ -78,13 +96,25 @@
 - `pnpm.overrides` поднимают `glob` до 14.0.6 и `esbuild` до 0.28.2,
   закрывая оставшиеся moderate advisories транзитивных tooling-цепочек
   OTel GCP detector и drizzle-kit; `pnpm audit --prod` показывает 0.
+- Вендорская консоль: first-party cookie через same-origin BFF, whitelist
+  путей/заголовков, лимиты query 8 KiB и body 64 KiB, origin-check
+  небезопасных методов, `cache-control: no-store` и 502 без upstream-деталей.
+- Reset-токен: `no-referrer`, `noindex`, удаление из адресной строки после
+  чтения, без аналитики и логов BFF; токен остаётся одноразовым с TTL 30
+  минут.
+- Passkeys не заменяют TOTP; до включения TOTP заблокированы управление
+  ключами, смена пароля и отзыв сессий. CSP с nonce, trusted client IP и
+  per-IP лимиты за BFF — follow-up.
 
 ### Notes
 
 - Лицензия — source-available; финальный текст за юристом.
-- Вендорская консоль M3 PR A реализована без passkeys и UI: вход
-  password+TOTP, passkeys и экраны — PR B. Tenant-аутентификация остаётся
-  passwordless (OTP/magic-link).
+- Вендорская консоль M3 PR B реализована: password+TOTP+passkeys, экраны
+  входа/сброса/настройки MFA/профиля/безопасности, same-origin BFF и
+  Playwright E2E. Tenant-аутентификация остаётся passwordless
+  (OTP/magic-link).
 - Общий rate-limit store внедрен (ADR-0012); глобальный лимит Fastify
   остается на инстанс, распределенный edge/WAF — при выборе хостинга.
-- M3 PR B и M4–M11 не реализованы: см. `docs/05-process/development-process.md`.
+  За BFF per-IP лимиты и audit IP — egress BFF до появления доверенного
+  client IP.
+- M4–M11 не реализованы: см. `docs/05-process/development-process.md`.

@@ -31,7 +31,7 @@
 
 | Контейнер                   | Технология                              | Ответственность                                           | Веха            |
 | --------------------------- | --------------------------------------- | --------------------------------------------------------- | --------------- |
-| `apps/web`                  | Next.js App Router, Tailwind, shadcn/ui | консоль вендора, кабинеты директора и разработчика        | M3, M5          |
+| `apps/web`                  | Next.js App Router, Tailwind, shadcn/ui | консоль вендора (PR B), кабинеты директора и разработчика | M3, M5          |
 | `apps/api`                  | Fastify, Zod, OpenAPI                   | REST, auth, изоляция tenant, онбординг, вебхуки           | M2 (готово)     |
 | `apps/worker`               | Node.js, pg-boss                        | закрытие дня, якоря, TTL/retention, метрики               | M2.3 (готово)   |
 | `apps/mcp`                  | MCP SDK, Bun compile                    | локальный сервер: enrollment, сессии, heartbeat, дайджест | M4              |
@@ -39,7 +39,7 @@
 | `packages/domain`           | чистый TypeScript                       | политика, время, экономика, калькулятор, вестинг          | **M1 (готово)** |
 | `packages/db`               | Drizzle, PostgreSQL                     | схема, миграции, RLS, репозитории                         | M2.1            |
 | `packages/contracts`        | Zod + OpenAPI                           | схемы API и MCP                                           | M2.3 (готово)   |
-| `packages/ui`               | React                                   | общие компоненты                                          | M5              |
+| `packages/ui`               | React                                   | общие компоненты, токены и тема                           | M3 PR B, M5     |
 | `packages/package-template` | шаблоны                                 | START-HERE, AGENTS, конфиги MCP                           | M4              |
 
 ## 3. Потоки
