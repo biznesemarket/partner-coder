@@ -4,11 +4,22 @@ import { useRef } from "react";
 import type { ChangeEvent, ClipboardEvent, KeyboardEvent } from "react";
 
 import { cn } from "../lib/cn";
-import { normalizeOtp } from "../lib/code";
-
-const CODE_LENGTH = 6;
+import {
+  OTP_LENGTH,
+  clearOtpSlot,
+  normalizeOtp,
+  otpSlots,
+  otpSlotsToValue,
+  setOtpSlots,
+} from "../lib/code";
 
 type CodeInputProps = {
+  /**
+   * Контролируемое значение из шести позиций. Пробел обозначает пустой слот
+   * (`"12 456"`), хвостовые пустые слоты опускаются. Компактное значение
+   * (`"123456"` или `"123"`) читается слева направо. Для отправки формы и
+   * проверки кода используйте `normalizeOtp(value)`.
+   */
   value: string;
   onChange: (value: string) => void;
   autoFocus?: boolean;
@@ -21,6 +32,12 @@ type CodeInputProps = {
   "aria-invalid"?: boolean;
 };
 
+/**
+ * Шестизначный OTP-ввод с позиционными слотами. Удаление средней цифры
+ * оставляет пустой слот на своём месте (`"123456"` → `"12 456"`), поэтому
+ * последующие цифры не сдвигаются; компактное значение для отправки получается
+ * через `normalizeOtp(value)` и скрытый input.
+ */
 function CodeInput({
   value,
   onChange,
@@ -34,45 +51,33 @@ function CodeInput({
   "aria-invalid": ariaInvalid,
 }: CodeInputProps) {
   const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
-  const digits = normalizeOtp(value);
-  const chars = Array.from({ length: CODE_LENGTH }, (_, index) => digits[index] ?? "");
+  const slots = otpSlots(value);
+  const compactValue = normalizeOtp(otpSlotsToValue(slots));
 
   function focusAt(index: number): void {
-    const next = Math.min(Math.max(index, 0), CODE_LENGTH - 1);
+    const next = Math.min(Math.max(index, 0), OTP_LENGTH - 1);
     const input = inputsRef.current[next];
 
     input?.focus();
     input?.select();
   }
 
-  function apply(nextChars: Array<string>, focusIndex: number): void {
-    onChange(normalizeOtp(nextChars.join("")));
+  function commit(nextSlots: Array<string>, focusIndex: number): void {
+    onChange(otpSlotsToValue(nextSlots));
     focusAt(focusIndex);
   }
 
   function handleChange(index: number, event: ChangeEvent<HTMLInputElement>): void {
     const incoming = normalizeOtp(event.target.value);
-    const nextChars = [...chars];
 
     if (incoming.length === 0) {
-      nextChars[index] = "";
-      onChange(normalizeOtp(nextChars.join("")));
+      commit(clearOtpSlot(slots, index), index);
       return;
     }
 
-    if (incoming.length > 1) {
-      const available = Math.min(incoming.length, CODE_LENGTH - index);
+    const available = Math.min(incoming.length, OTP_LENGTH - index);
 
-      for (let offset = 0; offset < available; offset += 1) {
-        nextChars[index + offset] = incoming[offset] ?? "";
-      }
-
-      apply(nextChars, index + available);
-      return;
-    }
-
-    nextChars[index] = incoming;
-    apply(nextChars, index + 1);
+    commit(setOtpSlots(slots, index, incoming), index + available);
   }
 
   function handlePaste(index: number, event: ClipboardEvent<HTMLInputElement>): void {
@@ -84,40 +89,29 @@ function CodeInput({
 
     event.preventDefault();
 
-    const nextChars = [...chars];
-    const available = Math.min(pasted.length, CODE_LENGTH - index);
+    const available = Math.min(pasted.length, OTP_LENGTH - index);
 
-    for (let offset = 0; offset < available; offset += 1) {
-      nextChars[index + offset] = pasted[offset] ?? "";
-    }
-
-    apply(nextChars, index + available);
+    commit(setOtpSlots(slots, index, pasted), index + available);
   }
 
   function handleKeyDown(index: number, event: KeyboardEvent<HTMLInputElement>): void {
     if (event.key === "Backspace") {
       event.preventDefault();
 
-      const nextChars = [...chars];
-
-      if (nextChars[index]) {
-        nextChars[index] = "";
-        onChange(normalizeOtp(nextChars.join("")));
+      if (slots[index]) {
+        commit(clearOtpSlot(slots, index), index);
         return;
       }
 
       const previous = Math.max(index - 1, 0);
-      nextChars[previous] = "";
-      apply(nextChars, previous);
+
+      commit(clearOtpSlot(slots, previous), previous);
       return;
     }
 
     if (event.key === "Delete") {
       event.preventDefault();
-
-      const nextChars = [...chars];
-      nextChars[index] = "";
-      onChange(normalizeOtp(nextChars.join("")));
+      commit(clearOtpSlot(slots, index), index);
       return;
     }
 
@@ -140,14 +134,14 @@ function CodeInput({
       data-slot="code-input"
       className={cn("flex items-center gap-2", className)}
     >
-      {chars.map((char, index) => (
+      {name ? <input type="hidden" name={name} value={compactValue} /> : null}
+      {slots.map((char, index) => (
         <input
           key={index}
           ref={(node) => {
             inputsRef.current[index] = node;
           }}
           id={id ? (index === 0 ? id : `${id}-${index + 1}`) : undefined}
-          name={index === 0 ? name : undefined}
           value={char}
           onChange={(event) => handleChange(index, event)}
           onPaste={(event) => handlePaste(index, event)}

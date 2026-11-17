@@ -7,9 +7,10 @@ import { useEffect, useState } from "react";
 import { Button } from "./button";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./dropdown-menu";
@@ -54,20 +55,18 @@ function ThemeToggle({ className }: ThemeToggleProps) {
       <DropdownMenuContent align="end" className="w-44">
         <DropdownMenuLabel>Тема</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {themes.map(({ value, label, icon: Icon }) => (
-          <DropdownMenuCheckboxItem
-            key={value}
-            checked={mounted && currentTheme === value}
-            onCheckedChange={(checked) => {
-              if (checked === true) {
-                setTheme(value);
-              }
-            }}
-          >
-            <Icon className="h-4 w-4" aria-hidden="true" />
-            {label}
-          </DropdownMenuCheckboxItem>
-        ))}
+        <DropdownMenuRadioGroup
+          value={mounted ? currentTheme : ""}
+          onValueChange={(nextTheme) => setTheme(nextTheme)}
+          aria-label="Тема оформления"
+        >
+          {themes.map(({ value, label, icon: Icon }) => (
+            <DropdownMenuRadioItem key={value} value={value}>
+              <Icon className="h-4 w-4" aria-hidden="true" />
+              {label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
