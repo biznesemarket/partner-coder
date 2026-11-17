@@ -68,7 +68,7 @@ export function parseVendorMe(value: unknown): VendorMe | null {
     return null;
   }
 
-  const stepUpUntil = value.stepUpUntil;
+  const stepUpUntil = value.stepUpUntil ?? null;
   if (stepUpUntil !== null && typeof stepUpUntil !== "string") {
     return null;
   }

@@ -56,6 +56,7 @@ export const errors = {
   stepUpRequired: "Требуется повторное подтверждение пароля",
   serviceUnavailable: "Сервис временно недоступен",
   serviceUnavailableDescription: "Не удалось получить данные. Повторите попытку позже.",
+  signOutFailed: "Не удалось выйти. Попробуйте ещё раз.",
   generic: "Не удалось выполнить действие. Попробуйте ещё раз.",
 } as const;
 

@@ -13,9 +13,11 @@ import {
   DialogTrigger,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  Spinner,
   ThemeToggle,
 } from "@partner-coder/ui";
 import Link from "next/link";
@@ -26,7 +28,7 @@ import { useState } from "react";
 import { messages } from "@/lib/messages";
 import type { VendorMe } from "@/lib/vendor-types";
 
-import { LogoutButton } from "./logout-button";
+import { useSignOut } from "./logout-button";
 
 const NAV_ITEMS = [
   { href: "/me", label: messages.nav.profile },
@@ -102,6 +104,8 @@ function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () 
 }
 
 function UserMenu({ me }: { me: VendorMe }) {
+  const { pending, signOut } = useSignOut();
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -140,7 +144,16 @@ function UserMenu({ me }: { me: VendorMe }) {
           <Badge variant="outline">{messages.statuses[me.user.status]}</Badge>
         </div>
         <DropdownMenuSeparator />
-        <LogoutButton className="w-full justify-start" />
+        <DropdownMenuItem
+          disabled={pending}
+          onSelect={(event) => {
+            event.preventDefault();
+            void signOut();
+          }}
+        >
+          {pending ? <Spinner className="h-4 w-4" /> : null}
+          {messages.common.logout}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
