@@ -3,22 +3,22 @@
 | Поле   | Значение   |
 | ------ | ---------- |
 | Код    | PROC-GATES |
-| Версия | 1.0        |
+| Версия | 1.1        |
 
 ## 1. Уровни проверок
 
-| Уровень     | Инструмент             | Что проверяет                                     |
-| ----------- | ---------------------- | ------------------------------------------------- |
-| Unit        | Vitest                 | домен, политика, калькулятор, вестинг, утилиты    |
-| Golden      | Vitest                 | T-01…T-12, E-01…E-08 — точные числа               |
-| Property    | fast-check             | инварианты union, капов, округления, монотонности |
-| Integration | Vitest + PostgreSQL    | RLS, репозитории, API, очереди, вебхуки (M2)      |
-| Contract    | Zod/OpenAPI            | схемы API, `/openapi.json`, типы клиента (M2.3)   |
-| E2E         | Playwright             | вендор, директор, разработчик, онбординг (M3–M8)  |
-| MCP         | MCP SDK client         | tools/list, tool calls, ошибки, enrollment (M4)   |
-| Load        | k6                     | heartbeat, закрытие, дашборды (M6, M9)            |
-| Security    | CodeQL, audit, pentest | уязвимости и изоляция                             |
-| Manual      | чек-листы              | 3 ИИ-клиента × чистая Windows VM                  |
+| Уровень     | Инструмент             | Что проверяет                                               |
+| ----------- | ---------------------- | ----------------------------------------------------------- |
+| Unit        | Vitest                 | домен, политика, калькулятор, вестинг, утилиты              |
+| Golden      | Vitest                 | T-01…T-12, E-01…E-08 — точные числа                         |
+| Property    | fast-check             | инварианты union, капов, округления, монотонности           |
+| Integration | Vitest + PostgreSQL    | RLS, репозитории, API, очереди, вебхуки (M2)                |
+| Contract    | Zod/OpenAPI            | схемы API, `/openapi.json`, типы клиента (M2.3)             |
+| E2E         | Playwright             | вендорская консоль (M3), далее директор/разработчик (M5–M8) |
+| MCP         | MCP SDK client         | tools/list, tool calls, ошибки, enrollment (M4)             |
+| Load        | k6                     | heartbeat, закрытие, дашборды (M6, M9)                      |
+| Security    | CodeQL, audit, pentest | уязвимости и изоляция                                       |
+| Manual      | чек-листы              | 3 ИИ-клиента × чистая Windows VM                            |
 
 ## 2. Обязательные проверки PR
 
@@ -39,6 +39,31 @@ pnpm --filter @partner-coder/api openapi:types
 для worker — интеграционные тесты jobs на PostgreSQL и smoke pg-boss.
 Плюс в CI: secret scan, dependency review. Для изменений схемы БД обязательны
 миграция на чистой базе и тесты RLS/append-only/аудита.
+
+### 2.1 E2E вендорской консоли
+
+Playwright проверяет полный сценарий: сброс пароля через Mailpit, TOTP,
+добавление passkey виртуальным authenticator, выход и passkey-вход, а также
+негативные ошибки и axe-проверки.
+
+```bash
+pnpm build          # apps/api/dist и apps/web/.next обязательны
+pnpm test:e2e       # prepare БД + Playwright (Chromium)
+pnpm test:e2e:full  # pnpm build + pnpm test:e2e
+```
+
+- Нужны запущенные PostgreSQL и Mailpit; `prepare.mjs` пересоздаёт БД
+  `partner_coder_e2e`, применяет миграции, создаёт e2e-админов и очищает
+  Mailpit.
+- Playwright сам поднимает API (`node ../api/dist/main.js`) и web
+  (`pnpm start`) на портах 4000/3001; `reuseExistingServer: false`.
+- CI job `e2e` в `.github/workflows/ci.yml` использует сервисы PostgreSQL и
+  Mailpit, ставит Chromium и выполняет `pnpm build` + `pnpm test:e2e`.
+- Job пока **не входит** в обязательные проверки PR (format/lint/typecheck/
+  test/build, commit messages, secret scan, CodeQL). Кандидат в обязательные
+  после стабилизации: сначала набрать зелёные прогоны и убрать flakiness.
+- Vitest не подхватывает `apps/web/e2e/*.spec.ts`: это отдельный Playwright
+  набор, а не unit-тесты.
 
 ## 3. Ветка main
 

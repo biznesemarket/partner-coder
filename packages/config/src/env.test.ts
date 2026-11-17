@@ -6,6 +6,7 @@ import {
   parseList,
   resolveRateLimitStorage,
   resolveVendorBaseUrl,
+  resolveVendorWebauthnRpId,
 } from "./env.js";
 
 const validEnv = {
@@ -31,6 +32,7 @@ const validStagingEnv = {
   VENDOR_AUTH_DATABASE_URL: "postgres://vendor_auth@localhost/partner_coder",
   VENDOR_AUTH_SECRET: "vendor-secret-0123456789abcdef0123456789",
   VENDOR_BASE_URL: "https://vendor.example.test",
+  VENDOR_WEBAUTHN_RP_ID: "vendor.example.test",
 };
 
 describe("валидация окружения", () => {
@@ -135,6 +137,42 @@ describe("валидация окружения", () => {
       expect(() => parseEnv({ ...validEnv, VENDOR_BASE_URL: value })).toThrow(/origin/);
     }
     expect(parseEnv(validStagingEnv).VENDOR_BASE_URL).toBe("https://vendor.example.test");
+  });
+
+  it("применяет localhost как rpID по умолчанию", () => {
+    const env = parseEnv(validEnv);
+    expect(env.VENDOR_WEBAUTHN_RP_ID).toBeUndefined();
+    expect(resolveVendorWebauthnRpId(env)).toBe("localhost");
+  });
+
+  it("вне local требует VENDOR_WEBAUTHN_RP_ID", () => {
+    const { VENDOR_WEBAUTHN_RP_ID: _omitted, ...rest } = validStagingEnv;
+    expect(() => parseEnv(rest)).toThrow(/VENDOR_WEBAUTHN_RP_ID/);
+    expect(() =>
+      resolveVendorWebauthnRpId({
+        APP_ENV: "staging",
+        VENDOR_BASE_URL: "https://vendor.example.test",
+      }),
+    ).toThrow(/VENDOR_WEBAUTHN_RP_ID/);
+  });
+
+  it.each([
+    "https://vendor.example.test",
+    "vendor.example.test:3001",
+    "vendor.example.test/x",
+    "Vendor.Example.Test",
+  ])("отклоняет невалидный rpID %s", (rpId) => {
+    expect(() => parseEnv({ ...validStagingEnv, VENDOR_WEBAUTHN_RP_ID: rpId })).toThrow(
+      /VENDOR_WEBAUTHN_RP_ID/,
+    );
+  });
+
+  it("требует, чтобы rpID был хостом или суффиксом VENDOR_BASE_URL", () => {
+    const ok = parseEnv({ ...validStagingEnv, VENDOR_WEBAUTHN_RP_ID: "example.test" });
+    expect(resolveVendorWebauthnRpId(ok)).toBe("example.test");
+    expect(() => parseEnv({ ...validStagingEnv, VENDOR_WEBAUTHN_RP_ID: "other.test" })).toThrow(
+      /VENDOR_WEBAUTHN_RP_ID/,
+    );
   });
 
   it("вне local требует vendor URL и секрет", () => {

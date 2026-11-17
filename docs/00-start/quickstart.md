@@ -48,9 +48,24 @@ pnpm check         # всё вместе: prettier + lint + typecheck + тест
 pnpm build         # turbo build
 ```
 
-Ожидаемый результат: `Tests 768 passed`, все 20 golden-сценариев совпадают
-точно. Интеграционные тесты создают отдельные БД, поэтому PostgreSQL должен
-быть запущен; в CI он поднимается сервисом GitHub Actions.
+Ожидаемый результат: весь набор зелёный; в PR B — 891 тест в 54 файлах, все
+20 golden-сценариев совпадают точно. `pnpm check` и интеграционные тесты
+создают отдельные БД, поэтому PostgreSQL должен быть запущен; в CI он
+поднимается сервисом GitHub Actions. Без PostgreSQL падают тесты БД, а не
+prettier/lint/typecheck.
+
+E2E вендорской консоли требует собранных `apps/api/dist` и `apps/web/.next`,
+PostgreSQL и Mailpit:
+
+```bash
+pnpm build            # обязательный шаг перед test:e2e
+pnpm test:e2e         # prepare БД + Playwright (Chromium)
+pnpm test:e2e:full    # pnpm build + pnpm test:e2e
+```
+
+`pnpm test:e2e` пересоздаёт БД `partner_coder_e2e`, применяет миграции,
+создаёт e2e-админов, очищает Mailpit и запускает API и web на портах
+4000/3001. Vitest не подхватывает `apps/web/e2e/*.spec.ts`.
 
 ## 5. API
 
@@ -65,60 +80,93 @@ curl http://localhost:4000/healthz
 вендорский `/api/vendor-auth/*` и `/v1/vendor/*`; см.
 `docs/03-architecture/api.md`.
 
-## 6. Вход в консоль вендора
+## 6. Вендорская консоль
 
-В PR A ещё нет вендорского веб-кабинета: экран входа появится в PR B вместе с
-консолью. Пока вход проверяется через Mailpit и HTTP-маршруты Better Auth.
+Консоль — Next.js в `apps/web` на `http://localhost:3001`. Браузер работает
+только с этим origin: same-origin BFF проксирует запросы в API на
+`http://localhost:4000` (ADR-0014). Прямой вход в API из браузера не нужен.
 
-`pnpm seed` уже создаёт демо-суперадминистратора, поэтому локальный bootstrap
-запускается с `--force` — без него CLI откажется создавать второго superadmin:
+Запуск в двух терминалах:
+
+```bash
+pnpm --filter @partner-coder/api dev
+pnpm --filter @partner-coder/web dev
+```
+
+API читает корневой `.env`; web-серверу нужны `API_BASE_URL` и
+`VENDOR_BASE_URL`. Next не подхватывает корневой `.env`, поэтому создайте
+`apps/web/.env.local` (gitignored) или передайте переменные в окружение:
+
+```dotenv
+API_BASE_URL=http://localhost:4000
+VENDOR_BASE_URL=http://localhost:3001
+```
+
+Откройте `http://localhost:3001`; неаутентифицированный пользователь попадёт
+на `/login`. Маршруты: `/login`, `/reset-password`, `/setup-mfa`, `/me`,
+`/me/security`.
+
+### 6.1 Первый вход и TOTP
+
+`pnpm seed` создаёт демо-суперадминистратора `vendor@demo.partnercoder.local`
+в статусе `invited`, без пароля, TOTP и passkeys.
+
+1. На `/login` нажмите «Забыли пароль?» и запросите ссылку для
+   `vendor@demo.partnercoder.local`. Ответ нейтрален и не раскрывает
+   существование пользователя.
+2. Письмо придёт в Mailpit (http://localhost:8025). Откройте ссылку
+   `http://localhost:3001/reset-password?token=…`, задайте пароль (минимум
+   12 символов). Токен одноразовый, действует 30 минут и удаляется из
+   адресной строки после чтения; после сброса старые сессии отзываются.
+3. Войдите с email и паролем. Пока `two_factor_enabled = false`, консоль
+   принудительно ведёт на `/setup-mfa`: повторно введите пароль, добавьте
+   TOTP-аккаунт по QR или секрету, сохраните 10 backup-кодов и подтвердите
+   6-значный код. После этого откроется `/me`.
+4. Последующие входы по паролю просят код TOTP (или backup-код).
+   Отключение TOTP в UI недоступно; сброс — только суперадминистратором.
+
+### 6.2 Passkey
+
+Passkey — дополнительный способ входа; TOTP остаётся обязательным. На
+`/me/security` в разделе «Ключи доступа» нажмите «Добавить», задайте имя и
+подтвердите WebAuthn-регистрацию на устройстве. Плагин требует user
+verification и resident (discoverable) key; non-discoverable cross-platform
+ключи не подойдут.
+
+После выхода на `/login` появляется кнопка «Войти с ключом доступа
+(passkey)» — вход выполняется без email. Потеря passkey не блокирует вход,
+пока есть пароль и TOTP/backup-коды; self-service сброса MFA нет.
+
+Управление passkeys, смена пароля и отзыв сессий до включения TOTP отвечают
+403 `vendor_mfa_required`: сначала завершите `/setup-mfa`. Выход из аккаунта
+доступен всегда.
+
+### 6.3 Bootstrap и staging
+
+`pnpm seed` уже создаёт суперадминистратора, поэтому локальный bootstrap
+другого админа запускается с `--force` — без него CLI откажется создавать
+второго superadmin:
 
 ```bash
 pnpm --filter @partner-coder/api vendor:admin -- --email ops@example.com --name "Ops" --force
 ```
 
-CLI создаёт пользователя со статусом `invited` и отправляет письмо со ссылкой
-сброса пароля. Пароль и токен не печатаются. `--force` создаёт нового
-superadmin только для другого email; существующего active/suspended/disabled
+CLI создаёт пользователя в статусе `invited` и отправляет письмо со ссылкой
+сброса. Пароль и токен не печатаются. `--force` создаёт нового superadmin
+только для другого email; существующего active/suspended/disabled
 пользователя он не сбрасывает.
 
-1. Запросите ссылку: `POST /api/vendor-auth/request-password-reset` с
-   `{ "email": "ops@example.com", "redirectTo": "http://localhost:3001/reset-password" }`.
-2. Письмо придёт в Mailpit (http://localhost:8025). Ссылка ведёт на
-   `http://localhost:3001/reset-password?token=…`, но страницы консоли в
-   PR A ещё нет — не открывайте её, а скопируйте значение `token` из query.
-3. Установите пароль: `POST /api/vendor-auth/reset-password` с
-   `{ "token": "...", "newPassword": "..." }` — учётная запись станет `active`.
-   Токен одноразовый и действует 30 минут.
-4. Войдите: `POST /api/vendor-auth/sign-in/email` с email и паролем.
-5. Включите TOTP: `POST /api/vendor-auth/two-factor/enable`, затем подтвердите
-   секрет через `POST /api/vendor-auth/two-factor/verify-totp`. После этого
-   `POST /api/vendor-auth/sign-in/email` отвечает `twoFactorRedirect: true`,
-   и вход завершается кодом из authenticator.
-
-Пример установки пароля (PowerShell, после копирования токена из Mailpit):
-
-```powershell
-$token = "вставьте-token-из-письма"
-Invoke-RestMethod -Method Post -Uri http://localhost:4000/api/vendor-auth/reset-password `
-  -ContentType "application/json" `
-  -Body (@{ token = $token; newPassword = "correct horse battery staple" } | ConvertTo-Json)
-```
-
-После сброса пароля все старые сессии отзываются. Проверить профиль и
-MFA-состояние можно через `GET /v1/vendor/auth/me` (cookie сессии), а список
-вендорских пользователей — `GET /v1/vendor/users` (только superadmin + TOTP).
-
 В staging на пустой БД первый superadmin создаётся без `--force` (боевые
-переменные окружения `DATABASE_URL`, `VENDOR_DATABASE_URL`,
-`VENDOR_AUTH_DATABASE_URL`, `SMTP_*`):
+`DATABASE_URL`, `VENDOR_DATABASE_URL`, `VENDOR_AUTH_DATABASE_URL`, `SMTP_*`):
 
 ```bash
 pnpm --filter @partner-coder/api vendor:admin -- --email ops@example.com --name "Ops"
 ```
 
 Повторный запуск для того же invited-superadmin идемпотентен и переотправляет
-ссылку.
+ссылку. Проверить профиль и MFA-состояние можно через `GET /v1/vendor/auth/me`
+(cookie сессии), список вендорских пользователей — `GET /v1/vendor/users`
+(только superadmin + TOTP).
 
 ## 7. Что читать дальше
 

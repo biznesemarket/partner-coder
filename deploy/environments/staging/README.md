@@ -5,13 +5,14 @@
 
 ## Состав
 
-| Компонент  | Требование                                                       |
-| ---------- | ---------------------------------------------------------------- |
-| API        | 1 инстанс Fastify, TLS на edge, `/healthz`, `/readyz`            |
-| Worker     | 1 инстанс, те же образы/секреты, отдельный `WORKER_METRICS_PORT` |
-| PostgreSQL | managed PG 17, отдельная БД, PITR, daily backup                  |
-| SMTP       | отдельный ящик с SPF/DKIM/DMARC                                  |
-| S3         | отдельный bucket, приватный, versioning                          |
+| Компонент  | Требование                                                                 |
+| ---------- | -------------------------------------------------------------------------- |
+| API        | 1 инстанс Fastify, TLS на edge, `/healthz`, `/readyz`                      |
+| Web        | Next.js консоль, HTTPS, same-origin BFF, `API_BASE_URL` доступен с сервера |
+| Worker     | 1 инстанс, те же образы/секреты, отдельный `WORKER_METRICS_PORT`           |
+| PostgreSQL | managed PG 17, отдельная БД, PITR, daily backup                            |
+| SMTP       | отдельный ящик с SPF/DKIM/DMARC                                            |
+| S3         | отдельный bucket, приватный, versioning                                    |
 
 ## Переменные
 
@@ -19,16 +20,35 @@
 `AUTH_SECRET` (>= 32 байт), `API_BASE_URL`, `WEB_BASE_URL`,
 `VENDOR_DATABASE_URL`, `VENDOR_AUTH_DATABASE_URL`, `VENDOR_AUTH_SECRET`
 (>= 32 байт, не равен `AUTH_SECRET`), `VENDOR_BASE_URL`,
-`AUTH_TRUSTED_PROXIES`, `SMTP_*`, `S3_*`.
+`VENDOR_WEBAUTHN_RP_ID`, `AUTH_TRUSTED_PROXIES`, `SMTP_*`, `S3_*`.
 
 Вендорский контур (ADR-0013): `VENDOR_SESSION_TTL_HOURS=8`,
 `VENDOR_PASSWORD_RESET_TTL_MINUTES=30`, `VENDOR_PASSWORD_MIN_LENGTH=12`
 (допустимые диапазоны 1…24, 5…120, 12…64). `VENDOR_BASE_URL` — origin
 консоли без path/query/fragment: локально `http://localhost:3001`, в staging —
-только `https://` с реальным доменом консоли. Вне local значение обязательно;
-если `API_CORS_ORIGINS` задан явно, он должен включать `VENDOR_BASE_URL`.
-Passkeys и UI-страницы в PR A не включены; вход проверяется через
-SMTP/Mailpit и HTTP, `VENDOR_WEBAUTHN_RP_ID` пока не задаётся.
+только `https://` с реальным доменом консоли. Вне local значение обязательно.
+
+`VENDOR_WEBAUTHN_RP_ID` — канонический хост консоли **без схемы, порта и
+пути** (например, `admin.partnercoder.ru`), не origin. Он должен совпадать с
+хостом `VENDOR_BASE_URL` или быть его родительским доменом
+(`partnercoder.ru` для `admin.partnercoder.ru`); иначе API не стартует.
+Passkeys привязаны к origin и rpID: смена домена или порта требует
+перерегистрации ключей, preview-домены для passkeys не подходят.
+
+Web-сервер (Next.js, ADR-0014) обслуживает только origin консоли и
+проксирует `/api/vendor-auth/*` и `/v1/vendor/*` в API. Ему нужны
+`API_BASE_URL` и `VENDOR_BASE_URL`; `API_BASE_URL` должен быть доступен **с
+Next-сервера** (внутренняя сеть), а не обязательно из браузера. Браузер
+ходит только в `VENDOR_BASE_URL`, поэтому CORS для консоли не нужен; если
+`API_CORS_ORIGINS` задан явно, он должен включать `VENDOR_BASE_URL`.
+WebAuthn требует HTTPS (кроме `localhost`), поэтому staging-консоль
+публикуется по HTTPS; HSTS включается при сборке, когда `APP_ENV=staging`
+(значение считывается в `next.config.ts` на этапе `pnpm build` и попадает в
+build-манифест — задать только на runtime недостаточно).
+
+BFF видит egress-IP web-сервера: per-IP лимиты API и audit IP становятся
+общими на инстанс, пока не передан доверенный client IP (follow-up). CSP с
+nonce — тоже follow-up; сейчас выставляются базовые security-заголовки.
 
 Rate limit: вне local по умолчанию используется общий PostgreSQL-store;
 `RATE_LIMIT_STORAGE=database` можно задать явно, `memory` — только для
@@ -90,14 +110,18 @@ TOTP при этом не меняются; `vendor.user.invited`/`password_rese
 ```bash
 pnpm db:migrate
 pnpm db:check
+pnpm build
 pnpm --filter @partner-coder/seed seed   # только синтетический tenant
 pnpm --filter @partner-coder/api start
 pnpm --filter @partner-coder/worker start
+pnpm --filter @partner-coder/web start
 ```
 
 Миграции применяются до старта новых инстансов; worker можно запускать после
-API. При откате — предыдущий образ и совместимая схема; destructive-миграции
-запрещены.
+API, web — после API (BFF должен видеть `API_BASE_URL`). При откате —
+предыдущий образ и совместимая схема; destructive-миграции запрещены. Откат
+web возвращает headless-контур PR A: password+TOTP работает, passkey-строки
+сохраняются.
 
 ## Bootstrap вендорского суперадминистратора
 
@@ -117,7 +141,9 @@ CLI использует `VENDOR_DATABASE_URL`/`VENDOR_AUTH_DATABASE_URL`, со�
 пользователя `--force` не сбрасывает — статус меняется через
 `PATCH /v1/vendor/users/:id` из консоли/API.
 
-Ссылка ведёт на `/reset-password` консоли, которой в PR A ещё нет. Для smoke
+Ссылка ведёт на `/reset-password` консоли. Для smoke откройте её, установите
+пароль, войдите, включите TOTP на `/setup-mfa` и добавьте passkey на
+`/me/security` (HTTPS + канонический origin). Альтернатива без браузера:
 возьмите `token` из письма в Mailpit/SMTP и вызовите
 `POST /api/vendor-auth/reset-password` с `{ token, newPassword }`; затем
 `POST /api/vendor-auth/sign-in/email`, включите TOTP через

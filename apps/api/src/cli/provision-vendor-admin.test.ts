@@ -31,6 +31,7 @@ function buildVendorAuth(db: Database, authMailer: MemoryMailer): VendorAuth {
     sessionTtlHours: 8,
     passwordResetTtlMinutes: 30,
     passwordMinLength: 12,
+    webauthnRpId: "localhost",
     mailer: authMailer,
     rateLimitEnabled: false,
     getVendorStatus: async (vendorUserId) =>

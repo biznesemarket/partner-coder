@@ -10,4 +10,7 @@ export const VENDOR_AUDIT_ACTIONS = {
   passwordChanged: "vendor.auth.password_changed",
   sessionRevoked: "vendor.auth.session_revoked",
   mfaEnabled: "vendor.user.mfa_enabled",
+  passkeyAdded: "vendor.passkey.added",
+  passkeyRemoved: "vendor.passkey.removed",
+  passkeyRenamed: "vendor.passkey.renamed",
 } as const;

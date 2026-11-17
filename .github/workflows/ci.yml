@@ -71,6 +71,51 @@ jobs:
       - name: Build
         run: pnpm build
 
+  e2e:
+    name: Vendor console E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: partner
+          POSTGRES_PASSWORD: partner
+          POSTGRES_DB: partner_coder
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U partner -d partner_coder"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      mailpit:
+        image: axllent/mailpit:latest
+        ports:
+          - 1025:1025
+          - 8025:8025
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @partner-coder/web exec playwright install --with-deps chromium
+
+      - name: E2E tests
+        run: pnpm test:e2e
+
   commitlint:
     name: Commit messages
     if: github.event_name == 'pull_request'

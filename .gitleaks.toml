@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "AAGUID display labels in the vendor passkey UI are not credentials"
+paths = ['''apps/web/src/lib/passkeys\.ts''']

@@ -24,6 +24,18 @@ const originUrl = z
     return url.pathname === "/" && url.search === "" && url.hash === "";
   }, "URL должен содержать только origin без path, query и fragment");
 
+/**
+ * WebAuthn RP ID: хост в нижнем регистре без схемы, порта и пути.
+ * Каждая метка — 1–63 символа, весь хост — не длиннее 253 символов.
+ */
+const rpIdSchema = z
+  .string()
+  .max(253, "VENDOR_WEBAUTHN_RP_ID: максимум 253 символа")
+  .regex(
+    /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/,
+    "VENDOR_WEBAUTHN_RP_ID: укажите хост в нижнем регистре без схемы, порта и пути",
+  );
+
 export const envSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -38,6 +50,8 @@ export const envSchema = z
     API_BASE_URL: z.string().url(),
     WEB_BASE_URL: z.string().url(),
     VENDOR_BASE_URL: optionalString.pipe(originUrl.optional()),
+    /** WebAuthn RP ID вендорской консоли: localhost локально, иначе хост консоли. */
+    VENDOR_WEBAUTHN_RP_ID: optionalString.pipe(rpIdSchema.optional()),
 
     AUTH_SECRET: z.string().min(32, "AUTH_SECRET: минимум 32 символа"),
     /** Доверенные заголовки IP через запятую; пусто — дефолт Better Auth. */
@@ -161,6 +175,26 @@ export const envSchema = z
         message: "VENDOR_BASE_URL вне local должен использовать https",
       });
     }
+    if (value.APP_ENV !== "local" && !value.VENDOR_WEBAUTHN_RP_ID) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["VENDOR_WEBAUTHN_RP_ID"],
+        message:
+          "VENDOR_WEBAUTHN_RP_ID обязателен вне local: хост вендорской консоли без схемы и порта",
+      });
+    }
+    if (value.VENDOR_WEBAUTHN_RP_ID !== undefined && value.VENDOR_BASE_URL !== undefined) {
+      const hostname = new URL(value.VENDOR_BASE_URL).hostname;
+      const rpId = value.VENDOR_WEBAUTHN_RP_ID;
+      if (hostname !== rpId && !hostname.endsWith(`.${rpId}`)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["VENDOR_WEBAUTHN_RP_ID"],
+          message:
+            "VENDOR_WEBAUTHN_RP_ID должен совпадать с хостом VENDOR_BASE_URL или быть его суффиксом",
+        });
+      }
+    }
     if (value.APP_ENV !== "local" && !value.VENDOR_AUTH_SECRET) {
       ctx.addIssue({
         code: "custom",
@@ -223,6 +257,26 @@ export function resolveVendorBaseUrl(
     return "http://localhost:3001";
   }
   throw new Error("VENDOR_BASE_URL обязателен вне local");
+}
+
+/**
+ * WebAuthn RP ID вендорской консоли. Локально допустим localhost; вне local
+ * значение обязательно и уже проверено `parseEnv`.
+ */
+export function resolveVendorWebauthnRpId(
+  env: Pick<Env, "APP_ENV" | "VENDOR_BASE_URL"> & {
+    readonly VENDOR_WEBAUTHN_RP_ID?: string | undefined;
+  },
+): string {
+  if (env.VENDOR_WEBAUTHN_RP_ID) {
+    return env.VENDOR_WEBAUTHN_RP_ID;
+  }
+  if (env.APP_ENV === "local") {
+    return "localhost";
+  }
+  throw new EnvValidationError([
+    "VENDOR_WEBAUTHN_RP_ID обязателен вне local: хост вендорской консоли без схемы и порта",
+  ]);
 }
 
 /**

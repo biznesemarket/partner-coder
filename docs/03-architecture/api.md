@@ -1,10 +1,10 @@
 # API: правила и группы маршрутов
 
-| Поле   | Значение                 |
-| ------ | ------------------------ |
-| Код    | ARCH-API                 |
-| Версия | 1.2                      |
-| Статус | реализация M2.3, M3 PR A |
+| Поле   | Значение                        |
+| ------ | ------------------------------- |
+| Код    | ARCH-API                        |
+| Версия | 1.3                             |
+| Статус | реализация M2.3, M3 PR A и PR B |
 
 ## 1. Базовые правила
 
@@ -38,7 +38,7 @@
 | Группа               | Назначение                                                                 |
 | -------------------- | -------------------------------------------------------------------------- |
 | `/v1/auth/*`         | вход, magic link, OTP, passkeys, 2FA, выход, сессии                        |
-| `/api/vendor-auth/*` | Better Auth вендорской консоли: password, reset, TOTP                      |
+| `/api/vendor-auth/*` | Better Auth вендорской консоли: password, reset, TOTP, passkeys            |
 | `/v1/vendor/auth/*`  | профиль вендора, MFA-состояние и step-up                                   |
 | `/v1/vendor/*`       | вендорские пользователи; клиенты, счета и аудит — следующие этапы M3       |
 | `/v1/tenant/*`       | проекты, команда, политика, начисления, споры, выплаты, отчеты, интеграции |
@@ -77,21 +77,22 @@ tenant-маршруты ему закрыты, выпуск/ротация до�
 ### 2.2 Вендорский контур (M3 PR A)
 
 Вход вендора — отдельный Better Auth на `/api/vendor-auth`: email + password,
-одноразовая ссылка установки пароля и обязательный TOTP. Открытая регистрация
-(`/sign-up/*`) и отключение TOTP (`/two-factor/disable`) через прокси
-запрещены. Passkeys и UI-страницы в PR A не реализованы (PR B); tenant-auth
-не менялся.
+одноразовая ссылка установки пароля, обязательный TOTP и (с PR B) passkeys.
+Открытая регистрация (`/sign-up/*`) и отключение TOTP
+(`/two-factor/disable`) через прокси запрещены. Passkeys реализованы в PR B;
+UI-страницы живут в `apps/web` и ходят в API через same-origin BFF (§2.3).
+Tenant-auth не менялся.
 
-| Маршрут                                    | Доступ                           | Назначение                                             |
-| ------------------------------------------ | -------------------------------- | ------------------------------------------------------ |
-| `GET/POST /api/vendor-auth/*`              | публично/сессия по endpoint      | прокси Better Auth: password, reset, TOTP, get-session |
-| `GET /v1/vendor/auth/me`                   | валидная сессия, в т.ч. без TOTP | пользователь, статус MFA, `stepUpUntil`                |
-| `POST /v1/vendor/auth/step-up`             | сессия + TOTP                    | повторный пароль, окно 5 минут                         |
-| `GET /v1/vendor/users`                     | superadmin + TOTP                | список вендорских пользователей                        |
-| `POST /v1/vendor/users`                    | superadmin + TOTP                | создание/повторное приглашение                         |
-| `PATCH /v1/vendor/users/:id`               | superadmin + TOTP                | роль/статус, отзыв сессий при блокировке               |
-| `POST /v1/vendor/users/:id/reset-password` | superadmin + TOTP                | ссылка установки пароля                                |
-| `POST /v1/vendor/users/:id/reset-mfa`      | superadmin + TOTP                | удаление TOTP/passkeys и сессий                        |
+| Маршрут                                    | Доступ                           | Назначение                                          |
+| ------------------------------------------ | -------------------------------- | --------------------------------------------------- |
+| `GET/POST /api/vendor-auth/*`              | публично/сессия по endpoint      | прокси Better Auth: password, reset, TOTP, passkeys |
+| `GET /v1/vendor/auth/me`                   | валидная сессия, в т.ч. без TOTP | пользователь, статус MFA, `stepUpUntil`             |
+| `POST /v1/vendor/auth/step-up`             | сессия + TOTP                    | повторный пароль, окно 5 минут                      |
+| `GET /v1/vendor/users`                     | superadmin + TOTP                | список вендорских пользователей                     |
+| `POST /v1/vendor/users`                    | superadmin + TOTP                | создание/повторное приглашение                      |
+| `PATCH /v1/vendor/users/:id`               | superadmin + TOTP                | роль/статус, отзыв сессий при блокировке            |
+| `POST /v1/vendor/users/:id/reset-password` | superadmin + TOTP                | ссылка установки пароля                             |
+| `POST /v1/vendor/users/:id/reset-mfa`      | superadmin + TOTP                | удаление TOTP/passkeys и сессий                     |
 
 `requireVendorStepUp` и поле сессии `step_up_until` реализованы, а
 `POST /v1/vendor/auth/step-up` обновляет окно. При этом ни один маршрут PR A
@@ -133,10 +134,65 @@ tenant-маршруты ему закрыты, выпуск/ротация до�
 403 с `code: "VENDOR_INACTIVE"` (не `ErrorEnvelope`). OpenAPI описывает только
 собственные `/v1/vendor/*` маршруты; прокси документируется здесь.
 
+### 2.3 BFF вендорской веб-консоли (M3 PR B)
+
+Браузер не вызывает API напрямую. Next.js route handlers в `apps/web`
+образуют same-origin BFF (ADR-0014):
+
+| Next path                    | Target                                | Methods                  |
+| ---------------------------- | ------------------------------------- | ------------------------ |
+| `/api/vendor-auth/[...path]` | `${API_BASE_URL}/api/vendor-auth/...` | GET, POST                |
+| `/v1/vendor/[...path]`       | `${API_BASE_URL}/v1/vendor/...`       | GET, POST, PATCH, DELETE |
+
+Правила прокси:
+
+- `runtime = "nodejs"`, `dynamic = "force-dynamic"`,
+  `fetchCache = "force-no-store"`.
+- Сегменты пути валидируются по `^[A-Za-z0-9._~-]+$`, без `.` и `..`; иначе
+  400 `invalid_path`.
+- Query-строка пробрасывается как есть, максимум 8 KiB; иначе 414
+  `query_too_long`. Тело — `arrayBuffer`, максимум 64 KiB; иначе 413
+  `payload_too_large`.
+- В API-forward уходят только `cookie`, `content-type`, `accept`, `origin`,
+  `user-agent`, `x-request-id`, `idempotency-key`; `host`, `content-length`,
+  `connection`, `referer`, `x-forwarded-*` не уходят.
+- `x-request-id` генерируется BFF, если его нет, и возвращается браузеру.
+  Небезопасные методы при наличии `Origin` проверяют его на собственный
+  origin BFF; несовпадение — 403 `origin_forbidden`. Отсутствие `Origin`
+  допускается.
+- Ответ копирует `content-type`, `content-disposition`, `x-request-id` и
+  **все** `Set-Cookie` через `headers.getSetCookie()`; `content-encoding` и
+  `content-length` не копируются, для всех ответов ставится
+  `cache-control: no-store`.
+- `redirect: "manual"`, таймаут 15 секунд. Сеть/таймаут — 502
+  `upstream_unavailable`; тело ошибки не содержит upstream-деталей.
+
+Passkey-специфика прокси:
+
+- Challenge-cookie `pc-vendor-passkey` и все cookie Better Auth проходят через
+  `Set-Cookie` без переписывания атрибутов; cookie остаются first-party на
+  origin консоли.
+- Управление passkeys (`generate-register-options`, `verify-registration`,
+  `list-user-passkeys`, `delete-passkey`, `update-passkey`) и
+  `change-password`/`revoke-session(s)` до включения TOTP отвечают 403
+  `vendor_mfa_required`; для `suspended`/`disabled` — 403 `vendor_inactive`.
+- Passkey-вход (`generate-authenticate-options`, `verify-authentication`) и
+  `sign-out` не гейтятся, иначе вход или выход сломались бы.
+- BFF не добавляет прав и не заменяет API-guard; авторизация остаётся в
+  Fastify.
+
+BFF не попадает в OpenAPI и не является отдельным публичным API: это
+транспортный слой консоли. Ошибки BFF (`invalid_path`, `invalid_body`,
+`origin_forbidden`, `payload_too_large`, `query_too_long`,
+`upstream_unavailable`) — его
+собственный конверт, а не `ErrorEnvelope` API.
+
 ## 3. Наблюдаемость и контракт
 
 - Каждый запрос получает `x-request-id`; pino-логи редактируют
-  `authorization`, cookie, query-токены и токен приглашения в пути.
+  `authorization`, cookie, query-токены и токен приглашения в пути. BFF
+  сохраняет/генерирует `x-request-id`, не логирует body/cookie/query и
+  возвращает `cache-control: no-store`.
 - `/metrics` отдает `partner_coder_http_requests_total` и гистограмму
   длительности; в prod закрывается `METRICS_TOKEN` или сетевым allowlist.
 - `/openapi.json` собирается из Zod-схем; типы клиента генерируются командой
@@ -152,8 +208,10 @@ tenant-маршруты ему закрыты, выпуск/ротация до�
 - Действия вендора пишутся в `vendor_audit_events` с хеш-цепочкой
   (`vendor_audit()`): приглашения, роли/статусы, reset/MFA, step-up,
   `sign_in_succeeded`/`sign_in_failed` (sha256 email), `mfa_failed`,
-  `signed_out`, `password_changed`, `session_revoked`. `GET /openapi.json`
-  содержит только собственные `/v1/vendor/*` маршруты.
+  `signed_out`, `password_changed`, `session_revoked`, а также
+  `vendor.passkey.added`/`removed`/`renamed`. Passkey-вход отдельного события
+  не создаёт: его покрывает `sign_in_succeeded`. `GET /openapi.json` содержит
+  только собственные `/v1/vendor/*` маршруты.
 - Security-заголовки: CSP `default-src 'none'`, `frame-ancestors 'none'`,
   HSTS вне local, `x-content-type-options`, `referrer-policy`.
 

@@ -1,10 +1,10 @@
 # Модель угроз (сводка)
 
-| Поле      | Значение                               |
-| --------- | -------------------------------------- |
-| Код       | SEC-THREATS                            |
-| Версия    | 1.1                                    |
-| Связанные | ADR-0002, ADR-0006, ADR-0007, ADR-0013 |
+| Поле      | Значение                                         |
+| --------- | ------------------------------------------------ |
+| Код       | SEC-THREATS                                      |
+| Версия    | 1.2                                              |
+| Связанные | ADR-0002, ADR-0006, ADR-0007, ADR-0013, ADR-0014 |
 
 ## 1. Активы
 
@@ -16,33 +16,71 @@
 
 ## 2. Угрозы и меры
 
-| Угроза                         | Мера                                                                                              |
-| ------------------------------ | ------------------------------------------------------------------------------------------------- |
-| Накрутка времени               | классы, капы, подписанные события, IDE-сигналы, флаги, споры                                      |
-| Ночной автономный прогон       | флаг `night_autonomous_spike`, кап автономного, коэффициент                                       |
-| Синтетический ввод             | эвристика одинаковых интервалов, флаг, решение директора                                          |
-| Replay/подмена событий         | `event_id`, `seq`, подпись Ed25519, серверное время                                               |
-| Кража zip/ключа                | одноразовый TTL-токен, email-верификация, отзыв, аудит                                            |
-| Подбор OTP / перехват письма   | 6 цифр, TTL 10 минут, лимит попыток, общий rate limit в PostgreSQL, HMAC-SHA-256 с AUTH_SECRET    |
-| Кража magic-link               | одноразовый TTL-токен, в БД только хеш, привязка к email                                          |
-| Кража cookie-сессии            | HttpOnly/SameSite, HTTPS, TTL сессии, отзыв, аудит                                                |
-| Кража приглашения              | SHA-256 в БД, TTL, одна активация, совпадение email, отзыв                                        |
-| Кража устройства               | device key, отзыв, ротация, ограниченный scope, хеш токена                                        |
-| Обход ролей                    | матрица authz, tenant из сессии/токена, отказы в аудите                                           |
-| Кросс-тенантная утечка         | RLS + `SET LOCAL app.tenant_id` + authz-матрица + пентest                                         |
-| Подделка вебхука               | HMAC сырого тела, сравнение постоянным временем, dedupe                                           |
-| Взлом суперадмина              | TOTP обязателен, короткая сессия, аудит, IP allowlist (позже); passkeys — PR B                    |
-| Подбор пароля вендора          | password ≥ 12, per-email 5/60, Better Auth rate limit, lockout TOTP, единый ответ на reset        |
-| Кража/повтор reset-токена      | одноразовый токен, TTL 30 минут, verification identifier (не хеш), отзыв сессий после сброса      |
-| Кража вендорской сессии        | HttpOnly/SameSite cookie, TTL 8 часов, отзыв при suspend/reset, origin guard, step-up             |
-| Обход TOTP / сброс MFA         | TOTP обязателен для всех ролей, `/two-factor/disable` запрещён, reset-mfa только superadmin+аудит |
-| Эскалация вендорской роли      | guard `superadmin`, `confirmSuperadmin`, отказ `vendor_role_denied` в аудите                      |
-| CSRF вендорской консоли        | Origin guard на `/v1/vendor/*` и `/api/vendor-auth/*`, SameSite cookie                            |
-| Подмена вендорского аудита     | append-only, хеш-цепочка, `verify_vendor_audit_chain()`, дневной якорь                            |
-| Prompt injection через данные  | MCP не исполняет данные как инструкции; allowlist инструментов                                    |
-| Подмена счета/оплаты           | append-only, аудит с хеш-цепочкой, права финансов                                                 |
-| Компрометация цепочки поставок | lockfile, Dependabot, CodeQL, SBOM, подписанные релизы                                            |
-| Утечка секретов                | secret scanning, `.env.example`, запрет секретов в PR                                             |
+| Угроза                         | Мера                                                                                                |
+| ------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Накрутка времени               | классы, капы, подписанные события, IDE-сигналы, флаги, споры                                        |
+| Ночной автономный прогон       | флаг `night_autonomous_spike`, кап автономного, коэффициент                                         |
+| Синтетический ввод             | эвристика одинаковых интервалов, флаг, решение директора                                            |
+| Replay/подмена событий         | `event_id`, `seq`, подпись Ed25519, серверное время                                                 |
+| Кража zip/ключа                | одноразовый TTL-токен, email-верификация, отзыв, аудит                                              |
+| Подбор OTP / перехват письма   | 6 цифр, TTL 10 минут, лимит попыток, общий rate limit в PostgreSQL, HMAC-SHA-256 с AUTH_SECRET      |
+| Кража magic-link               | одноразовый TTL-токен, в БД только хеш, привязка к email                                            |
+| Кража cookie-сессии            | HttpOnly/SameSite, HTTPS, TTL сессии, отзыв, аудит                                                  |
+| Кража приглашения              | SHA-256 в БД, TTL, одна активация, совпадение email, отзыв                                          |
+| Кража устройства               | device key, отзыв, ротация, ограниченный scope, хеш токена                                          |
+| Обход ролей                    | матрица authz, tenant из сессии/токена, отказы в аудите                                             |
+| Кросс-тенантная утечка         | RLS + `SET LOCAL app.tenant_id` + authz-матрица + пентest                                           |
+| Подделка вебхука               | HMAC сырого тела, сравнение постоянным временем, dedupe                                             |
+| Взлом суперадмина              | TOTP обязателен, короткая сессия, аудит, IP allowlist (позже); passkey — дополнительный фактор      |
+| Фишинг passkey                 | WebAuthn origin/rpID привязаны к консоли, user verification обязательна, challenge-cookie           |
+| Кража/подмена passkey          | Управление только после TOTP, чужой credential не выбрать, аудит added/removed, нет секретов в логе |
+| Подделка passkey-регистрации   | Gate `vendor_mfa_required`, проверка сессии и статуса, origin-check, rate limit                     |
+| Атака через BFF                | Только два префикса, whitelist заголовков, лимиты 8/64 KiB, origin-check, API остаётся энфорсером   |
+| Подбор пароля вендора          | password ≥ 12, per-email 5/60, Better Auth rate limit, lockout TOTP, единый ответ на reset          |
+| Кража/повтор reset-токена      | одноразовый токен, TTL 30 минут, verification identifier (не хеш), отзыв сессий после сброса        |
+| Reset-токен в URL              | `no-referrer`, `noindex`, удаление из адресной строки после чтения, без аналитики и логов BFF       |
+| Кража вендорской сессии        | HttpOnly/SameSite cookie, TTL 8 часов, отзыв при suspend/reset, origin guard, step-up               |
+| Обход TOTP / сброс MFA         | TOTP обязателен для всех ролей, `/two-factor/disable` запрещён, reset-mfa только superadmin+аудит   |
+| Passkey вместо TOTP            | Passkey не снимает `vendor_mfa_required`; password-only сессия не меняет пароль/сессии/ключи        |
+| Эскалация вендорской роли      | guard `superadmin`, `confirmSuperadmin`, отказ `vendor_role_denied` в аудите                        |
+| CSRF вендорской консоли        | Origin guard на `/v1/vendor/*` и `/api/vendor-auth/*`, SameSite cookie, origin-check BFF            |
+| Per-IP лимиты за BFF           | BFF видит egress-IP; ключ per-email 5/60 и lockout остаются, trusted client IP — follow-up          |
+| Audit IP за BFF                | События фиксируют egress-IP BFF; корреляция по `x-request-id`, follow-up — доверенный IP            |
+| Подмена вендорского аудита     | append-only, хеш-цепочка, `verify_vendor_audit_chain()`, дневной якорь                              |
+| Prompt injection через данные  | MCP не исполняет данные как инструкции; allowlist инструментов                                      |
+| Подмена счета/оплаты           | append-only, аудит с хеш-цепочкой, права финансов                                                   |
+| Компрометация цепочки поставок | lockfile, Dependabot, CodeQL, SBOM, подписанные релизы                                              |
+| Утечка секретов                | secret scanning, `.env.example`, запрет секретов в PR                                               |
+
+**Passkeys.** WebAuthn-credential привязан к `origin` консоли
+(`VENDOR_BASE_URL`) и `rpID` (`VENDOR_WEBAUTHN_RP_ID`), поэтому фишинговая
+страница на другом домене не сможет завершить ceremony. Плагин требует
+`userVerification: "required"` и `residentKey: "required"`; вход
+usernameless, без email и `allowCredentials`, поэтому выбрать чужой
+non-discoverable ключ нельзя. Управление passkeys, смена пароля и отзыв
+сессий закрыты до TOTP: украденный пароль не должен давать DoS владельцу.
+Passkey-вход и sign-out не гейтятся. Потеря passkey не блокирует вход, пока
+есть пароль и TOTP/backup-коды; сброс MFA удаляет и passkeys. Секреты,
+credential ID и public key в аудит не пишутся. E2E — Chromium с виртуальным
+authenticator; Safari/Firefox проверяются вручную.
+
+**BFF.** Браузер общается только с origin консоли; Next.js BFF проксирует два
+префикса в Fastify. Whitelist путей и заголовков, лимиты query 8 KiB и body
+64 KiB, origin-check для небезопасных методов и таймаут 15 секунд не дают
+превратить консоль в open proxy. BFF не добавляет прав: API остаётся
+единственным энфорсером guard-ов. За BFF per-IP лимиты Better Auth и
+глобальный Fastify-лимит видят egress-IP BFF и становятся instance-global;
+первичная защита — per-email 5/60 и account lockout. Audit-события за BFF
+фиксируют egress-IP BFF, а не клиентский; доверенный client IP требует выбора
+хостинга и подписи заголовка (follow-up). CSP с nonce — тоже follow-up;
+сейчас выставляются `no-referrer`, `nosniff`, `DENY`, `Permissions-Policy`,
+COOP и HSTS вне local.
+
+**Reset-токен в URL.** Ссылка ведёт на `/reset-password?token=…`; страница
+читает токен, передаёт его Better Auth и удаляет из адресной строки
+(`history.replaceState`). Действуют `Referrer-Policy: no-referrer` и
+`noindex`; токен не пишется в аналитику, логи BFF и аудит. Это снижает утечку
+через историю/referrer, но не отменяет остаточный риск хранения токена.
 
 Reset-токены вендора в Better Auth 1.7.25 хранятся как
 `vendor_auth_verifications.identifier = reset-password:<raw token>`: TTL 30
@@ -90,8 +128,9 @@ reset-токен — осознанное отличие нативного Bett
   перевыпуск пакета) — обязательная запись.
 - Вендорский контур пишет приглашения, bootstrap, смену роли/статуса, сброс
   пароля/MFA, отзыв сессий, step-up, вход/неуспешный вход, второй фактор,
-  выход, смену пароля и `vendor.auth.role_denied` через `vendor_audit()`;
-  пароли, TOTP-секреты, backup-коды и reset-токены в журнал не попадают.
+  выход, смену пароля, добавление/удаление/переименование passkey и
+  `vendor.auth.role_denied` через `vendor_audit()`; пароли, TOTP-секреты,
+  backup-коды, reset-токены, credential ID и public key в журнал не попадают.
   Неуспешный вход хранит только `sha256(normalizedEmail)`. Целостность
   проверяется `verify_vendor_audit_chain()`.
 

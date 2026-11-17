@@ -43,7 +43,7 @@
 | `repository.md`  | Структура монорепозитория, правила зависимостей, статус каркаса.             |
 | `api.md`         | Правила REST API: версия, конверт ошибок, идемпотентность, группы маршрутов. |
 | `data-model.md`  | Таблицы, RLS, append-only, хеш-цепочка аудита, идемпотентность, миграции.    |
-| `vendor-auth.md` | Вендорский контур входа: password+TOTP, схема, роли, аудит, PR A/PR B.       |
+| `vendor-auth.md` | Вендорский контур: password+TOTP+passkeys, BFF, схема, роли, аудит, PR A/B.  |
 
 ## 04-security
 
@@ -95,6 +95,7 @@
 | `0011-worker-jobs-observability.md`      | pg-boss, закрытие дня, якоря, retention и наблюдаемость.  |
 | `0012-shared-rate-limit-store.md`        | Общий rate-limit store в PostgreSQL для нескольких API.   |
 | `0013-vendor-auth-contour.md`            | Отдельный контур аутентификации вендорской консоли.       |
+| `0014-web-console-bff.md`                | Same-origin BFF, SSR и passkey-origin веб-консоли.        |
 
 ## Вне `docs/`
 

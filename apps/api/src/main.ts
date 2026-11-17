@@ -8,6 +8,7 @@ import {
   parseList,
   resolveRateLimitStorage,
   resolveVendorBaseUrl,
+  resolveVendorWebauthnRpId,
 } from "@partner-coder/config";
 import {
   activateAfterPasswordReset,
@@ -120,6 +121,7 @@ const vendorAuth = createVendorAuth({
   sessionTtlHours: env.VENDOR_SESSION_TTL_HOURS,
   passwordResetTtlMinutes: env.VENDOR_PASSWORD_RESET_TTL_MINUTES,
   passwordMinLength: env.VENDOR_PASSWORD_MIN_LENGTH,
+  webauthnRpId: resolveVendorWebauthnRpId(env),
   mailer,
   getVendorStatus: async (vendorUserId) =>
     (await getVendorUserById(vendorAuthDb, vendorUserId))?.status,
