@@ -21,6 +21,7 @@ export const common = {
   retry: "Повторить",
   logout: "Выйти",
   close: "Закрыть",
+  cancel: "Отмена",
   skipToContent: "Перейти к содержимому",
   openMenu: "Открыть меню",
   userMenu: "Меню пользователя",
@@ -32,6 +33,78 @@ export const common = {
 export const nav = {
   profile: "Профиль",
   security: "Безопасность",
+} as const;
+
+export const profile = {
+  title: "Профиль",
+  description: "Данные учётной записи и текущий доступ к консоли.",
+  nameLabel: "Имя",
+  emailLabel: "Email",
+  roleLabel: "Роль",
+  statusLabel: "Статус",
+  securityLink: "Безопасность и ключи доступа",
+} as const;
+
+export const session = {
+  title: "Сессия",
+  description: "Текущий вход в консоль вендора.",
+  expiresLabel: "Действует до",
+  stepUpLabel: "Повторное подтверждение до",
+  stepUpHint: "После этого времени консоль попросит подтвердить пароль снова.",
+} as const;
+
+export const security = {
+  title: "Безопасность",
+  description: "Двухфакторная аутентификация, ключи доступа и пароль.",
+  enrolled: "Защита включена",
+  totpTitle: "Двухфакторная аутентификация",
+  totpDescription: "Вход в консоль подтверждается кодом из приложения-аутентификатора.",
+  totpStatusLabel: "Статус",
+  totpEnabled: "Включён",
+  totpDisabled: "Не включён",
+  totpResetHint: "Сбросить TOTP может только суперадминистратор.",
+  passkeysTitle: "Ключи доступа",
+  passkeysDescription:
+    "Ключи доступа заменяют пароль при входе. Сервер хранит только открытый ключ.",
+  passkeysLoading: "Загружаем ключи доступа…",
+  passkeysLoadFailed: "Не удалось загрузить ключи доступа.",
+  passkeysEmptyTitle: "Ключей доступа нет",
+  passkeysEmptyDescription:
+    "Добавьте ключ, чтобы входить с помощью отпечатка, лица или PIN устройства.",
+  passkeyAdd: "Добавить ключ",
+  passkeyAddTitle: "Новый ключ доступа",
+  passkeyAddDescription: "Назовите устройство, чтобы отличать ключи друг от друга.",
+  passkeyNameLabel: "Название",
+  passkeyDefaultName: "Это устройство",
+  passkeyNameRequired: "Введите название ключа",
+  passkeyAddPending: "Ожидаем подтверждение…",
+  passkeyAdded: "Ключ доступа добавлен",
+  passkeyCreatedLabel: "Добавлен",
+  passkeyBackedUp: "Синхронизирован",
+  passkeyNotBackedUp: "Без синхронизации",
+  passkeyDelete: "Удалить",
+  passkeyDeleteTitle: "Удалить ключ доступа?",
+  passkeyDeleteDescription: (label: string): string =>
+    `Ключ «${label}» перестанет работать для входа. Это действие нельзя отменить.`,
+  passkeyDeletePending: "Удаляем…",
+  passkeyDeleted: "Ключ доступа удалён",
+  passkeyUnsupported: "Браузер не поддерживает ключи доступа.",
+  passwordTitle: "Смена пароля",
+  passwordDescription: "После смены пароля другие сессии будут завершены.",
+  currentPasswordLabel: "Текущий пароль",
+  currentPasswordRequired: "Введите текущий пароль",
+  passwordSubmit: "Сменить пароль",
+  passwordPending: "Сохраняем…",
+  passwordSuccess: "Пароль изменён",
+  sessionsTitle: "Другие сессии",
+  sessionsDescription: "Завершите вход на всех устройствах, кроме текущего.",
+  sessionsRevoke: "Завершить другие сессии",
+  sessionsRevokeTitle: "Завершить другие сессии?",
+  sessionsRevokeDescription:
+    "На всех других устройствах потребуется войти заново. Текущая сессия останется активной.",
+  sessionsRevokeConfirm: "Завершить сессии",
+  sessionsRevokePending: "Завершаем…",
+  sessionsRevokeSuccess: "Другие сессии завершены",
 } as const;
 
 export const auth = {
@@ -130,6 +203,7 @@ export const errors = {
   sessionNotFresh: "Сессия устарела. Войдите заново.",
   totpAlreadyEnabled: "TOTP уже включён",
   passkeyAlreadyRegistered: "Этот ключ доступа уже зарегистрирован",
+  passkeyUnsupported: "Этот браузер или устройство не поддерживает ключи доступа",
   cancelled: "Действие отменено",
   mfaRequired: "Сначала включите TOTP",
   stepUpRequired: "Требуется повторное подтверждение пароля",
@@ -144,6 +218,9 @@ export const messages = {
   statuses,
   common,
   nav,
+  profile,
+  session,
+  security,
   auth,
   errors,
 } as const;
