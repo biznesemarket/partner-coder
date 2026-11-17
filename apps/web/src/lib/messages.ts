@@ -67,6 +67,26 @@ export const auth = {
   backupCodeRequired: "Введите резервный код",
   useTotpCode: "Вернуться к коду из приложения",
   backToPassword: "Вернуться ко входу",
+  passwordTooShort: (minLength: number): string =>
+    `Пароль должен содержать минимум ${minLength} символов`,
+  passwordsMismatch: "Пароли не совпадают",
+  resetTitle: "Новый пароль",
+  resetDescription: "Придумайте новый пароль для входа в консоль.",
+  newPasswordLabel: "Новый пароль",
+  confirmPasswordLabel: "Повторите пароль",
+  passwordHint: (minLength: number): string => `Минимум ${minLength} символов.`,
+  confirmPasswordRequired: "Повторите пароль",
+  resetSubmit: "Установить пароль",
+  resetPending: "Сохраняем…",
+  resetSuccessTitle: "Пароль установлен",
+  resetSuccessDescription: "Теперь можно войти в консоль с новым паролем.",
+  resetInvalidTitle: "Ссылка недействительна или истекла",
+  resetInvalidDescription: "Запросите новую ссылку для сброса пароля.",
+  resetIncompleteTitle: "Ссылка неполная",
+  resetIncompleteDescription:
+    "В ссылке отсутствует токен. Запросите новую ссылку для сброса пароля.",
+  resetRequestNew: "Запросить новую ссылку",
+  resetToLogin: "Перейти ко входу",
 } as const;
 
 export const errors = {
