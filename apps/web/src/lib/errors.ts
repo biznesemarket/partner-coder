@@ -1,9 +1,9 @@
 import { errors } from "./messages";
 
 export type AuthErrorLike = {
-  code?: string | null;
-  status?: number | null;
-  statusCode?: number | null;
+  code?: string | null | undefined;
+  status?: number | null | undefined;
+  statusCode?: number | null | undefined;
 };
 
 const CODE_MESSAGES: Record<string, string> = {
