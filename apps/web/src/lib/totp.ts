@@ -27,19 +27,26 @@ export function parseTotpUri(uri: string): TotpUriParts {
     return { ...EMPTY_PARTS };
   }
 
-  if (url.protocol !== "otpauth:") {
+  if (url.protocol !== "otpauth:" || url.host !== "totp") {
     return { ...EMPTY_PARTS };
   }
 
   const secret = url.searchParams.get("secret") ?? "";
   const issuerParam = url.searchParams.get("issuer");
-  const label = safeDecode(url.pathname.replace(/^\/+/, ""));
+  const rawLabel = url.pathname.replace(/^\/+/, "");
 
-  const separatorIndex = label.indexOf(":");
-  const labelIssuer = separatorIndex > 0 ? label.slice(0, separatorIndex) : null;
-  const labelAccount = separatorIndex >= 0 ? label.slice(separatorIndex + 1) : label;
+  const separatorIndex = rawLabel.indexOf(":");
+  const rawIssuer = separatorIndex > 0 ? rawLabel.slice(0, separatorIndex) : null;
+  const rawAccount = separatorIndex >= 0 ? rawLabel.slice(separatorIndex + 1) : rawLabel;
+  const labelIssuer = rawIssuer === null ? null : safeDecode(rawIssuer);
+  const labelAccount = safeDecode(rawAccount);
 
-  const issuer = issuerParam !== null && issuerParam !== "" ? issuerParam : (labelIssuer ?? null);
+  const issuer =
+    issuerParam !== null && issuerParam !== ""
+      ? issuerParam
+      : labelIssuer !== null && labelIssuer !== ""
+        ? labelIssuer
+        : null;
   const account = labelAccount !== "" ? labelAccount : null;
 
   return { secret, issuer, account };

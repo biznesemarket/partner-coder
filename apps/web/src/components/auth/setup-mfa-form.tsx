@@ -37,24 +37,25 @@ const SAVED_ID = "setup-mfa-saved";
 
 const CODE_LENGTH = 6;
 
-type Step = "password" | "codes" | "verify";
-
 type Enrollment = {
   totpUri: string;
+  secret: string;
   backupCodes: string[];
 };
+
+type Screen = { kind: "password" } | { kind: "codes"; enrollment: Enrollment } | { kind: "verify" };
 
 type SetupMfaFormProps = {
   returnTo: string;
 };
 
-const STEP_TITLES: Record<Step, string> = {
+const STEP_TITLES: Record<Screen["kind"], string> = {
   password: messages.auth.setupMfaPasswordTitle,
   codes: messages.auth.setupMfaCodesTitle,
   verify: messages.auth.setupMfaVerifyTitle,
 };
 
-const STEP_DESCRIPTIONS: Record<Step, string> = {
+const STEP_DESCRIPTIONS: Record<Screen["kind"], string> = {
   password: messages.auth.setupMfaPasswordDescription,
   codes: messages.auth.setupMfaCodesDescription,
   verify: messages.auth.setupMfaVerifyDescription,
@@ -70,15 +71,21 @@ function downloadBackupCodes(codes: string[]): void {
   document.body.append(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function isUnauthorized(error: {
+  status?: number | null | undefined;
+  statusCode?: number | null | undefined;
+}): boolean {
+  return error.status === 401 || error.statusCode === 401;
 }
 
 export function SetupMfaForm({ returnTo }: SetupMfaFormProps) {
   const router = useRouter();
   const headingRef = useRef<HTMLDivElement>(null);
-  const previousStep = useRef<Step>("password");
-  const [step, setStep] = useState<Step>("password");
-  const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
+  const previousKind = useRef<Screen["kind"]>("password");
+  const [screen, setScreen] = useState<Screen>({ kind: "password" });
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [codesSaved, setCodesSaved] = useState(false);
@@ -88,23 +95,27 @@ export function SetupMfaForm({ returnTo }: SetupMfaFormProps) {
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
-    if (previousStep.current === step) {
+    if (previousKind.current === screen.kind) {
       return;
     }
 
-    previousStep.current = step;
+    previousKind.current = screen.kind;
     headingRef.current?.focus();
-  }, [step]);
+  }, [screen.kind]);
+
+  function goToLogin(): void {
+    router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+    router.refresh();
+  }
 
   function restart(): void {
-    setEnrollment(null);
+    setScreen({ kind: "password" });
     setPassword("");
     setPasswordError(null);
     setCodesSaved(false);
     setCode("");
     setCodeError(null);
     setFormError(null);
-    setStep("password");
   }
 
   async function handlePasswordSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -133,6 +144,11 @@ export function SetupMfaForm({ returnTo }: SetupMfaFormProps) {
           return;
         }
 
+        if (isUnauthorized(error)) {
+          goToLogin();
+          return;
+        }
+
         setFormError(mapAuthError(error));
         return;
       }
@@ -142,9 +158,22 @@ export function SetupMfaForm({ returnTo }: SetupMfaFormProps) {
         return;
       }
 
-      setEnrollment({ totpUri: data.totpURI, backupCodes: data.backupCodes });
+      const totp = parseTotpUri(data.totpURI);
+
+      if (totp.secret === "") {
+        setFormError(messages.auth.setupMfaCodesMissing);
+        return;
+      }
+
+      setScreen({
+        kind: "codes",
+        enrollment: {
+          totpUri: data.totpURI,
+          secret: totp.secret,
+          backupCodes: data.backupCodes,
+        },
+      });
       setCodesSaved(false);
-      setStep("codes");
     } catch {
       setFormError(messages.errors.generic);
     } finally {
@@ -154,14 +183,14 @@ export function SetupMfaForm({ returnTo }: SetupMfaFormProps) {
   }
 
   function handleContinue(): void {
-    if (!codesSaved) {
+    if (screen.kind !== "codes" || !codesSaved) {
       return;
     }
 
     setCode("");
     setCodeError(null);
     setFormError(null);
-    setStep("verify");
+    setScreen({ kind: "verify" });
   }
 
   async function handleVerify(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -186,6 +215,11 @@ export function SetupMfaForm({ returnTo }: SetupMfaFormProps) {
       const { error } = await authClient.twoFactor.verifyTotp({ code: normalized });
 
       if (error) {
+        if (isUnauthorized(error)) {
+          goToLogin();
+          return;
+        }
+
         setFormError(mapAuthError(error));
         return;
       }
@@ -238,63 +272,39 @@ export function SetupMfaForm({ returnTo }: SetupMfaFormProps) {
     );
   }
 
-  function renderCodesStep() {
-    if (enrollment === null) {
-      return (
-        <div className="grid gap-4">
-          <Alert className="border-destructive/40 bg-destructive/5 text-destructive">
-            {messages.auth.setupMfaCodesMissing}
-          </Alert>
-          <Button type="button" variant="outline" onClick={restart}>
-            {messages.auth.setupMfaRestart}
-          </Button>
-        </div>
-      );
-    }
-
-    const totp = parseTotpUri(enrollment.totpUri);
-    const hasSecret = totp.secret !== "";
-
+  function renderCodesStep(enrollment: Enrollment) {
     return (
       <div className="grid gap-4">
-        {hasSecret ? (
-          <div className="grid justify-items-center gap-2">
-            <div
-              className="rounded-md bg-white p-3"
-              role="img"
-              aria-label={messages.auth.setupMfaQrLabel}
+        <div className="grid justify-items-center gap-2">
+          <div
+            className="rounded-md bg-white p-3"
+            role="img"
+            aria-label={messages.auth.setupMfaQrLabel}
+          >
+            <QRCodeSVG
+              value={enrollment.totpUri}
+              size={176}
+              level="M"
+              marginSize={2}
+              title={messages.auth.setupMfaQrLabel}
+            />
+          </div>
+        </div>
+        <div className="grid gap-2">
+          <span id="setup-mfa-secret-label" className="text-sm font-medium">
+            {messages.auth.setupMfaSecretLabel}
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <code
+              aria-labelledby="setup-mfa-secret-label"
+              className="select-all break-all rounded-md bg-muted px-2 py-1 font-mono text-sm"
             >
-              <QRCodeSVG
-                value={enrollment.totpUri}
-                size={176}
-                level="M"
-                marginSize={2}
-                title={messages.auth.setupMfaQrLabel}
-              />
-            </div>
+              {enrollment.secret}
+            </code>
+            <CopyButton value={enrollment.secret} label={messages.auth.setupMfaSecretCopy} />
           </div>
-        ) : (
-          <Alert className="border-warning/40 bg-warning/10">
-            {messages.auth.setupMfaQrUnavailable}
-          </Alert>
-        )}
-        {hasSecret ? (
-          <div className="grid gap-2">
-            <span id="setup-mfa-secret-label" className="text-sm font-medium">
-              {messages.auth.setupMfaSecretLabel}
-            </span>
-            <div className="flex flex-wrap items-center gap-2">
-              <code
-                aria-labelledby="setup-mfa-secret-label"
-                className="select-all break-all rounded-md bg-muted px-2 py-1 font-mono text-sm"
-              >
-                {totp.secret}
-              </code>
-              <CopyButton value={totp.secret} label={messages.auth.setupMfaSecretCopy} />
-            </div>
-            <p className="text-xs text-muted-foreground">{messages.auth.setupMfaSecretHint}</p>
-          </div>
-        ) : null}
+          <p className="text-xs text-muted-foreground">{messages.auth.setupMfaSecretHint}</p>
+        </div>
         <Alert className="border-warning/40 bg-warning/10">
           {messages.auth.setupMfaSecretWarning}
         </Alert>
@@ -347,6 +357,9 @@ export function SetupMfaForm({ returnTo }: SetupMfaFormProps) {
         <Button type="button" onClick={handleContinue} disabled={!codesSaved}>
           {messages.auth.setupMfaContinue}
         </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={restart}>
+          {messages.auth.setupMfaRestart}
+        </Button>
       </div>
     );
   }
@@ -382,6 +395,9 @@ export function SetupMfaForm({ returnTo }: SetupMfaFormProps) {
           {pending ? <Spinner className="h-4 w-4" /> : null}
           {pending ? messages.auth.setupMfaVerifyPending : messages.auth.setupMfaVerifySubmit}
         </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={restart} disabled={pending}>
+          {messages.auth.setupMfaRestart}
+        </Button>
       </form>
     );
   }
@@ -394,22 +410,16 @@ export function SetupMfaForm({ returnTo }: SetupMfaFormProps) {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle
-            ref={headingRef}
-            tabIndex={-1}
-            role="heading"
-            aria-level={2}
-            className="outline-none"
-          >
-            {STEP_TITLES[step]}
+          <CardTitle ref={headingRef} tabIndex={-1} role="heading" aria-level={2}>
+            {STEP_TITLES[screen.kind]}
           </CardTitle>
-          <CardDescription>{STEP_DESCRIPTIONS[step]}</CardDescription>
+          <CardDescription>{STEP_DESCRIPTIONS[screen.kind]}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
-          {step === "password"
+          {screen.kind === "password"
             ? renderPasswordStep()
-            : step === "codes"
-              ? renderCodesStep()
+            : screen.kind === "codes"
+              ? renderCodesStep(screen.enrollment)
               : renderVerifyStep()}
           <Separator />
           <div className="flex justify-center">

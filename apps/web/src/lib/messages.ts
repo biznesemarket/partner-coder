@@ -98,7 +98,6 @@ export const auth = {
   setupMfaCodesDescription:
     "Отсканируйте QR-код в приложении-аутентификаторе или введите секрет вручную.",
   setupMfaQrLabel: "QR-код для приложения-аутентификатора",
-  setupMfaQrUnavailable: "Не удалось построить QR-код. Введите секрет вручную.",
   setupMfaSecretLabel: "Секрет",
   setupMfaSecretHint: "Введите этот секрет в приложении, если QR-код не читается.",
   setupMfaSecretCopy: "Копировать секрет",
@@ -116,7 +115,7 @@ export const auth = {
   setupMfaVerifyDescription: "Введите шестизначный код из приложения-аутентификатора.",
   setupMfaVerifySubmit: "Завершить настройку",
   setupMfaVerifyPending: "Проверяем…",
-  setupMfaCodesMissing: "Не удалось получить данные для настройки. Начните заново.",
+  setupMfaCodesMissing: "Не удалось получить секрет TOTP. Попробуйте ещё раз.",
   setupMfaRestart: "Начать заново",
 } as const;
 
