@@ -12,6 +12,7 @@ describe("mapAuthError", () => {
 
   it.each([
     ["INVALID_CREDENTIALS", /Неверный email/],
+    ["INVALID_PASSWORD", /Неверный пароль/],
     ["ACCOUNT_TEMPORARILY_LOCKED", /Слишком много/],
     ["INVALID_CODE", /Неверный код/],
     ["INVALID_TWO_FACTOR_CODE", /Неверный код/],

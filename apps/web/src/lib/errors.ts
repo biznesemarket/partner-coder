@@ -9,6 +9,7 @@ export type AuthErrorLike = {
 const CODE_MESSAGES: Record<string, string> = {
   INVALID_EMAIL_OR_PASSWORD: errors.invalidCredentials,
   INVALID_CREDENTIALS: errors.invalidCredentials,
+  INVALID_PASSWORD: errors.invalidPassword,
   VENDOR_INACTIVE: errors.inactive,
   vendor_inactive: errors.inactive,
   ACCOUNT_TEMPORARILY_LOCKED: errors.tooManyAttempts,

@@ -87,10 +87,42 @@ export const auth = {
     "В ссылке отсутствует токен. Запросите новую ссылку для сброса пароля.",
   resetRequestNew: "Запросить новую ссылку",
   resetToLogin: "Перейти ко входу",
+  setupMfaTitle: "Настройка двухфакторной аутентификации",
+  setupMfaDescription: "Для доступа к консоли включите TOTP в приложении-аутентификаторе.",
+  setupMfaPasswordTitle: "Шаг 1. Подтвердите пароль",
+  setupMfaPasswordDescription:
+    "Пароль нужен, чтобы включить двухфакторную аутентификацию для вашей учётной записи.",
+  setupMfaPasswordSubmit: "Продолжить",
+  setupMfaPasswordPending: "Проверяем пароль…",
+  setupMfaCodesTitle: "Шаг 2. Добавьте аккаунт",
+  setupMfaCodesDescription:
+    "Отсканируйте QR-код в приложении-аутентификаторе или введите секрет вручную.",
+  setupMfaQrLabel: "QR-код для приложения-аутентификатора",
+  setupMfaQrUnavailable: "Не удалось построить QR-код. Введите секрет вручную.",
+  setupMfaSecretLabel: "Секрет",
+  setupMfaSecretHint: "Введите этот секрет в приложении, если QR-код не читается.",
+  setupMfaSecretCopy: "Копировать секрет",
+  setupMfaSecretWarning:
+    "Не делитесь секретом и резервными кодами: они дают доступ к вашей учётной записи.",
+  setupMfaBackupCodesTitle: "Резервные коды",
+  setupMfaBackupCodesDescription:
+    "Каждый код одноразовый. Сохраните их в надёжном месте — они показываются только один раз.",
+  setupMfaBackupCodesCopy: "Копировать коды",
+  setupMfaBackupCodesDownload: "Скачать .txt",
+  setupMfaBackupCodesFile: "partner-coder-backup-codes.txt",
+  setupMfaBackupSaved: "Я сохранил резервные коды",
+  setupMfaContinue: "Продолжить",
+  setupMfaVerifyTitle: "Шаг 3. Подтвердите код",
+  setupMfaVerifyDescription: "Введите шестизначный код из приложения-аутентификатора.",
+  setupMfaVerifySubmit: "Завершить настройку",
+  setupMfaVerifyPending: "Проверяем…",
+  setupMfaCodesMissing: "Не удалось получить данные для настройки. Начните заново.",
+  setupMfaRestart: "Начать заново",
 } as const;
 
 export const errors = {
   invalidCredentials: "Неверный email или пароль",
+  invalidPassword: "Неверный пароль",
   inactive: "Учётная запись заблокирована. Обратитесь к администратору.",
   tooManyAttempts: "Слишком много попыток. Попробуйте позже.",
   invalidCode: "Неверный код подтверждения",
