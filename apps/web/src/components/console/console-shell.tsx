@@ -109,13 +109,8 @@ function UserMenu({ me }: { me: VendorMe }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="gap-2 px-2"
-          aria-label={messages.common.userMenu}
-        >
+        <Button type="button" variant="ghost" size="sm" className="gap-2 px-2">
+          <span className="sr-only">{messages.common.userMenu}</span>
           <span
             aria-hidden="true"
             className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground"
@@ -197,11 +192,7 @@ export function ConsoleShell({ me, children }: ConsoleShellProps) {
               </nav>
             </DialogContent>
           </Dialog>
-          <Link
-            href="/me"
-            className="inline-flex items-center rounded-md"
-            aria-label={messages.common.appName}
-          >
+          <Link href="/me" className="inline-flex items-center rounded-md">
             <BrandMark />
           </Link>
           <div className="ml-auto flex items-center gap-1.5">

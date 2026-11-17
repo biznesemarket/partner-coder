@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 import e2eEnv from "./e2e/env.json" with { type: "json" };
+import { ADMIN_STORAGE_STATE } from "./e2e/helpers/state";
 
 const isCI = Boolean(process.env.CI);
 
@@ -20,7 +21,18 @@ export default defineConfig({
     screenshot: "only-on-failure",
     video: "retain-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "setup",
+      testMatch: "**/setup/*.setup.ts",
+    },
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"], storageState: ADMIN_STORAGE_STATE },
+      dependencies: ["setup"],
+      testIgnore: "**/setup/*.setup.ts",
+    },
+  ],
   webServer: [
     {
       command: "node ../api/dist/main.js",

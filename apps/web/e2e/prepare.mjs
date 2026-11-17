@@ -14,6 +14,7 @@ const databaseUrl = new URL(e2eEnv.DATABASE_URL);
 const databaseName = decodeURIComponent(databaseUrl.pathname.replace(/^\//, ""));
 const adminUrl = new URL(databaseUrl.toString());
 const adminEmail = "e2e-superadmin@example.test";
+const setupMfaAdminEmail = "e2e-a11y@example.test";
 const buildArtifacts = [
   resolve(repoRoot, "apps/api/dist/main.js"),
   resolve(repoRoot, "apps/web/.next"),
@@ -115,9 +116,9 @@ async function clearMailpit() {
   throw lastError instanceof Error ? lastError : new Error("Mailpit: не удалось очистить письма");
 }
 
-function adminMissingError() {
+function adminMissingError(email) {
   const error = new Error(
-    `E2E-админ ${adminEmail} не найден в ${databaseName}; проверьте env precedence`,
+    `E2E-админ ${email} не найден в ${databaseName}; проверьте env precedence`,
   );
 
   error.name = "E2eAdminMissingError";
@@ -131,10 +132,12 @@ async function assertVendorAdminExists() {
   await client.connect();
 
   try {
-    const result = await client.query("select 1 from vendor_users where email = $1", [adminEmail]);
+    for (const email of [adminEmail, setupMfaAdminEmail]) {
+      const result = await client.query("select 1 from vendor_users where email = $1", [email]);
 
-    if (result.rowCount !== 1) {
-      throw adminMissingError();
+      if (result.rowCount !== 1) {
+        throw adminMissingError(email);
+      }
     }
   } finally {
     await client.end();
@@ -148,6 +151,11 @@ await recreateDatabase();
 
 run("pnpm db:migrate");
 run(`pnpm --filter @partner-coder/api vendor:admin --email ${adminEmail} --name "E2E Admin"`);
+// Второй админ остаётся без TOTP: /setup-mfa нужен a11y-спеке, а у основного
+// админа второй фактор включает setup-проект Playwright.
+run(
+  `pnpm --filter @partner-coder/api vendor:admin --email ${setupMfaAdminEmail} --name "E2E A11y" --force`,
+);
 await assertVendorAdminExists();
 
 step("Очищаю Mailpit");
