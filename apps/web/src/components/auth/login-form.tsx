@@ -26,6 +26,7 @@ import type { VendorMeResult } from "@/lib/vendor-types";
 import { afterPassword, afterSecondFactor } from "./login-machine";
 import type { TotpStep } from "./login-machine";
 import { ForgotPasswordForm } from "./forgot-password-form";
+import { isPasskeyCancellation } from "./passkey-error";
 import { TwoFactorForm } from "./two-factor-form";
 
 const EMAIL_ID = "login-email";
@@ -52,14 +53,6 @@ function getPasskeySupport(): boolean {
 
 function getServerPasskeySupport(): boolean {
   return false;
-}
-
-function isCancellation(error: unknown): boolean {
-  if (typeof error !== "object" || error === null || !("code" in error)) {
-    return false;
-  }
-
-  return error.code === "AUTH_CANCELLED" || error.code === "REGISTRATION_CANCELLED";
 }
 
 export function LoginForm({ returnTo, reason, outage }: LoginFormProps) {
@@ -168,7 +161,7 @@ export function LoginForm({ returnTo, reason, outage }: LoginFormProps) {
       const { error } = await authClient.signIn.passkey();
 
       if (error) {
-        if (!isCancellation(error)) {
+        if (!isPasskeyCancellation(error)) {
           setFormError(mapAuthError(error));
         }
 
