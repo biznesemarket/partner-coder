@@ -26,6 +26,8 @@
     "seed": "pnpm build && pnpm --filter @partner-coder/seed seed",
     "test": "vitest run",
     "test:db": "vitest run packages/db/test tools/seed/test",
+    "test:e2e": "node apps/web/e2e/prepare.mjs && pnpm --filter @partner-coder/web test:e2e",
+    "test:e2e:full": "pnpm build && pnpm test:e2e",
     "test:golden": "vitest run packages/domain/src/golden.test.ts",
     "test:watch": "vitest",
     "typecheck": "turbo run typecheck",
