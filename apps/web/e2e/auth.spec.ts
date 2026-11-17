@@ -4,6 +4,10 @@ import { loadAdminCredentials, loginWithTotp } from "./helpers/auth";
 
 const WRONG_PASSWORD = "definitely wrong password";
 
+// Несуществующий адрес: проверка ошибки не должна расходовать лимит
+// sign-in/email зарегистрированного админа.
+const UNKNOWN_EMAIL = "e2e-negative@example.test";
+
 // Сброс пароля и включение TOTP покрывает setup-проект: здесь проверяем только
 // вход уже настроенного админа и ошибку неверного пароля.
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -23,10 +27,8 @@ test.describe("вендорская аутентификация", () => {
   });
 
   test("показывает русскую ошибку при неверном пароле", async ({ page }) => {
-    const credentials = loadAdminCredentials();
-
     await page.goto("/login");
-    await page.locator("#login-email").fill(credentials.email);
+    await page.locator("#login-email").fill(UNKNOWN_EMAIL);
     await page.locator("#login-password").fill(WRONG_PASSWORD);
     await page.getByRole("button", { name: "Войти", exact: true }).click();
 

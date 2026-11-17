@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { setTimeout as delay } from "node:timers/promises";
 
 import { expect } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 import { latestResetToken } from "./mailpit";
 import { ADMIN_CREDENTIALS, ADMIN_STORAGE_STATE, AUTH_DIR } from "./state";
@@ -11,6 +11,10 @@ import { totpFromUri, totpRemainingMs } from "./totp";
 const RESET_SENT_TEXT = "Если адрес зарегистрирован, письмо со ссылкой отправлено.";
 
 const TOTP_MIN_REMAINING_MS = 5_000;
+
+const RATE_LIMITED_TEXT = "Слишком много попыток";
+
+const RATE_LIMIT_RETRY_DELAY_MS = 10_000;
 
 export type AdminCredentials = {
   readonly email: string;
@@ -120,6 +124,30 @@ export async function freshTotpCode(uri: string): Promise<string> {
   return totpFromUri(uri);
 }
 
+type PasswordStepOutcome = "code" | "rate-limited";
+
+function outcomeWhenVisible(
+  locator: Locator,
+  outcome: PasswordStepOutcome,
+): Promise<PasswordStepOutcome> {
+  const pending = locator.waitFor({ state: "visible" }).then(() => outcome);
+  // Проигравший в гонке waitFor иначе оставит необработанное отклонение по таймауту.
+  pending.catch(() => undefined);
+  return pending;
+}
+
+/**
+ * Better Auth ограничивает sign-in/email: после входов setup-проекта форма
+ * может ответить 429 вместо запроса кода. Ждём либо поле кода, либо текст
+ * лимита, чтобы отличить его от обычной ошибки вместо 20-секундного таймаута.
+ */
+async function awaitPasswordStep(page: Page): Promise<PasswordStepOutcome> {
+  return Promise.race([
+    outcomeWhenVisible(page.locator("#login-code"), "code"),
+    outcomeWhenVisible(page.getByText(RATE_LIMITED_TEXT, { exact: false }), "rate-limited"),
+  ]);
+}
+
 /**
  * Вход в консоль по паролю и TOTP. Код генерируется из сохранённого URI.
  */
@@ -129,7 +157,19 @@ export async function loginWithTotp(page: Page, credentials: AdminCredentials): 
   await page.locator("#login-password").fill(credentials.password);
   await page.getByRole("button", { name: "Войти", exact: true }).click();
 
-  await expect(page.locator("#login-code")).toBeVisible();
+  const outcome = await awaitPasswordStep(page);
+
+  if (outcome === "rate-limited") {
+    await delay(RATE_LIMIT_RETRY_DELAY_MS);
+    await page.getByRole("button", { name: "Войти", exact: true }).click();
+
+    await expect(
+      page.locator("#login-code"),
+      "Повторный вход после лимита попыток не показал поле кода",
+    ).toBeVisible();
+  } else {
+    await expect(page.locator("#login-code")).toBeVisible();
+  }
 
   await page.locator("#login-code").pressSequentially(await freshTotpCode(credentials.totpUri));
   await page.getByRole("button", { name: "Подтвердить" }).click();
