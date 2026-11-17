@@ -115,9 +115,6 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
     devDependencies:
-      '@simplewebauthn/server':
-        specifier: 13.3.3
-        version: 13.3.3
       openapi-typescript:
         specifier: ^7.13.0
         version: 7.13.0(typescript@5.9.3)

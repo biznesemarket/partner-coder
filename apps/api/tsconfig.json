@@ -4,9 +4,8 @@
     "outDir": "dist",
     "noEmit": false,
     "rootDir": "src",
-    "paths": {
-      "@simplewebauthn/server": ["./node_modules/@simplewebauthn/server/esm/index.d.ts"]
-    }
+    "declaration": false,
+    "declarationMap": false
   },
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts"]
