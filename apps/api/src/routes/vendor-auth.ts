@@ -39,6 +39,30 @@ const MFA_VERIFY_TOTP_PATH = "/two-factor/verify-totp";
 const MFA_VERIFY_BACKUP_PATH = "/two-factor/verify-backup-code";
 const MFA_VERIFY_PATHS = new Set([MFA_VERIFY_TOTP_PATH, MFA_VERIFY_BACKUP_PATH]);
 const SESSION_REVOKE_PATHS = new Set(["/revoke-session", "/revoke-other-sessions"]);
+const PASSKEY_REGISTER_PATH = "/passkey/verify-registration";
+const PASSKEY_DELETE_PATH = "/passkey/delete-passkey";
+const PASSKEY_UPDATE_PATH = "/passkey/update-passkey";
+
+/**
+ * Управление passkey и паролем требует включённого TOTP: парольная сессия не
+ * должна ни менять пароль, ни отзывать сессии, ни добавлять ключи доступа.
+ * Passkey-вход и sign-out сюда не входят.
+ */
+const MFA_REQUIRED_PATHS = new Set([
+  "/change-password",
+  "/revoke-session",
+  "/revoke-other-sessions",
+  "/passkey/generate-register-options",
+  "/passkey/verify-registration",
+  "/passkey/register",
+  "/passkey/list-user-passkeys",
+  "/passkey/delete-passkey",
+  "/passkey/update-passkey",
+]);
+
+export function isMfaRequiredPath(path: string): boolean {
+  return MFA_REQUIRED_PATHS.has(path);
+}
 
 /** Перед проксированием нужен актор: пишем его в аудит только после успеха. */
 const IDENTITY_PATHS = new Set([
@@ -46,6 +70,9 @@ const IDENTITY_PATHS = new Set([
   CHANGE_PASSWORD_PATH,
   ...SESSION_REVOKE_PATHS,
   ...MFA_VERIFY_PATHS,
+  PASSKEY_REGISTER_PATH,
+  PASSKEY_DELETE_PATH,
+  PASSKEY_UPDATE_PATH,
 ]);
 
 export { normalizeBaseUrl };
@@ -135,6 +162,28 @@ async function identityForAudit(
 }
 
 /**
+ * Строгий gate для путей из MFA_REQUIRED_PATHS. В отличие от аудита, ошибки не
+ * проглатываются: без валидной сессии, активного статуса и включённого TOTP
+ * upstream-обработчик не вызывается.
+ */
+async function requireMfaGate(
+  request: FastifyRequest,
+  runtime: VendorAuthRuntime,
+): Promise<VendorIdentity> {
+  const identity = await resolveVendorIdentity(runtime, request.headers, request.log);
+  if (!identity) {
+    throw new ApiError(401, "vendor_unauthenticated", "Требуется вход вендора");
+  }
+  if (identity.status !== "invited" && identity.status !== "active") {
+    throw new ApiError(403, "vendor_inactive", "Учётная запись вендора заблокирована");
+  }
+  if (!identity.twoFactorEnabled) {
+    throw new ApiError(403, "vendor_mfa_required", "Требуется включить TOTP");
+  }
+  return identity;
+}
+
+/**
  * Аудит по результату прокси. Все записи best-effort и не содержат секретов:
  * неуспешный вход — только sha256(normalizedEmail), второй фактор — path.
  */
@@ -180,6 +229,25 @@ async function auditResponse(
       actorId: identity.userId,
       action: VENDOR_AUDIT_ACTIONS.mfaEnabled,
       entity: "vendor_user",
+      after: { userId: identity.userId, sessionId: identity.sessionId },
+      ip: request.ip || null,
+    });
+    return;
+  }
+
+  const passkeyEvent =
+    path === PASSKEY_REGISTER_PATH
+      ? VENDOR_AUDIT_ACTIONS.passkeyAdded
+      : path === PASSKEY_DELETE_PATH
+        ? VENDOR_AUDIT_ACTIONS.passkeyRemoved
+        : path === PASSKEY_UPDATE_PATH
+          ? VENDOR_AUDIT_ACTIONS.passkeyRenamed
+          : null;
+  if (passkeyEvent) {
+    await auditBestEffort(request, runtime, {
+      actorId: identity.userId,
+      action: passkeyEvent,
+      entity: "vendor_passkey",
       after: { userId: identity.userId, sessionId: identity.sessionId },
       ip: request.ip || null,
     });
@@ -254,7 +322,10 @@ export function registerVendorAuthRoutes(
       const headers = fromNodeHeaders(request.headers);
       const body = request.body === undefined ? undefined : JSON.stringify(request.body);
       const requestEmail = path === SIGN_IN_PATH ? normalizedEmail(request.body) : null;
-      const identity = IDENTITY_PATHS.has(path) ? await identityForAudit(request, runtime) : null;
+      const gatedIdentity = isMfaRequiredPath(path) ? await requireMfaGate(request, runtime) : null;
+      const identity =
+        gatedIdentity ??
+        (IDENTITY_PATHS.has(path) ? await identityForAudit(request, runtime) : null);
       const fetchRequest = new Request(url.toString(), {
         method: request.method,
         headers,

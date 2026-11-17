@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { Database } from "@partner-coder/db";
 
 import { EmailRateLimiter, type EmailRateLimitStore } from "../auth/email-rate-limit.js";
+import { isMfaRequiredPath } from "../routes/vendor-auth.js";
 import { buildServer } from "../server.js";
 import type { VendorAuth } from "./config.js";
 import type { VendorAuthRuntime } from "./runtime.js";
@@ -23,14 +24,50 @@ interface TestApp {
   readonly requests: CapturedRequest[];
 }
 
+interface SessionUserOverrides {
+  readonly id?: string;
+  readonly email?: string;
+  readonly name?: string;
+  readonly role?: string;
+  readonly status?: string;
+  readonly twoFactorEnabled?: boolean;
+}
+
+const sessionUserId = "11111111-1111-4111-8111-111111111111";
+const sessionId = "22222222-2222-4222-8222-222222222222";
+
+function sessionWith(overrides: SessionUserOverrides = {}) {
+  return {
+    user: {
+      id: sessionUserId,
+      email,
+      name: "Ops",
+      role: "superadmin",
+      status: "active",
+      twoFactorEnabled: true,
+      ...overrides,
+    },
+    session: {
+      id: sessionId,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      stepUpUntil: null,
+    },
+  };
+}
+
 const openApps: ReturnType<typeof buildServer>[] = [];
 
 afterEach(async () => {
   await Promise.all(openApps.splice(0).map((app) => app.close()));
 });
 
-function createAuth(requests: CapturedRequest[]): VendorAuth {
+function createAuth(requests: CapturedRequest[], session: unknown = null): VendorAuth {
   return {
+    api: {
+      async getSession() {
+        return session;
+      },
+    },
     async handler(request: Request): Promise<Response> {
       requests.push({
         url: request.url,
@@ -59,11 +96,15 @@ function createRuntime(auth: VendorAuth): VendorAuthRuntime {
 }
 
 function createApp(
-  options: { apiBaseUrl?: string; rateLimitStore?: EmailRateLimitStore } = {},
+  options: {
+    apiBaseUrl?: string;
+    rateLimitStore?: EmailRateLimitStore;
+    session?: unknown;
+  } = {},
 ): TestApp {
   const requests: CapturedRequest[] = [];
   const app = buildServer({
-    vendorRuntime: createRuntime(createAuth(requests)),
+    vendorRuntime: createRuntime(createAuth(requests, options.session)),
     apiBaseUrl: options.apiBaseUrl ?? apiBaseUrl,
     ...(options.rateLimitStore === undefined
       ? {}
@@ -263,6 +304,113 @@ describe("vendor auth proxy", () => {
     });
 
     expect(response.statusCode).toBe(200);
+  });
+
+  it.each([
+    ["POST", "/change-password"],
+    ["POST", "/revoke-session"],
+    ["POST", "/revoke-other-sessions"],
+    ["GET", "/passkey/generate-register-options"],
+    ["POST", "/passkey/verify-registration"],
+    ["GET", "/passkey/list-user-passkeys"],
+    ["POST", "/passkey/delete-passkey"],
+    ["POST", "/passkey/update-passkey"],
+  ] as const)("требует TOTP для %s %s", async (method, path) => {
+    const { app, requests } = createApp({ session: sessionWith({ twoFactorEnabled: false }) });
+    const response = await app.inject({ method, url: `/api/vendor-auth${path}` });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toMatchObject({ error: { code: "vendor_mfa_required" } });
+    expect(requests).toHaveLength(0);
+  });
+
+  it("не гейтит passkey-вход", async () => {
+    const { app, requests } = createApp({ session: null });
+    for (const path of [
+      "/passkey/generate-authenticate-options",
+      "/passkey/verify-authentication",
+    ]) {
+      const response = await app.inject({
+        method: path.includes("generate") ? "GET" : "POST",
+        url: `/api/vendor-auth${path}`,
+      });
+      expect(response.statusCode).toBe(200);
+    }
+    expect(requests).toHaveLength(2);
+  });
+
+  it("требует сессию для управления passkey", async () => {
+    const { app, requests } = createApp({ session: null });
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/vendor-auth/passkey/delete-passkey",
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toMatchObject({ error: { code: "vendor_unauthenticated" } });
+    expect(requests).toHaveLength(0);
+  });
+
+  it("блокирует управление passkey для suspended", async () => {
+    const { app, requests } = createApp({
+      session: sessionWith({ status: "suspended", twoFactorEnabled: true }),
+    });
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/vendor-auth/passkey/delete-passkey",
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toMatchObject({ error: { code: "vendor_inactive" } });
+    expect(requests).toHaveLength(0);
+  });
+
+  it("блокирует смену пароля для disabled", async () => {
+    const { app, requests } = createApp({
+      session: sessionWith({ status: "disabled", twoFactorEnabled: true }),
+    });
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/vendor-auth/change-password",
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toMatchObject({ error: { code: "vendor_inactive" } });
+    expect(requests).toHaveLength(0);
+  });
+
+  it("пропускает управление passkey после TOTP", async () => {
+    const { app, requests } = createApp({ session: sessionWith({ twoFactorEnabled: true }) });
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/vendor-auth/passkey/verify-registration",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(requests).toHaveLength(1);
+  });
+
+  it("классифицирует пути, требующие TOTP", () => {
+    for (const path of [
+      "/change-password",
+      "/revoke-session",
+      "/revoke-other-sessions",
+      "/passkey/generate-register-options",
+      "/passkey/verify-registration",
+      "/passkey/list-user-passkeys",
+      "/passkey/delete-passkey",
+      "/passkey/update-passkey",
+    ]) {
+      expect(isMfaRequiredPath(path)).toBe(true);
+    }
+    for (const path of [
+      "/sign-out",
+      "/sign-in/email",
+      "/passkey/generate-authenticate-options",
+      "/passkey/verify-authentication",
+    ]) {
+      expect(isMfaRequiredPath(path)).toBe(false);
+    }
   });
 
   it("требует apiBaseUrl при наличии vendor runtime", () => {
