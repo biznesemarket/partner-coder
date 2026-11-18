@@ -96,7 +96,7 @@ describe("api skeleton", () => {
   it("включает HSTS вне local и CORS для веб-кабинетов", async () => {
     const server = buildServer({
       appEnv: "staging",
-      corsOrigins: ["https://app.partnercoder.ru"],
+      corsOrigins: ["https://app.pcoder.ru"],
     });
     const health = await server.inject({ method: "GET", url: "/healthz" });
     expect(health.headers["strict-transport-security"]).toContain("max-age=31536000");
@@ -105,12 +105,12 @@ describe("api skeleton", () => {
       method: "OPTIONS",
       url: "/v1/tenant/overview",
       headers: {
-        origin: "https://app.partnercoder.ru",
+        origin: "https://app.pcoder.ru",
         "access-control-request-method": "GET",
       },
     });
     expect(preflight.statusCode).toBe(204);
-    expect(preflight.headers["access-control-allow-origin"]).toBe("https://app.partnercoder.ru");
+    expect(preflight.headers["access-control-allow-origin"]).toBe("https://app.pcoder.ru");
     await server.close();
   });
 });

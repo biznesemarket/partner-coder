@@ -31,9 +31,9 @@
 только `https://` с реальным доменом консоли. Вне local значение обязательно.
 
 `VENDOR_WEBAUTHN_RP_ID` — канонический хост консоли **без схемы, порта и
-пути** (например, `admin.partnercoder.ru`), не origin. Он должен совпадать с
+пути** (например, `admin.pcoder.ru`), не origin. Он должен совпадать с
 хостом `VENDOR_BASE_URL` или быть его родительским доменом
-(`partnercoder.ru` для `admin.partnercoder.ru`); иначе API не стартует.
+(`pcoder.ru` для `admin.pcoder.ru`); иначе API не стартует.
 Passkeys привязаны к origin и rpID: смена домена или порта требует
 перерегистрации ключей, preview-домены для passkeys не подходят.
 
@@ -163,10 +163,10 @@ CLI использует `VENDOR_DATABASE_URL`/`VENDOR_AUTH_DATABASE_URL`, со�
 ## Smoke
 
 ```bash
-curl -fsS https://staging-api.partnercoder.ru/healthz
-curl -fsS https://staging-api.partnercoder.ru/readyz
-curl -fsS https://staging-api.partnercoder.ru/openapi.json > /dev/null
-curl -fsS https://staging-api.partnercoder.ru/metrics | head
+curl -fsS https://staging-api.pcoder.ru/healthz
+curl -fsS https://staging-api.pcoder.ru/readyz
+curl -fsS https://staging-api.pcoder.ru/openapi.json > /dev/null
+curl -fsS https://staging-api.pcoder.ru/metrics | head
 ```
 
 Затем: OTP через Mailpit/SMTP → `/v1/auth/me` → `/v1/tenant/overview` →

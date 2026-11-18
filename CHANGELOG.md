@@ -98,6 +98,8 @@
   (роли, `BYPASSRLS`, pgboss, rate-limit, retention, бэкапы). Worker при
   старте вне local теперь требует `BYPASSRLS` на самом login: членство в
   `partner_coder_worker` этот атрибут не наследует.
+- Сервисные домены закреплены за `pcoder.ru`: staging `staging.pcoder.ru`,
+  prod `app./admin./api.pcoder.ru`; `partnercoder.ru` — маркетинг и help.
 
 ### Security
 
