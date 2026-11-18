@@ -92,7 +92,8 @@
   E2E использует `RATE_LIMIT_STORAGE=database` и очищает окна
   `vendor_auth_rate_limits`/`vendor_auth_email_limits` перед входами, чтобы
   special-rule Better Auth 3/10 с за BFF не давал 429 вместо проверяемой
-  ошибки.
+  ошибки. Job `e2e` после трёх зелёных прогонов переведён в required checks
+  ruleset.
 - Managed PostgreSQL runbook: `deploy/environments/staging/managed-postgres.md`
   (роли, `BYPASSRLS`, pgboss, rate-limit, retention, бэкапы). Worker при
   старте вне local теперь требует `BYPASSRLS` на самом login: членство в

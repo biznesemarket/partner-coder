@@ -66,11 +66,10 @@ pnpm test:e2e:full  # pnpm build + pnpm test:e2e
   тесты очищают `vendor_auth_rate_limits` и `vendor_auth_email_limits`, чтобы
   special-rule Better Auth (`/sign-in*` — 3/10 с на IP+путь за BFF) и
   per-email 5/60 не зависели от порядка тестов и входов setup-проекта.
-- Job пока **не входит** в обязательные проверки PR (format/lint/typecheck/
-  test/build, commit messages, secret scan, CodeQL). Предпосылки для перевода
-  в required (429-coupling, trace/artifacts, pin/healthcheck Mailpit) закрыты;
-  нужна серия зелёных прогонов на PR/main, после чего job добавляется в
-  ruleset.
+- Job входит в обязательные проверки PR: required check `Vendor console E2E`
+  в ruleset `main protection` (после трёх зелёных прогонов PR #21). Остальные
+  обязательные проверки: format/lint/typecheck/test/build, commit messages,
+  secret scan, CodeQL.
 - Vitest не подхватывает `apps/web/e2e/*.spec.ts`: это отдельный Playwright
   набор, а не unit-тесты.
 
