@@ -109,4 +109,5 @@
 | `CHANGELOG.md`                                                  | История изменений по вехам.                                                         |
 | `deploy/README.md`, `deploy/environments/README.md`             | Локальная инфраструктура и окружения.                                               |
 | `deploy/environments/staging/README.md`                         | Staging-конфигурация, роли БД, порядок выката и smoke.                              |
+| `deploy/environments/staging/managed-postgres.md`               | Runbook managed PostgreSQL: роли, BYPASSRLS, pgboss, rate-limit и retention.        |
 | `apps/*/README.md`, `packages/*/README.md`, `tools/*/README.md` | Короткие указатели на код и статус вехи; архитектурные описания — только в `docs/`. |

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { loadAdminCredentials, loginWithTotp } from "./helpers/auth";
+import { clearVendorRateLimits } from "./helpers/rate-limits";
 
 const WRONG_PASSWORD = "definitely wrong password";
 
@@ -27,6 +28,9 @@ test.describe("вендорская аутентификация", () => {
   });
 
   test("показывает русскую ошибку при неверном пароле", async ({ page }) => {
+    // Очищаем окно sign-in/email: иначе special-rule Better Auth (3/10 с на
+    // IP+путь) может ответить 429 вместо проверяемой ошибки.
+    await clearVendorRateLimits();
     await page.goto("/login");
     await page.locator("#login-email").fill(UNKNOWN_EMAIL);
     await page.locator("#login-password").fill(WRONG_PASSWORD);

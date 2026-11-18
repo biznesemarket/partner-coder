@@ -4,6 +4,7 @@ import type { Page } from "@playwright/test";
 
 import { SETUP_MFA_ADMIN } from "./helpers/accounts";
 import { setPasswordViaReset } from "./helpers/auth";
+import { clearVendorRateLimits } from "./helpers/rate-limits";
 
 const BLOCKING_IMPACTS = new Set(["serious", "critical"]);
 
@@ -45,6 +46,7 @@ test.describe("доступность: первый вход", () => {
     await setPasswordViaReset(page, SETUP_MFA_ADMIN.email, SETUP_MFA_ADMIN.password);
     await page.getByRole("link", { name: "Перейти ко входу" }).click();
 
+    await clearVendorRateLimits();
     await page.locator("#login-email").fill(SETUP_MFA_ADMIN.email);
     await page.locator("#login-password").fill(SETUP_MFA_ADMIN.password);
     await page.getByRole("button", { name: "Войти", exact: true }).click();

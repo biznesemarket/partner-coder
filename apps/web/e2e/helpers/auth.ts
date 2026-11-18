@@ -5,6 +5,7 @@ import { expect } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 
 import { latestResetToken } from "./mailpit";
+import { clearVendorRateLimits } from "./rate-limits";
 import { ADMIN_CREDENTIALS, ADMIN_STORAGE_STATE, AUTH_DIR } from "./state";
 import { totpFromUri, totpRemainingMs } from "./totp";
 
@@ -152,6 +153,7 @@ async function awaitPasswordStep(page: Page): Promise<PasswordStepOutcome> {
  * Вход в консоль по паролю и TOTP. Код генерируется из сохранённого URI.
  */
 export async function loginWithTotp(page: Page, credentials: AdminCredentials): Promise<void> {
+  await clearVendorRateLimits();
   await page.goto("/login");
   await page.locator("#login-email").fill(credentials.email);
   await page.locator("#login-password").fill(credentials.password);
