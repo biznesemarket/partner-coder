@@ -224,7 +224,7 @@ PR B не добавляет миграций: `vendor_auth_passkeys` из `0006
 
 ```ts
 betterAuth({
-  appName: "Партнер кодер — вендор",
+  appName: "Партнёр кодер — вендор",
   baseURL: env.API_BASE_URL,
   basePath: "/api/vendor-auth",
   secret: env.VENDOR_AUTH_SECRET,
@@ -275,13 +275,13 @@ betterAuth({
   },
   plugins: [
     twoFactor({
-      issuer: "Партнер кодер (вендор)",
+      issuer: "Партнёр кодер (вендор)",
       backupCodeOptions: { amount: 10, storeBackupCodes: "encrypted" },
       // account lockout включён по умолчанию; точные лимиты — в тестах
     }),
     passkey({
       rpID: env.VENDOR_WEBAUTHN_RP_ID,
-      rpName: "Партнер кодер (вендор)",
+      rpName: "Партнёр кодер (вендор)",
       origin: [env.VENDOR_BASE_URL],
       authenticatorSelection: { userVerification: "required", residentKey: "required" },
       advanced: { webAuthnChallengeCookie: "pc-vendor-passkey" },

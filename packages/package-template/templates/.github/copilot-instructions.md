@@ -1,4 +1,4 @@
-# Инструкции для GitHub Copilot в пакете «Партнер кодер»
+# Инструкции для GitHub Copilot в пакете «Партнёр кодер»
 
 Используйте MCP-сервер `partner-coder` (конфиг `.vscode/mcp.json`).
 Онбординг: `partner_onboarding_start` → вопросы по одному →

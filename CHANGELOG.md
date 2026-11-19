@@ -100,6 +100,13 @@
   `partner_coder_worker` этот атрибут не наследует.
 - Сервисные домены закреплены за `pcoder.ru`: staging `staging.pcoder.ru`,
   prod `app./admin./api.pcoder.ru`; `partnercoder.ru` — маркетинг и help.
+- Зафиксированы бренд «Партнёр кодер», тарифы «Пилот/Базовый/Про»
+  (10 000/15 000/25 000 ₽ в месяц, 3/5/10 мест), статусы подписки, скидки,
+  роли и правила биллинга — `docs/01-product/brand.md`,
+  `docs/01-product/pricing.md`, `docs/04-security/authz.md`.
+- Добавлены черновики юридических документов (ToS, Privacy, DPA, согласие,
+  дисклеймер, договор подписки, чек-лист 152-ФЗ, варианты лицензии) и
+  предложение по retention/SLA; runbook PostgreSQL 17 на VPS MakeCloud.
 
 ### Security
 

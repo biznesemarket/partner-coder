@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Партнер кодер — SaaS-платформа учета вклада разработчиков, работающих с ИИ-агентами",
+  "description": "Партнёр кодер — SaaS-платформа учета вклада разработчиков, работающих с ИИ-агентами",
   "license": "SEE LICENSE IN LICENSE",
   "packageManager": "pnpm@10.33.2",
   "engines": {
