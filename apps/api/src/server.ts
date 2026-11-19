@@ -16,6 +16,7 @@ import type { VendorAuthRuntime } from "./vendor-auth/runtime.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerTenantRoutes } from "./routes/tenant.js";
 import { normalizeBaseUrl, registerVendorAuthRoutes } from "./routes/vendor-auth.js";
+import { registerVendorFinanceRoutes } from "./routes/vendor-finance.js";
 import { registerVendorRoutes } from "./routes/vendor.js";
 
 export { ApiError } from "./errors.js";
@@ -290,6 +291,7 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
         : { emailRateLimitStore: options.vendorEmailRateLimitStore }),
     });
     registerVendorRoutes(server, vendorSetup.runtime);
+    registerVendorFinanceRoutes(server, vendorSetup.runtime);
   }
 
   return server;

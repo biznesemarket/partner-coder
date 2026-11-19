@@ -1335,6 +1335,407 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/vendor/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Список клиентов */
+        get: {
+            parameters: {
+                query?: {
+                    status?: "lead" | "trial" | "active" | "grace" | "suspended" | "expired" | "churned";
+                    query?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Клиенты */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorCustomerListResponse"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Создать клиента */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VendorCustomerCreate"];
+                };
+            };
+            responses: {
+                /** @description Клиент создан */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorCustomerResponse"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль superadmin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Клиент с таким ИНН уже существует */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vendor/customers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Изменить клиента */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VendorCustomerUpdate"];
+                };
+            };
+            responses: {
+                /** @description Клиент обновлён */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorCustomerResponse"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль superadmin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Клиент не найден */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Клиент с таким ИНН уже существует */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/vendor/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Список тарифов */
+        get: {
+            parameters: {
+                query?: {
+                    activeOnly?: boolean;
+                    query?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Тарифы */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorPlanListResponse"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Создать тариф */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VendorPlanCreate"];
+                };
+            };
+            responses: {
+                /** @description Тариф создан */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorPlanResponse"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль superadmin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Тариф с таким кодом уже существует */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vendor/plans/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Изменить тариф */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VendorPlanUpdate"];
+                };
+            };
+            responses: {
+                /** @description Тариф обновлён */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorPlanResponse"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль superadmin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Тариф не найден */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1632,6 +2033,185 @@ export interface components {
             twoFactors: number;
             passkeys: number;
             sessions: number;
+        };
+        VendorCustomer: {
+            /** Format: uuid */
+            id: string;
+            legalName: string;
+            inn: string | null;
+            kpp: string | null;
+            contact: {
+                name?: string;
+                /** Format: email */
+                email?: string;
+                phone?: string;
+                address?: string;
+            };
+            /** @enum {string} */
+            status: "lead" | "trial" | "active" | "grace" | "suspended" | "expired" | "churned";
+            notes: string | null;
+            createdAt: string;
+            updatedAt: string;
+        };
+        VendorCustomerCreate: {
+            legalName: string;
+            inn?: string | null;
+            kpp?: string | null;
+            contact?: {
+                name?: string;
+                /** Format: email */
+                email?: string;
+                phone?: string;
+                address?: string;
+            };
+            /**
+             * @default lead
+             * @enum {string}
+             */
+            status: "lead" | "trial" | "active" | "grace" | "suspended" | "expired" | "churned";
+            notes?: string | null;
+        };
+        VendorCustomerUpdate: {
+            legalName?: string;
+            inn?: string | null;
+            kpp?: string | null;
+            contact?: {
+                name?: string;
+                /** Format: email */
+                email?: string;
+                phone?: string;
+                address?: string;
+            };
+            /** @enum {string} */
+            status?: "lead" | "trial" | "active" | "grace" | "suspended" | "expired" | "churned";
+            notes?: string | null;
+        };
+        VendorCustomerResponse: {
+            customer: {
+                /** Format: uuid */
+                id: string;
+                legalName: string;
+                inn: string | null;
+                kpp: string | null;
+                contact: {
+                    name?: string;
+                    /** Format: email */
+                    email?: string;
+                    phone?: string;
+                    address?: string;
+                };
+                /** @enum {string} */
+                status: "lead" | "trial" | "active" | "grace" | "suspended" | "expired" | "churned";
+                notes: string | null;
+                createdAt: string;
+                updatedAt: string;
+            };
+        };
+        VendorCustomerListResponse: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                legalName: string;
+                inn: string | null;
+                kpp: string | null;
+                contact: {
+                    name?: string;
+                    /** Format: email */
+                    email?: string;
+                    phone?: string;
+                    address?: string;
+                };
+                /** @enum {string} */
+                status: "lead" | "trial" | "active" | "grace" | "suspended" | "expired" | "churned";
+                notes: string | null;
+                createdAt: string;
+                updatedAt: string;
+            }[];
+        };
+        VendorPlan: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            priceKopecks: string;
+            /** @enum {string} */
+            period: "month" | "quarter" | "year";
+            seatsLimit: number;
+            projectsLimit: number;
+            features: {
+                [key: string]: boolean | number | string;
+            };
+            isActive: boolean;
+            createdAt: string;
+            updatedAt: string;
+        };
+        VendorPlanCreate: {
+            code: string;
+            name: string;
+            priceKopecks: string;
+            /**
+             * @default month
+             * @enum {string}
+             */
+            period: "month" | "quarter" | "year";
+            seatsLimit: number;
+            projectsLimit: number;
+            /** @default {} */
+            features: {
+                [key: string]: boolean | number | string;
+            };
+            /** @default true */
+            isActive: boolean;
+        };
+        VendorPlanUpdate: {
+            name?: string;
+            priceKopecks?: string;
+            /** @enum {string} */
+            period?: "month" | "quarter" | "year";
+            seatsLimit?: number;
+            projectsLimit?: number;
+            features?: {
+                [key: string]: boolean | number | string;
+            };
+            isActive?: boolean;
+        };
+        VendorPlanResponse: {
+            plan: {
+                /** Format: uuid */
+                id: string;
+                code: string;
+                name: string;
+                priceKopecks: string;
+                /** @enum {string} */
+                period: "month" | "quarter" | "year";
+                seatsLimit: number;
+                projectsLimit: number;
+                features: {
+                    [key: string]: boolean | number | string;
+                };
+                isActive: boolean;
+                createdAt: string;
+                updatedAt: string;
+            };
+        };
+        VendorPlanListResponse: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                code: string;
+                name: string;
+                priceKopecks: string;
+                /** @enum {string} */
+                period: "month" | "quarter" | "year";
+                seatsLimit: number;
+                projectsLimit: number;
+                features: {
+                    [key: string]: boolean | number | string;
+                };
+                isActive: boolean;
+                createdAt: string;
+                updatedAt: string;
+            }[];
         };
     };
     responses: never;

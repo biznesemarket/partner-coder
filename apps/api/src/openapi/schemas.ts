@@ -259,6 +259,140 @@ export const vendorMfaResetResponseSchema = z.object({
   sessions: z.number().int().nonnegative(),
 });
 
+export const vendorIdParamsSchema = z.object({ id: z.uuid() });
+
+export const vendorCustomerStatusSchema = z.enum([
+  "lead",
+  "trial",
+  "active",
+  "grace",
+  "suspended",
+  "expired",
+  "churned",
+]);
+
+export const vendorCustomerContactSchema = z.object({
+  name: z.string().trim().max(120).optional(),
+  email: z.email().optional(),
+  phone: z.string().trim().max(40).optional(),
+  address: z.string().trim().max(300).optional(),
+});
+
+const innSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{10,12}$/, "ИНН должен содержать 10–12 цифр");
+const kppSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{9}$/, "КПП должен содержать 9 цифр");
+
+export const vendorCustomerCreateSchema = z.object({
+  legalName: z.string().trim().min(1).max(200),
+  inn: innSchema.nullable().optional(),
+  kpp: kppSchema.nullable().optional(),
+  contact: vendorCustomerContactSchema.optional(),
+  status: vendorCustomerStatusSchema.default("lead"),
+  notes: z.string().trim().max(2000).nullable().optional(),
+});
+
+export const vendorCustomerUpdateSchema = z.object({
+  legalName: z.string().trim().min(1).max(200).optional(),
+  inn: innSchema.nullable().optional(),
+  kpp: kppSchema.nullable().optional(),
+  contact: vendorCustomerContactSchema.optional(),
+  status: vendorCustomerStatusSchema.optional(),
+  notes: z.string().trim().max(2000).nullable().optional(),
+});
+
+export const vendorCustomerSchema = z.object({
+  id: z.uuid(),
+  legalName: z.string(),
+  inn: z.string().nullable(),
+  kpp: z.string().nullable(),
+  contact: vendorCustomerContactSchema,
+  status: vendorCustomerStatusSchema,
+  notes: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const vendorCustomerResponseSchema = z.object({
+  customer: vendorCustomerSchema,
+});
+
+export const vendorCustomerListResponseSchema = z.object({
+  items: z.array(vendorCustomerSchema),
+});
+
+export const vendorCustomerListQuerySchema = z.object({
+  status: vendorCustomerStatusSchema.optional(),
+  query: z.string().trim().max(200).optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+
+export const vendorBillingPeriodSchema = z.enum(["month", "quarter", "year"]);
+
+export const vendorPlanFeaturesSchema = z.record(
+  z.string(),
+  z.union([z.boolean(), z.number(), z.string()]),
+);
+
+export const vendorPlanCreateSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9][a-z0-9_-]{1,31}$/, "Код тарифа: строчные латинские буквы, цифры, _ и -"),
+  name: z.string().trim().min(1).max(120),
+  priceKopecks: z.string().regex(/^\d+$/, "Цена в копейках должна быть целым числом"),
+  period: vendorBillingPeriodSchema.default("month"),
+  seatsLimit: z.number().int().min(1).max(1000),
+  projectsLimit: z.number().int().min(1).max(1000),
+  features: vendorPlanFeaturesSchema.default({}),
+  isActive: z.boolean().default(true),
+});
+
+export const vendorPlanUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  priceKopecks: z.string().regex(/^\d+$/).optional(),
+  period: vendorBillingPeriodSchema.optional(),
+  seatsLimit: z.number().int().min(1).max(1000).optional(),
+  projectsLimit: z.number().int().min(1).max(1000).optional(),
+  features: vendorPlanFeaturesSchema.optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const vendorPlanSchema = z.object({
+  id: z.uuid(),
+  code: z.string(),
+  name: z.string(),
+  priceKopecks: z.string(),
+  period: vendorBillingPeriodSchema,
+  seatsLimit: z.number().int(),
+  projectsLimit: z.number().int(),
+  features: vendorPlanFeaturesSchema,
+  isActive: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const vendorPlanResponseSchema = z.object({
+  plan: vendorPlanSchema,
+});
+
+export const vendorPlanListResponseSchema = z.object({
+  items: z.array(vendorPlanSchema),
+});
+
+export const vendorPlanListQuerySchema = z.object({
+  activeOnly: z
+    .enum(["true", "false"])
+    .transform((value) => value === "true")
+    .optional(),
+  query: z.string().trim().max(200).optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+
 export type InvitationCreateInput = z.infer<typeof invitationCreateSchema>;
 export type DeviceCreateInput = z.infer<typeof deviceCreateSchema>;
 export type DaysQueryInput = z.infer<typeof daysQuerySchema>;
