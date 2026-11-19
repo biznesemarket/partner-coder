@@ -58,7 +58,7 @@ export function createVendorAuth(options: CreateVendorAuthOptions) {
   const vendorBaseURL = normalizeBaseUrl(options.vendorBaseURL);
 
   return betterAuth({
-    appName: "Партнер кодер — вендор",
+    appName: "Партнёр кодер — вендор",
     baseURL: options.baseURL,
     basePath: "/api/vendor-auth",
     secret: options.secret,
@@ -77,13 +77,13 @@ export function createVendorAuth(options: CreateVendorAuthOptions) {
     }),
     plugins: [
       twoFactor({
-        issuer: "Партнер кодер (вендор)",
+        issuer: "Партнёр кодер (вендор)",
         backupCodeOptions: { amount: 10, storeBackupCodes: "encrypted" },
         accountLockout: { maxFailedAttempts: 5 },
       }),
       passkey({
         rpID: options.webauthnRpId,
-        rpName: "Партнер кодер (вендор)",
+        rpName: "Партнёр кодер (вендор)",
         origin: [vendorBaseURL],
         authenticatorSelection: { userVerification: "required", residentKey: "required" },
         advanced: { webAuthnChallengeCookie: "pc-vendor-passkey" },

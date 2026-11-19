@@ -352,7 +352,7 @@ describe("Vendor Better Auth: passkey", () => {
       headers: new Headers({ cookie: signedIn.cookie }),
     });
     expect(options.rp.id).toBe("vendor.example.test");
-    expect(options.rp.name).toBe("Партнер кодер (вендор)");
+    expect(options.rp.name).toBe("Партнёр кодер (вендор)");
     expect(options.authenticatorSelection).toMatchObject({
       residentKey: "required",
       userVerification: "required",
@@ -369,9 +369,9 @@ describe("Vendor Better Auth: TOTP и блокировка", () => {
     const { secret: plainSecret, backupCodes, totpURI } = await enableTotp(auth, email);
 
     const totpUrl = new URL(totpURI);
-    expect(totpUrl.searchParams.get("issuer")).toBe("Партнер кодер (вендор)");
+    expect(totpUrl.searchParams.get("issuer")).toBe("Партнёр кодер (вендор)");
     expect(decodeURIComponent(totpUrl.pathname.replace(/^\//, "")).split(":")[0]).toBe(
-      "Партнер кодер (вендор)",
+      "Партнёр кодер (вендор)",
     );
     expect(backupCodes).toHaveLength(10);
 

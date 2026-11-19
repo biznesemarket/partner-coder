@@ -10,10 +10,10 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Партнер кодер — консоль вендора",
-    template: "%s — Партнер кодер",
+    default: "Партнёр кодер — консоль вендора",
+    template: "%s — Партнёр кодер",
   },
-  description: "Консоль вендорских сотрудников «Партнер кодер».",
+  description: "Консоль вендорских сотрудников «Партнёр кодер».",
   robots: {
     index: false,
     follow: false,

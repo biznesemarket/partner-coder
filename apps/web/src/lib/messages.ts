@@ -15,7 +15,7 @@ export const statuses: Record<VendorUserStatus, string> = {
 };
 
 export const common = {
-  appName: "Партнер кодер",
+  appName: "Партнёр кодер",
   console: "Консоль вендора",
   loading: "Загрузка…",
   retry: "Повторить",

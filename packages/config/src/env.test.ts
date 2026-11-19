@@ -21,7 +21,7 @@ const validEnv = {
   S3_ACCESS_KEY: "partner",
   S3_SECRET_KEY: "partner-secret",
   SMTP_HOST: "localhost",
-  SMTP_FROM: "Партнер кодер <no-reply@partnercoder.local>",
+  SMTP_FROM: "Партнёр кодер <no-reply@partnercoder.local>",
 };
 
 const validStagingEnv = {
