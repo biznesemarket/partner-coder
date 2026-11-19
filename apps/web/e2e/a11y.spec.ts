@@ -59,6 +59,22 @@ test.describe("доступность: первый вход", () => {
   });
 });
 
+test.describe("доступность: финансы", () => {
+  test("страница клиентов", async ({ page }) => {
+    await page.goto("/clients");
+
+    await expect(page.getByRole("heading", { name: "Клиенты", level: 1 })).toBeVisible();
+    await expectNoSeriousViolations(page);
+  });
+
+  test("страница тарифов", async ({ page }) => {
+    await page.goto("/plans");
+
+    await expect(page.getByRole("heading", { name: "Тарифы", level: 1 })).toBeVisible();
+    await expectNoSeriousViolations(page);
+  });
+});
+
 test.describe("доступность: консоль", () => {
   test("страница профиля", async ({ page }) => {
     await page.goto("/me");
