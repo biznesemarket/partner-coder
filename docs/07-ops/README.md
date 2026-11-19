@@ -8,8 +8,8 @@
   PostgreSQL;
 - `deploy/environments/staging/makecloud-vps.md` — PostgreSQL 17 на VPS
   MakeCloud, TLS, бэкапы и restore drill;
-- `retention-sla.md` — предложение по срокам хранения, бэкапам, SLA и
-  поддержке;
+- `retention-sla.md` — сроки хранения, бэкапы, SLA и поддержка;
+- `break-glass.md` — аварийное восстановление доступа суперадминистратора;
 - метрики API `/metrics` и worker `:4100/metrics`, pino-логи с redaction;
 - ADR-0011 — семантика заданий, якорей и retention.
 
