@@ -53,6 +53,7 @@ test.describe("доступность: первый вход", () => {
 
     await page.waitForURL((url) => url.pathname === "/setup-mfa");
     await expect(page.getByRole("heading", { name: "Шаг 1. Подтвердите пароль" })).toBeVisible();
+    await expect(page).toHaveTitle(/Настройка двухфакторной аутентификации/);
 
     await expectNoSeriousViolations(page);
   });
