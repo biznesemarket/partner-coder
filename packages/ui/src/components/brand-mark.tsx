@@ -18,9 +18,9 @@ function BrandMark({ className, showName = true }: BrandMarkProps) {
         ПК
       </span>
       {showName ? (
-        <span className="text-base font-semibold tracking-tight">Партнер кодер</span>
+        <span className="text-base font-semibold tracking-tight">Партнёр кодер</span>
       ) : (
-        <span className="sr-only">Партнер кодер</span>
+        <span className="sr-only">Партнёр кодер</span>
       )}
     </span>
   );

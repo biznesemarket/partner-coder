@@ -86,6 +86,34 @@
   обязателен и проверяется на формат и суффикс хоста `VENDOR_BASE_URL`.
 - `pnpm test:e2e` и `pnpm test:e2e:full` дополняют проверки; `pnpm check`
   по-прежнему требует PostgreSQL.
+- E2E hardening: Mailpit зафиксирован (`axllent/mailpit:v1.33.1`) и получил
+  healthcheck `/readyz` в compose/CI; Playwright пишет trace
+  `retain-on-failure` и выгружает отчёт/`test-results` артефактом при падении;
+  E2E использует `RATE_LIMIT_STORAGE=database` и очищает окна
+  `vendor_auth_rate_limits`/`vendor_auth_email_limits` перед входами, чтобы
+  special-rule Better Auth 3/10 с за BFF не давал 429 вместо проверяемой
+  ошибки. Job `e2e` после трёх зелёных прогонов переведён в required checks
+  ruleset.
+- Managed PostgreSQL runbook: `deploy/environments/staging/managed-postgres.md`
+  (роли, `BYPASSRLS`, pgboss, rate-limit, retention, бэкапы). Worker при
+  старте вне local теперь требует `BYPASSRLS` на самом login: членство в
+  `partner_coder_worker` этот атрибут не наследует.
+- Сервисные домены закреплены за `pcoder.ru`: staging `staging.pcoder.ru`,
+  prod `app./admin./api.pcoder.ru`; `partnercoder.ru` — маркетинг и help.
+- Зафиксированы бренд «Партнёр кодер», тарифы «Пилот/Базовый/Про»
+  (10 000/15 000/25 000 ₽ в месяц, 3/5/10 мест), статусы подписки, скидки,
+  роли и правила биллинга — `docs/01-product/brand.md`,
+  `docs/01-product/pricing.md`, `docs/04-security/authz.md`.
+- Добавлены черновики юридических документов (ToS, Privacy, DPA, согласие,
+  дисклеймер, договор подписки, чек-лист 152-ФЗ, варианты лицензии) и
+  предложение по retention/SLA; runbook PostgreSQL 17 на VPS MakeCloud.
+- Утверждены статусы trial/grace/expired/suspended, лимиты и правило
+  `support`; добавлен break-glass для восстановления единственного
+  суперадминистратора.
+- M3.1, первый срез: API и экраны клиентов и тарифов. `superadmin` создаёт и
+  меняет; `finance`/`support`/`readonly` читают; действия пишутся в аудит;
+  дубли ИНН и кода тарифа отклоняются. Экраны `/clients` и `/plans` с
+  созданием записей, E2E и a11y.
 
 ### Security
 

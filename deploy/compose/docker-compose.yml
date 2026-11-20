@@ -20,7 +20,8 @@ services:
       retries: 10
 
   mailpit:
-    image: axllent/mailpit:latest
+    # Версия зафиксирована: E2E и staging-smoke зависят от HTTP API Mailpit.
+    image: axllent/mailpit:v1.33.1
     container_name: partner-coder-mailpit
     restart: unless-stopped
     ports:
@@ -30,6 +31,11 @@ services:
       MP_MAX_MESSAGES: 500
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8025/readyz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   minio:
     # Официальные образы MinIO удалены из registry; SILO — поддерживаемый форк.

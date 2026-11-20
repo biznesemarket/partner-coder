@@ -3,7 +3,7 @@
  * Значения по умолчанию для политики живут в `@partner-coder/domain`.
  */
 export const PRODUCT = {
-  name: "Партнер кодер",
+  name: "Партнёр кодер",
   vendor: "Partner Coder",
   defaultCurrency: "RUB",
   defaultLocale: "ru-RU",

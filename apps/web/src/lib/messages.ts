@@ -14,8 +14,24 @@ export const statuses: Record<VendorUserStatus, string> = {
   disabled: "Отключён",
 };
 
+export const customerStatuses = {
+  lead: "Лид",
+  trial: "Пробный",
+  active: "Активен",
+  grace: "Льготный период",
+  suspended: "Приостановлен",
+  expired: "Истёк",
+  churned: "Ушёл",
+} as const;
+
+export const planPeriods = {
+  month: "Месяц",
+  quarter: "Квартал",
+  year: "Год",
+} as const;
+
 export const common = {
-  appName: "Партнер кодер",
+  appName: "Партнёр кодер",
   console: "Консоль вендора",
   loading: "Загрузка…",
   retry: "Повторить",
@@ -31,8 +47,57 @@ export const common = {
 } as const;
 
 export const nav = {
+  clients: "Клиенты",
+  plans: "Тарифы",
   profile: "Профиль",
   security: "Безопасность",
+} as const;
+
+export const clients = {
+  title: "Клиенты",
+  description: "Организации, с которыми работает вендор.",
+  emptyTitle: "Клиентов пока нет",
+  emptyDescription: "Создайте первого клиента, чтобы выставить счёт и подключить тариф.",
+  create: "Создать клиента",
+  createTitle: "Новый клиент",
+  createDescription: "Реквизиты можно уточнить позже.",
+  legalNameLabel: "Название организации",
+  innLabel: "ИНН",
+  kppLabel: "КПП",
+  contactNameLabel: "Контактное лицо",
+  contactEmailLabel: "Email контакта",
+  notesLabel: "Заметки",
+  legalNameRequired: "Введите название организации",
+  innFormat: "ИНН должен содержать 10–12 цифр",
+  kppFormat: "КПП должен содержать 9 цифр",
+  submit: "Создать",
+  pending: "Создаём…",
+  created: "Клиент создан",
+} as const;
+
+export const plans = {
+  title: "Тарифы",
+  description: "Цены, места и лимиты проектов.",
+  emptyTitle: "Тарифов пока нет",
+  emptyDescription: "Создайте «Пилот», «Базовый» и «Про».",
+  create: "Создать тариф",
+  createTitle: "Новый тариф",
+  createDescription: "Код тарифа нельзя изменить после создания.",
+  codeLabel: "Код",
+  nameLabel: "Название",
+  priceLabel: "Цена, ₽/мес",
+  periodLabel: "Период",
+  seatsLabel: "Мест",
+  projectsLabel: "Проектов",
+  activeLabel: "Активен",
+  codeFormat: "Код: строчные латинские буквы, цифры, _ и -",
+  nameRequired: "Введите название тарифа",
+  priceFormat: "Укажите цену целым числом",
+  seatsFormat: "Мест должно быть не меньше 1",
+  projectsFormat: "Проектов должно быть не меньше 1",
+  submit: "Создать",
+  pending: "Создаём…",
+  created: "Тариф создан",
 } as const;
 
 export const profile = {
@@ -210,6 +275,9 @@ export const errors = {
   cancelled: "Действие отменено",
   mfaRequired: "Сначала включите TOTP",
   stepUpRequired: "Требуется повторное подтверждение пароля",
+  customerInnExists: "Клиент с таким ИНН уже существует",
+  planCodeExists: "Тариф с таким кодом уже существует",
+  createFailed: "Не удалось создать запись. Проверьте данные и повторите.",
   serviceUnavailable: "Сервис временно недоступен",
   serviceUnavailableDescription: "Не удалось получить данные. Повторите попытку позже.",
   signOutFailed: "Не удалось выйти. Попробуйте ещё раз.",
@@ -219,8 +287,12 @@ export const errors = {
 export const messages = {
   roles,
   statuses,
+  customerStatuses,
+  planPeriods,
   common,
   nav,
+  clients,
+  plans,
   profile,
   session,
   security,

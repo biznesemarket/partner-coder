@@ -17,6 +17,7 @@ import {
 } from "../../../../packages/db/test/helpers.js";
 import { MemoryMailer } from "../auth/mailer.js";
 import { ApiError } from "../errors.js";
+import { registerVendorFinanceRoutes } from "../routes/vendor-finance.js";
 import { registerVendorRoutes } from "../routes/vendor.js";
 import { createVendorAuth, type VendorAuth } from "./config.js";
 import type { VendorAuthRuntime, VendorIdentity } from "./runtime.js";
@@ -154,6 +155,7 @@ function buildApp(): FastifyInstance {
     });
   });
   registerVendorRoutes(app, runtime());
+  registerVendorFinanceRoutes(app, runtime());
   openApps.push(app);
   return app;
 }
@@ -687,5 +689,151 @@ describe("vendor auth routes", () => {
     });
     expect(limited.statusCode).toBe(429);
     expect(limited.json()).toMatchObject({ error: { code: "email_rate_limited" } });
+  });
+});
+
+describe("vendor finance routes", () => {
+  it("superadmin создаёт клиента и аудирует", async () => {
+    const admin = await seedUser({ role: "superadmin", twoFactorEnabled: true });
+    setSession(identity({ userId: admin.id, email: admin.email }));
+    const app = buildApp();
+    const legalName = `Клиент ${randomUUID()}`;
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/vendor/customers",
+      payload: { legalName, status: "lead" },
+    });
+
+    expect(created.statusCode).toBe(201);
+    const body = created.json();
+    expect(body.customer).toMatchObject({ legalName, status: "lead" });
+    expect(body.customer.id).toBeTypeOf("string");
+    expect(await latestAudit("vendor.customer.created")).toMatchObject({
+      actor_id: admin.id,
+      after: { customerId: body.customer.id, status: "lead" },
+    });
+  });
+
+  it("support читает клиентов, finance не создаёт", async () => {
+    const admin = await seedUser({ role: "superadmin", twoFactorEnabled: true });
+    setSession(identity({ userId: admin.id, email: admin.email }));
+    const app = buildApp();
+    const legalName = `Клиент ${randomUUID()}`;
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/vendor/customers",
+      payload: { legalName },
+    });
+    expect(created.statusCode).toBe(201);
+
+    const support = await seedUser({ role: "support", twoFactorEnabled: true });
+    setSession(identity({ userId: support.id, email: support.email, role: "support" }));
+    const list = await app.inject({ method: "GET", url: "/v1/vendor/customers" });
+    expect(list.statusCode).toBe(200);
+    expect(list.json().items).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: created.json().customer.id })]),
+    );
+
+    const finance = await seedUser({ role: "finance", twoFactorEnabled: true });
+    setSession(identity({ userId: finance.id, email: finance.email, role: "finance" }));
+    const denied = await app.inject({
+      method: "POST",
+      url: "/v1/vendor/customers",
+      payload: { legalName: `Запрет ${randomUUID()}` },
+    });
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json()).toMatchObject({ error: { code: "vendor_role_denied" } });
+  });
+
+  it("superadmin создаёт и обновляет тариф", async () => {
+    const admin = await seedUser({ role: "superadmin", twoFactorEnabled: true });
+    setSession(identity({ userId: admin.id, email: admin.email }));
+    const app = buildApp();
+    const code = `plan-${randomUUID().slice(0, 8)}`;
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/vendor/plans",
+      payload: {
+        code,
+        name: "Базовый",
+        priceKopecks: "1500000",
+        seatsLimit: 5,
+        projectsLimit: 3,
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().plan).toMatchObject({
+      code,
+      priceKopecks: "1500000",
+      seatsLimit: 5,
+      projectsLimit: 3,
+    });
+
+    const updated = await app.inject({
+      method: "PATCH",
+      url: `/v1/vendor/plans/${created.json().plan.id}`,
+      payload: { priceKopecks: "1600000" },
+    });
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json().plan.priceKopecks).toBe("1600000");
+    expect(await latestAudit("vendor.plan.updated")).toMatchObject({ actor_id: admin.id });
+  });
+
+  it("не даёт создать тариф с занятым кодом", async () => {
+    const admin = await seedUser({ role: "superadmin", twoFactorEnabled: true });
+    setSession(identity({ userId: admin.id, email: admin.email }));
+    const app = buildApp();
+    const code = `plan-${randomUUID().slice(0, 8)}`;
+    const payload = {
+      code,
+      name: "Пилот",
+      priceKopecks: "1000000",
+      seatsLimit: 3,
+      projectsLimit: 1,
+    };
+
+    expect(
+      (await app.inject({ method: "POST", url: "/v1/vendor/plans", payload })).statusCode,
+    ).toBe(201);
+    const duplicate = await app.inject({ method: "POST", url: "/v1/vendor/plans", payload });
+    expect(duplicate.statusCode).toBe(409);
+    expect(duplicate.json()).toMatchObject({ error: { code: "vendor_plan_code_exists" } });
+  });
+
+  it("superadmin обновляет клиента и не даёт продублировать ИНН", async () => {
+    const admin = await seedUser({ role: "superadmin", twoFactorEnabled: true });
+    setSession(identity({ userId: admin.id, email: admin.email }));
+    const app = buildApp();
+    const inn = randomUUID().replace(/\D/g, "").slice(0, 10).padEnd(10, "0");
+    const legalName = `Клиент ${randomUUID()}`;
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/vendor/customers",
+      payload: { legalName, inn },
+    });
+    expect(created.statusCode).toBe(201);
+
+    const updated = await app.inject({
+      method: "PATCH",
+      url: `/v1/vendor/customers/${created.json().customer.id}`,
+      payload: { status: "active" },
+    });
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json().customer.status).toBe("active");
+    expect(await latestAudit("vendor.customer.updated")).toMatchObject({
+      actor_id: admin.id,
+      after: { customerId: created.json().customer.id, status: "active" },
+    });
+
+    const duplicate = await app.inject({
+      method: "POST",
+      url: "/v1/vendor/customers",
+      payload: { legalName: `Другой ${randomUUID()}`, inn },
+    });
+    expect(duplicate.statusCode).toBe(409);
+    expect(duplicate.json()).toMatchObject({ error: { code: "vendor_customer_inn_exists" } });
   });
 });

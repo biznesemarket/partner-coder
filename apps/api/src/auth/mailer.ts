@@ -64,7 +64,7 @@ export class SmtpMailer implements AuthMailer {
     await this.transporter.sendMail({
       from: this.env.SMTP_FROM,
       to: mail.email,
-      subject: "Код входа в «Партнер кодер»",
+      subject: "Код входа в «Партнёр кодер»",
       text:
         `Код для входа: ${mail.otp}\n\n` +
         `Код действует 10 минут. Если вы не запрашивали вход, просто игнорируйте письмо.`,
@@ -75,7 +75,7 @@ export class SmtpMailer implements AuthMailer {
     await this.transporter.sendMail({
       from: this.env.SMTP_FROM,
       to: mail.email,
-      subject: "Ссылка для входа в «Партнер кодер»",
+      subject: "Ссылка для входа в «Партнёр кодер»",
       text:
         `Откройте ссылку для входа: ${mail.url}\n\n` +
         `Ссылка одноразовая и действует ограниченное время. ` +
@@ -87,7 +87,7 @@ export class SmtpMailer implements AuthMailer {
     await this.transporter.sendMail({
       from: this.env.SMTP_FROM,
       to: mail.email,
-      subject: "Доступ к консоли вендора «Партнер кодер»",
+      subject: "Доступ к консоли вендора «Партнёр кодер»",
       text:
         `Откройте ссылку для сброса пароля: ${mail.url}\n\n` +
         `Ссылка действует ${mail.ttlMinutes} минут. Если вы не запрашивали сброс пароля, ` +

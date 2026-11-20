@@ -1,5 +1,5 @@
 {
-  "apiBaseUrl": "https://api.partnercoder.ru",
+  "apiBaseUrl": "https://api.pcoder.ru",
   "packageId": "pkg_demo",
   "tenantSlug": "demo",
   "customerName": "Демо-клиент",

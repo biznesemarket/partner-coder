@@ -2,6 +2,8 @@
 
 Статус: конфигурация и чек-лист готовы; фактический деплой ждет выбора
 хостинга/региона и managed PostgreSQL (открытые вопросы мега-плана §14).
+Провижининг ролей и ограничения managed PG — в
+[`managed-postgres.md`](./managed-postgres.md).
 
 ## Состав
 
@@ -29,9 +31,9 @@
 только `https://` с реальным доменом консоли. Вне local значение обязательно.
 
 `VENDOR_WEBAUTHN_RP_ID` — канонический хост консоли **без схемы, порта и
-пути** (например, `admin.partnercoder.ru`), не origin. Он должен совпадать с
+пути** (например, `admin.pcoder.ru`), не origin. Он должен совпадать с
 хостом `VENDOR_BASE_URL` или быть его родительским доменом
-(`partnercoder.ru` для `admin.partnercoder.ru`); иначе API не стартует.
+(`pcoder.ru` для `admin.pcoder.ru`); иначе API не стартует.
 Passkeys привязаны к origin и rpID: смена домена или порта требует
 перерегистрации ключей, preview-домены для passkeys не подходят.
 
@@ -90,8 +92,11 @@ TOTP при этом не меняются; `vendor.user.invited`/`password_rese
 2. API login состоит только в `partner_coder_api`; auth login — только в
    `partner_coder_auth`; vendor login — только в `partner_coder_vendor`;
    vendor-auth login — только в `partner_coder_vendor_auth`; worker login —
-   в `partner_coder_worker` (BYPASSRLS). Смешение ролей, superuser и чужое
-   членство вне `local` роняют старт API и worker.
+   в `partner_coder_worker` (BYPASSRLS). **Worker login должен иметь
+   `BYPASSRLS` собственным атрибутом:** членство в роли этот атрибут не
+   наследует (проверено на PostgreSQL 17), а worker не делает `SET ROLE`.
+   Старт worker вне local проверяет и членство, и `BYPASSRLS`. Смешение
+   ролей, superuser и чужое членство вне `local` роняют старт API и worker.
 3. Worker login должен уметь создать/владеть схемой `pgboss` (или схема
    создается миграцией/администратором заранее).
 4. Retention-функция `retention_delete_heartbeats` принадлежит
@@ -104,6 +109,12 @@ TOTP при этом не меняются; `vendor.user.invited`/`password_rese
    `partner_coder_vendor` не видит `vendor_auth_*`; API/auth не видят
    вендорский контур. RLS на вендорских таблицах отсутствует по решению
    ADR-0013.
+7. Managed PG: миграция `0001` всегда выполняет
+   `ALTER ROLE partner_coder_worker BYPASSRLS`, поэтому провайдер должен
+   разрешать этот шаг (в stock PostgreSQL — superuser). `ALTER FUNCTION ...
+OWNER TO` требует членства мигратора в роли-владельце и `CREATE` на схему
+   `public`. Проверить до оплаты тарифа; детали и SQL — в
+   [`managed-postgres.md`](./managed-postgres.md).
 
 ## Порядок выката
 
@@ -152,10 +163,10 @@ CLI использует `VENDOR_DATABASE_URL`/`VENDOR_AUTH_DATABASE_URL`, со�
 ## Smoke
 
 ```bash
-curl -fsS https://staging-api.partnercoder.ru/healthz
-curl -fsS https://staging-api.partnercoder.ru/readyz
-curl -fsS https://staging-api.partnercoder.ru/openapi.json > /dev/null
-curl -fsS https://staging-api.partnercoder.ru/metrics | head
+curl -fsS https://staging-api.pcoder.ru/healthz
+curl -fsS https://staging-api.pcoder.ru/readyz
+curl -fsS https://staging-api.pcoder.ru/openapi.json > /dev/null
+curl -fsS https://staging-api.pcoder.ru/metrics | head
 ```
 
 Затем: OTP через Mailpit/SMTP → `/v1/auth/me` → `/v1/tenant/overview` →

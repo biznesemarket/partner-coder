@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Спасибо за сообщение. **Не публикуйте** здесь секреты, токены, персональные данные и код клиентов.
-        Уязвимости безопасности — на security@partnercoder.ru (см. SECURITY.md).
+        Уязвимости безопасности — на security@pcoder.ru (см. SECURITY.md).
   - type: textarea
     id: what-happened
     attributes:

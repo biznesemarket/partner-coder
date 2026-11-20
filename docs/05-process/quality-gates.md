@@ -54,14 +54,22 @@ pnpm test:e2e:full  # pnpm build + pnpm test:e2e
 
 - Нужны запущенные PostgreSQL и Mailpit; `prepare.mjs` пересоздаёт БД
   `partner_coder_e2e`, применяет миграции, создаёт e2e-админов и очищает
-  Mailpit.
+  Mailpit. Mailpit зафиксирован по версии (`axllent/mailpit:v1.33.1`) и имеет
+  healthcheck `/readyz` в compose и CI.
 - Playwright сам поднимает API (`node ../api/dist/main.js`) и web
   (`pnpm start`) на портах 4000/3001; `reuseExistingServer: false`.
 - CI job `e2e` в `.github/workflows/ci.yml` использует сервисы PostgreSQL и
   Mailpit, ставит Chromium и выполняет `pnpm build` + `pnpm test:e2e`.
-- Job пока **не входит** в обязательные проверки PR (format/lint/typecheck/
-  test/build, commit messages, secret scan, CodeQL). Кандидат в обязательные
-  после стабилизации: сначала набрать зелёные прогоны и убрать flakiness.
+  `trace: retain-on-failure`, screenshot/video на падении; при ошибке job
+  выгружает `apps/web/playwright-report` и `apps/web/test-results` артефактом.
+- E2E использует `RATE_LIMIT_STORAGE=database` (как staging). Перед входом
+  тесты очищают `vendor_auth_rate_limits` и `vendor_auth_email_limits`, чтобы
+  special-rule Better Auth (`/sign-in*` — 3/10 с на IP+путь за BFF) и
+  per-email 5/60 не зависели от порядка тестов и входов setup-проекта.
+- Job входит в обязательные проверки PR: required check `Vendor console E2E`
+  в ruleset `main protection` (после трёх зелёных прогонов PR #21). Остальные
+  обязательные проверки: format/lint/typecheck/test/build, commit messages,
+  secret scan, CodeQL.
 - Vitest не подхватывает `apps/web/e2e/*.spec.ts`: это отдельный Playwright
   набор, а не unit-тесты.
 

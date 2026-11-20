@@ -17,7 +17,7 @@ type MeResponse = {
   body: unknown;
 };
 
-function vendorCookieHeader(cookiesToForward: { name: string; value: string }[]): string {
+export function vendorCookieHeader(cookiesToForward: { name: string; value: string }[]): string {
   return cookiesToForward
     .filter(({ name }) => name.startsWith(VENDOR_COOKIE_PREFIX))
     .map(({ name, value }) => `${name}=${value}`)

@@ -40,7 +40,7 @@ export interface CreateAuthOptions {
  */
 export function createAuth(options: CreateAuthOptions) {
   return betterAuth({
-    appName: "Партнер кодер",
+    appName: "Партнёр кодер",
     baseURL: options.baseURL,
     basePath: "/api/auth",
     secret: options.secret,
