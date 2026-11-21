@@ -2852,6 +2852,267 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/vendor/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Список пакетов подключения */
+        get: {
+            parameters: {
+                query?: {
+                    customerId?: string;
+                    status?: "issued" | "downloaded" | "activated" | "expired" | "revoked";
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Пакеты */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorProvisioningPackageListResponse"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vendor/customers/{id}/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Выдать пакет подключения
+         * @description Только superadmin. Токен возвращается один раз.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Пакет выдан */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorProvisioningPackageIssueResponse"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль superadmin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Клиент не найден */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vendor/packages/{id}/reissue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Перевыпустить пакет
+         * @description Только superadmin и support. Старый пакет отзывается.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["VendorProvisioningPackageReissue"];
+                };
+            };
+            responses: {
+                /** @description Пакет перевыпущен */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorProvisioningPackageIssueResponse"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль superadmin/support */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Пакет или клиент не найден */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vendor/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Сводка воронки */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Счётчики по статусам */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorDashboard"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3688,6 +3949,100 @@ export interface components {
         VendorCustomerResume: {
             periodStart?: string;
             periodEnd?: string;
+            reason?: string;
+        };
+        VendorDashboard: {
+            customers: {
+                total: number;
+                byStatus: {
+                    [key: string]: number;
+                };
+            };
+            subscriptions: {
+                total: number;
+                byStatus: {
+                    [key: string]: number;
+                };
+            };
+            invoices: {
+                total: number;
+                byStatus: {
+                    [key: string]: number;
+                };
+            };
+            packages: {
+                total: number;
+                byStatus: {
+                    [key: string]: number;
+                };
+            };
+            onboarding: {
+                total: number;
+                byState: {
+                    [key: string]: number;
+                };
+            };
+        };
+        VendorProvisioningPackage: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            customerId: string;
+            customerLegalName: string;
+            tokenPrefix: string;
+            version: string;
+            checksum: string | null;
+            /** @enum {string} */
+            status: "issued" | "downloaded" | "activated" | "expired" | "revoked";
+            expiresAt: string;
+            activatedAt: string | null;
+            activatedIp: string | null;
+            createdBy: string | null;
+            createdAt: string;
+            updatedAt: string;
+        };
+        VendorProvisioningPackageIssueResponse: {
+            package: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                customerId: string;
+                customerLegalName: string;
+                tokenPrefix: string;
+                version: string;
+                checksum: string | null;
+                /** @enum {string} */
+                status: "issued" | "downloaded" | "activated" | "expired" | "revoked";
+                expiresAt: string;
+                activatedAt: string | null;
+                activatedIp: string | null;
+                createdBy: string | null;
+                createdAt: string;
+                updatedAt: string;
+            };
+            token: string;
+        };
+        VendorProvisioningPackageListResponse: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                customerId: string;
+                customerLegalName: string;
+                tokenPrefix: string;
+                version: string;
+                checksum: string | null;
+                /** @enum {string} */
+                status: "issued" | "downloaded" | "activated" | "expired" | "revoked";
+                expiresAt: string;
+                activatedAt: string | null;
+                activatedIp: string | null;
+                createdBy: string | null;
+                createdAt: string;
+                updatedAt: string;
+            }[];
+        };
+        VendorProvisioningPackageReissue: {
             reason?: string;
         };
     };

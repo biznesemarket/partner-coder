@@ -183,6 +183,8 @@ const vendorRuntime: VendorAuthRuntime = {
   authDb: vendorAuthDb,
   vendorBaseUrl,
   stepUpMinutes: 5,
+  packageTtlDays: env.PACKAGE_TTL_DAYS,
+  packageVersion: env.MCP_MIN_VERSION,
 };
 
 const { buildServer } = await import("./server.js");

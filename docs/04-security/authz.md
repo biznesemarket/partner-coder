@@ -181,6 +181,11 @@ Step-up обязателен для: создания/изменения счё�
 - `superadmin` не создаёт счёт и не вносит платёж вручную: это делает
   бухгалтерия через `finance`.
 - `support` не меняет деньги и статусы, но может перевыпустить пакет.
+  Реализовано: `GET /v1/vendor/packages`, `POST
+/v1/vendor/customers/:id/packages` (superadmin), `POST
+/v1/vendor/packages/:id/reissue` (superadmin, support), `GET
+/v1/vendor/dashboard`. Токен пакета показывается один раз, в БД — только
+  SHA-256; в аудите — `tokenPrefix`. Step-up для пакетов не требуется.
 - Резервного `superadmin` нет. Это утверждённый риск; восстановление —
   break-glass через владельца БД по `docs/07-ops/break-glass.md`, пока не
   появится второй администратор.

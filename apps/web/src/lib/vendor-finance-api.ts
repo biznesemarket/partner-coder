@@ -10,7 +10,9 @@ import {
   parseVendorDiscountList,
   parseVendorInvoiceList,
   parseVendorPaymentList,
+  parseVendorDashboard,
   parseVendorPlanList,
+  parseVendorProvisioningPackageList,
   parseVendorSubscriptionList,
   type VendorContract,
   type VendorCustomer,
@@ -18,7 +20,9 @@ import {
   type VendorInvoice,
   type VendorListResult,
   type VendorPayment,
+  type VendorDashboard,
   type VendorPlan,
+  type VendorProvisioningPackage,
   type VendorSubscription,
 } from "./vendor-finance-types";
 import { vendorCookieHeader } from "./vendor-api";
@@ -109,6 +113,20 @@ export const listVendorPayments = cache(
         : `/v1/vendor/payments?customerId=${encodeURIComponent(customerId)}`,
       parseVendorPaymentList,
     ),
+);
+
+export const listVendorPackages = cache(
+  async (customerId?: string): Promise<VendorListResult<VendorProvisioningPackage>> =>
+    requestList(
+      customerId === undefined
+        ? "/v1/vendor/packages"
+        : `/v1/vendor/packages?customerId=${encodeURIComponent(customerId)}`,
+      parseVendorProvisioningPackageList,
+    ),
+);
+
+export const getVendorDashboard = cache(async (): Promise<VendorItemResult<VendorDashboard>> =>
+  requestItem("/v1/vendor/dashboard", parseVendorDashboard),
 );
 
 export const listVendorDiscounts = cache(

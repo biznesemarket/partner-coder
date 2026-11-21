@@ -17,7 +17,9 @@ import { registerAuthRoutes } from "./routes/auth.js";
 import { registerTenantRoutes } from "./routes/tenant.js";
 import { normalizeBaseUrl, registerVendorAuthRoutes } from "./routes/vendor-auth.js";
 import { registerVendorBillingRoutes } from "./routes/vendor-billing.js";
+import { registerVendorDashboardRoutes } from "./routes/vendor-dashboard.js";
 import { registerVendorFinanceRoutes } from "./routes/vendor-finance.js";
+import { registerVendorPackageRoutes } from "./routes/vendor-packages.js";
 import { registerVendorRoutes } from "./routes/vendor.js";
 
 export { ApiError } from "./errors.js";
@@ -294,6 +296,8 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
     registerVendorRoutes(server, vendorSetup.runtime);
     registerVendorFinanceRoutes(server, vendorSetup.runtime);
     registerVendorBillingRoutes(server, vendorSetup.runtime);
+    registerVendorPackageRoutes(server, vendorSetup.runtime);
+    registerVendorDashboardRoutes(server, vendorSetup.runtime);
   }
 
   return server;

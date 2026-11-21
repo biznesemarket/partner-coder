@@ -30,6 +30,8 @@ export interface VendorAuthRuntime {
   readonly authDb: Database;
   readonly vendorBaseUrl: string;
   readonly stepUpMinutes: number;
+  readonly packageTtlDays?: number;
+  readonly packageVersion?: string;
 }
 
 export interface VendorAuthLogger {

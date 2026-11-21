@@ -13,6 +13,7 @@ import { redirect } from "next/navigation";
 
 import { ConsoleGuard } from "@/components/console/console-guard";
 import { CreateInvoiceDialog } from "@/components/console/create-invoice-dialog";
+import { IssuePackageDialog, ReissuePackageDialog } from "@/components/console/package-actions";
 import { RecordPaymentDialog } from "@/components/console/record-payment-dialog";
 import { RenewSubscriptionDialog } from "@/components/console/renew-subscription-dialog";
 import { ServiceUnavailable } from "@/components/console/service-unavailable";
@@ -22,6 +23,7 @@ import {
   listVendorContracts,
   listVendorDiscounts,
   listVendorInvoices,
+  listVendorPackages,
   listVendorPayments,
   listVendorPlans,
   listVendorSubscriptions,
@@ -32,6 +34,7 @@ import type {
   VendorInvoice,
   VendorPayment,
   VendorPlan,
+  VendorProvisioningPackage,
   VendorSubscription,
 } from "@/lib/vendor-finance-types";
 
@@ -237,6 +240,67 @@ function InvoicesTable({ invoices }: { invoices: readonly VendorInvoice[] }) {
   );
 }
 
+function PackagesTable({
+  packages,
+  canReissue,
+}: {
+  packages: readonly VendorProvisioningPackage[];
+  canReissue: boolean;
+}) {
+  if (packages.length === 0) {
+    return (
+      <EmptyState
+        title={messages.packages.emptyTitle}
+        description={messages.packages.emptyDescription}
+      />
+    );
+  }
+  return (
+    <div className="overflow-x-auto rounded-lg border">
+      <table className="w-full min-w-[760px] text-sm">
+        <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+          <tr>
+            <th scope="col" className="px-4 py-3 font-medium">
+              {messages.packages.prefixLabel}
+            </th>
+            <th scope="col" className="px-4 py-3 font-medium">
+              {messages.packages.versionLabel}
+            </th>
+            <th scope="col" className="px-4 py-3 font-medium">
+              {messages.packages.statusLabel}
+            </th>
+            <th scope="col" className="px-4 py-3 font-medium">
+              {messages.packages.expiresLabel}
+            </th>
+            <th scope="col" className="px-4 py-3 font-medium">
+              {messages.packages.createdLabel}
+            </th>
+            {canReissue ? <th scope="col" className="px-4 py-3 font-medium" /> : null}
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {packages.map((pkg) => (
+            <tr key={pkg.id}>
+              <td className="px-4 py-3 font-mono text-xs">{pkg.tokenPrefix}…</td>
+              <td className="px-4 py-3">{pkg.version}</td>
+              <td className="px-4 py-3">
+                <Badge variant="secondary">{messages.packageStatuses[pkg.status]}</Badge>
+              </td>
+              <td className="px-4 py-3 text-muted-foreground">{formatDateTime(pkg.expiresAt)}</td>
+              <td className="px-4 py-3 text-muted-foreground">{formatDateTime(pkg.createdAt)}</td>
+              {canReissue ? (
+                <td className="px-4 py-3 text-right">
+                  <ReissuePackageDialog packageId={pkg.id} />
+                </td>
+              ) : null}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function PaymentsTable({ payments }: { payments: readonly VendorPayment[] }) {
   if (payments.length === 0) {
     return (
@@ -294,12 +358,22 @@ function activeDiscount(discounts: readonly VendorDiscount[]): VendorDiscount | 
   );
 }
 
-async function ClientView({ customerId, canFinance }: { customerId: string; canFinance: boolean }) {
+async function ClientView({
+  customerId,
+  role,
+}: {
+  customerId: string;
+  role: "superadmin" | "finance" | "support" | "readonly";
+}) {
+  const canFinance = role === "finance";
+  const canIssuePackage = role === "superadmin";
+  const canReissuePackage = role === "superadmin" || role === "support";
   const customer = await getVendorCustomer(customerId);
   const contracts = await listVendorContracts(customerId);
   const subscriptions = await listVendorSubscriptions(customerId);
   const invoices = await listVendorInvoices(customerId);
   const payments = await listVendorPayments(customerId);
+  const packages = await listVendorPackages(customerId);
   const plans = await listVendorPlans();
 
   if (
@@ -308,6 +382,7 @@ async function ClientView({ customerId, canFinance }: { customerId: string; canF
     subscriptions.kind === "unauthenticated" ||
     invoices.kind === "unauthenticated" ||
     payments.kind === "unauthenticated" ||
+    packages.kind === "unauthenticated" ||
     plans.kind === "unauthenticated"
   ) {
     redirect(`/login?returnTo=%2Fclients%2F${encodeURIComponent(customerId)}`);
@@ -318,6 +393,7 @@ async function ClientView({ customerId, canFinance }: { customerId: string; canF
     subscriptions.kind === "error" ||
     invoices.kind === "error" ||
     payments.kind === "error" ||
+    packages.kind === "error" ||
     plans.kind === "error"
   ) {
     return <ServiceUnavailable />;
@@ -342,15 +418,20 @@ async function ClientView({ customerId, canFinance }: { customerId: string; canF
         title={customer.item.legalName}
         description={messages.clientCard.title}
         actions={
-          canFinance ? (
+          canFinance || canIssuePackage ? (
             <div className="flex flex-wrap gap-2">
-              <CreateInvoiceDialog customerId={customer.item.id} contracts={contracts.items} />
-              <RecordPaymentDialog invoices={invoices.items} />
-              {currentSubscription !== undefined &&
-              currentSubscription.status !== "suspended" &&
-              currentSubscription.status !== "cancelled" ? (
-                <RenewSubscriptionDialog subscription={currentSubscription} />
+              {canFinance ? (
+                <>
+                  <CreateInvoiceDialog customerId={customer.item.id} contracts={contracts.items} />
+                  <RecordPaymentDialog invoices={invoices.items} />
+                  {currentSubscription !== undefined &&
+                  currentSubscription.status !== "suspended" &&
+                  currentSubscription.status !== "cancelled" ? (
+                    <RenewSubscriptionDialog subscription={currentSubscription} />
+                  ) : null}
+                </>
               ) : null}
+              {canIssuePackage ? <IssuePackageDialog customerId={customer.item.id} /> : null}
             </div>
           ) : undefined
         }
@@ -457,6 +538,10 @@ async function ClientView({ customerId, canFinance }: { customerId: string; canF
         <h2 className="text-lg font-semibold">{messages.clientCard.payments}</h2>
         <PaymentsTable payments={payments.items} />
       </section>
+      <section className="grid gap-3">
+        <h2 className="text-lg font-semibold">{messages.packages.title}</h2>
+        <PackagesTable packages={packages.items} canReissue={canReissuePackage} />
+      </section>
     </div>
   );
 }
@@ -465,7 +550,7 @@ export default async function ClientCardPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   return (
     <ConsoleGuard returnTo={`/clients/${id}`}>
-      {(me) => <ClientView customerId={id} canFinance={me.user.role === "finance"} />}
+      {(me) => <ClientView customerId={id} role={me.user.role} />}
     </ConsoleGuard>
   );
 }

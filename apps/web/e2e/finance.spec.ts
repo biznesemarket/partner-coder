@@ -24,6 +24,22 @@ test.describe("клиенты и тарифы", () => {
     await expect(page.getByText("Карточка клиента", { exact: true })).toBeVisible();
     await expect(page.getByText("Договоров нет", { exact: true })).toBeVisible();
 
+    await page.getByRole("button", { name: "Выдать пакет" }).click();
+    await page.getByRole("button", { name: "Выдать", exact: true }).click();
+    await expect(
+      page.getByText("Скопируйте токен сейчас. Повторно он не показывается."),
+    ).toBeVisible();
+    await expect(page.getByText(/^pcp_/)).toBeVisible();
+    await page.getByRole("button", { name: "Закрыть" }).first().click();
+    await expect(page.locator("tbody").getByText("Выдан", { exact: true })).toBeVisible();
+
+    await page.goto("/packages");
+    await expect(page.getByRole("heading", { name: "Пакеты", level: 1 })).toBeVisible();
+    await expect(page.getByRole("link", { name: customerName })).toBeVisible();
+
+    await page.goto("/dashboard");
+    await expect(page.getByRole("heading", { name: "Обзор", level: 1 })).toBeVisible();
+
     await page.goto("/invoices");
     await expect(page.getByRole("heading", { name: "Счета", level: 1 })).toBeVisible();
 

@@ -31,10 +31,12 @@ import type { VendorMe } from "@/lib/vendor-types";
 import { useSignOut } from "./logout-button";
 
 const NAV_ITEMS = [
+  { href: "/dashboard", label: messages.nav.dashboard },
   { href: "/clients", label: messages.nav.clients },
   { href: "/plans", label: messages.nav.plans },
   { href: "/invoices", label: messages.nav.invoices },
   { href: "/payments", label: messages.nav.payments },
+  { href: "/packages", label: messages.nav.packages },
   { href: "/me", label: messages.nav.profile },
   { href: "/me/security", label: messages.nav.security },
 ] as const;
