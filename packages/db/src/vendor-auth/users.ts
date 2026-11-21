@@ -9,6 +9,19 @@ export interface UpdateVendorUserInput {
   readonly status?: VendorUserStatus;
 }
 
+export interface GuardedVendorUserUpdate {
+  readonly before: VendorUser;
+  readonly after: VendorUser;
+}
+
+export class LastSuperadminError extends Error {
+  readonly code = "last_superadmin";
+
+  constructor() {
+    super("Cannot remove the last active superadmin");
+  }
+}
+
 export async function getVendorUserById(
   db: Database,
   vendorUserId: string,
@@ -35,6 +48,49 @@ export async function getVendorUserByEmail(
 
 export async function listVendorUsers(db: Database): Promise<readonly VendorUser[]> {
   return db.select().from(vendorUsers).orderBy(asc(vendorUsers.createdAt), asc(vendorUsers.id));
+}
+
+export async function updateVendorUserGuarded(
+  db: Database,
+  vendorUserId: string,
+  input: UpdateVendorUserInput,
+): Promise<GuardedVendorUserUpdate | null> {
+  await db.execute(sql`
+    select id
+      from vendor_users
+     where role = 'superadmin'
+       and status = 'active'
+     for update
+  `);
+
+  const before = await getVendorUserById(db, vendorUserId);
+  if (!before) {
+    return null;
+  }
+
+  const nextRole = input.role ?? before.role;
+  const nextStatus = input.status ?? before.status;
+  if (
+    before.role === "superadmin" &&
+    before.status === "active" &&
+    (nextRole !== "superadmin" || nextStatus !== "active")
+  ) {
+    const countResult = await db.execute(sql`
+      select count(*)::int as count
+        from vendor_users
+       where role = 'superadmin'
+         and status = 'active'
+    `);
+    const count = Number(
+      (countResult.rows[0] as { count?: number | string } | undefined)?.count ?? 0,
+    );
+    if (count <= 1) {
+      throw new LastSuperadminError();
+    }
+  }
+
+  const after = await updateVendorUser(db, vendorUserId, input);
+  return after ? { before, after } : null;
 }
 
 export async function updateVendorUser(

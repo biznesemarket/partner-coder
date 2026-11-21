@@ -8,10 +8,12 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
   getVendorUserByEmail,
   getVendorUserById,
+  LastSuperadminError,
   listVendorUsers,
   resetVendorMfa,
   revokeVendorSessions,
   updateVendorUser,
+  updateVendorUserGuarded,
   writeVendorAudit,
   type Database,
   type VendorAuditEvent,
@@ -272,43 +274,51 @@ export function registerVendorRoutes(server: FastifyInstance, runtime: VendorAut
       );
     }
 
-    const current = await getVendorUserById(runtime.db, id);
-    if (!current) {
-      throw new ApiError(404, "vendor_user_not_found", "Пользователь не найден");
-    }
+    let updated: VendorUser | null;
+    try {
+      updated = await runtime.db.transaction(async (tx) => {
+        const txDb = tx as unknown as Database;
+        const result = await updateVendorUserGuarded(txDb, id, {
+          ...(input.role === undefined ? {} : { role: input.role }),
+          ...(input.status === undefined ? {} : { status: input.status }),
+        });
+        if (!result) {
+          return null;
+        }
+        const { before, after } = result;
 
-    const updated = await runtime.db.transaction(async (tx) => {
-      const txDb = tx as unknown as Database;
-      const user = await updateVendorUser(txDb, id, {
-        ...(input.role === undefined ? {} : { role: input.role }),
-        ...(input.status === undefined ? {} : { status: input.status }),
+        if (input.role !== undefined && input.role !== before.role) {
+          await writeVendorAudit(tx, {
+            actorId: identity.userId,
+            action: "vendor.user.role_changed",
+            entity: "vendor_user",
+            before: { role: before.role },
+            after: { userId: id, role: after.role },
+            ip: request.ip || null,
+          });
+        }
+        if (input.status !== undefined && input.status !== before.status) {
+          await writeVendorAudit(tx, {
+            actorId: identity.userId,
+            action: statusAuditAction(after.status),
+            entity: "vendor_user",
+            before: { status: before.status },
+            after: { userId: id, status: after.status },
+            ip: request.ip || null,
+          });
+        }
+        return after;
       });
-      if (!user) {
-        return null;
+    } catch (error) {
+      if (error instanceof LastSuperadminError) {
+        throw new ApiError(
+          409,
+          "vendor_last_superadmin",
+          "Нельзя оставить систему без активного суперадминистратора",
+        );
       }
-
-      if (input.role !== undefined && input.role !== current.role) {
-        await writeVendorAudit(tx, {
-          actorId: identity.userId,
-          action: "vendor.user.role_changed",
-          entity: "vendor_user",
-          before: { role: current.role },
-          after: { userId: id, role: user.role },
-          ip: request.ip || null,
-        });
-      }
-      if (input.status !== undefined && input.status !== current.status) {
-        await writeVendorAudit(tx, {
-          actorId: identity.userId,
-          action: statusAuditAction(user.status),
-          entity: "vendor_user",
-          before: { status: current.status },
-          after: { userId: id, status: user.status },
-          ip: request.ip || null,
-        });
-      }
-      return user;
-    });
+      throw error;
+    }
 
     if (!updated) {
       throw new ApiError(404, "vendor_user_not_found", "Пользователь не найден");
