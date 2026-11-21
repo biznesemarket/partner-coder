@@ -89,6 +89,13 @@ describe("TTL-очистка и отзыв при suspension", () => {
       [oldHeartbeat, tenantA.tenantId, tenantA.sessionId],
     );
 
+    await testDb.pool.query(
+      `update provisioning_packages
+          set expires_at = now() - interval '1 day'
+        where customer_id = (select customer_id from tenants where id = $1)`,
+      [tenantA.tenantId],
+    );
+
     await testDb.pool.query("update tenants set status = 'suspended' where id = $1", [
       tenantB.tenantId,
     ]);
@@ -146,6 +153,7 @@ describe("TTL-очистка и отзыв при suspension", () => {
       authRateLimits: 1,
       emailRateLimits: 1,
       authSessionsExpired: 1,
+      provisioningPackagesExpired: 1,
     });
 
     const verification = await testDb.pool.query("select 1 from auth_verifications where id = $1", [
@@ -183,6 +191,15 @@ describe("TTL-очистка и отзыв при suspension", () => {
       oldHeartbeat,
     ]);
     expect(heartbeat.rowCount).toBe(0);
+
+    const expiredPackage = await testDb.pool.query<{ status: string }>(
+      `select p.status
+         from provisioning_packages p
+         join tenants t on t.customer_id = p.customer_id
+        where t.id = $1`,
+      [tenantA.tenantId],
+    );
+    expect(expiredPackage.rows[0]?.status).toBe("expired");
   });
 
   it("при suspension tenant очищает активный tenant и отзывает его device-токены", async () => {

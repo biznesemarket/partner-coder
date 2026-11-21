@@ -135,6 +135,17 @@
 - Все финансовые действия и автопереходы пишутся в `vendor_audit_events`
   (`vendor.contract/subscription/invoice/payment/discount/customer.*`).
 
+### 3.3 Пакеты и онбординг M3.1
+
+- `provisioning_packages` хранит только SHA-256 токена и `token_prefix`;
+  сам токен возвращается один раз при выдаче или перевыпуске.
+- Выдача/перевыпуск обновляет `onboarding_sessions` клиента: новый `package_id`,
+  `state = issued`, `progress_bp = 0`. Это одна воронка на клиента.
+- Старый пакет при перевыпуске получает `revoked`; worker переводит
+  `issued`/`downloaded` с истекшим `expires_at` в `expired`.
+- `GET /v1/vendor/dashboard` агрегирует только счётчики по статусам;
+  суммы счетов не выводятся, пока бухгалтерия не утвердила сверку оплат.
+
 ## 4. Append-only и аудит
 
 - Append-only таблицы: `heartbeats`, `intervals`, `day_records`,

@@ -668,6 +668,65 @@ export const vendorCustomerResumeSchema = z
     message: "Дата окончания должна быть позже даты начала",
     path: ["periodEnd"],
   });
+
+export const vendorProvisioningPackageStatusSchema = z.enum([
+  "issued",
+  "downloaded",
+  "activated",
+  "expired",
+  "revoked",
+]);
+
+export const vendorProvisioningPackageSchema = z.object({
+  id: z.uuid(),
+  customerId: z.uuid(),
+  customerLegalName: z.string(),
+  tokenPrefix: z.string(),
+  version: z.string(),
+  checksum: z.string().nullable(),
+  status: vendorProvisioningPackageStatusSchema,
+  expiresAt: z.string(),
+  activatedAt: z.string().nullable(),
+  activatedIp: z.string().nullable(),
+  createdBy: z.uuid().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const vendorProvisioningPackageIssueResponseSchema = z.object({
+  package: vendorProvisioningPackageSchema,
+  token: z.string(),
+});
+
+export const vendorProvisioningPackageListResponseSchema = z.object({
+  items: z.array(vendorProvisioningPackageSchema),
+});
+
+export const vendorProvisioningPackageListQuerySchema = z.object({
+  customerId: z.uuid().optional(),
+  status: vendorProvisioningPackageStatusSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+
+export const vendorProvisioningPackageReissueSchema = z.object({
+  reason: z.string().trim().max(500).optional(),
+});
+
+const vendorDashboardGroupSchema = z.object({
+  total: z.number().int(),
+  byStatus: z.record(z.string(), z.number().int()),
+});
+
+export const vendorDashboardSchema = z.object({
+  customers: vendorDashboardGroupSchema,
+  subscriptions: vendorDashboardGroupSchema,
+  invoices: vendorDashboardGroupSchema,
+  packages: vendorDashboardGroupSchema,
+  onboarding: z.object({
+    total: z.number().int(),
+    byState: z.record(z.string(), z.number().int()),
+  }),
+});
 export type InvitationCreateInput = z.infer<typeof invitationCreateSchema>;
 export type DeviceCreateInput = z.infer<typeof deviceCreateSchema>;
 export type DaysQueryInput = z.infer<typeof daysQuerySchema>;

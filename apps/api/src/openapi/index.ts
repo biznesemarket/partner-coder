@@ -31,6 +31,7 @@ import {
   vendorCustomerResumeSchema,
   vendorCustomerSuspendSchema,
   vendorCustomerUpdateSchema,
+  vendorDashboardSchema,
   vendorDiscountCreateSchema,
   vendorDiscountListResponseSchema,
   vendorDiscountResponseSchema,
@@ -51,6 +52,10 @@ import {
   vendorPlanResponseSchema,
   vendorPlanSchema,
   vendorPlanUpdateSchema,
+  vendorProvisioningPackageIssueResponseSchema,
+  vendorProvisioningPackageListResponseSchema,
+  vendorProvisioningPackageReissueSchema,
+  vendorProvisioningPackageSchema,
   vendorStepUpResponseSchema,
   vendorSubscriptionCreateSchema,
   vendorSubscriptionListResponseSchema,
@@ -151,6 +156,11 @@ function componentSchemas(): Record<string, JsonSchema> {
       VendorPaymentListResponse: vendorPaymentListResponseSchema,
       VendorCustomerSuspend: vendorCustomerSuspendSchema,
       VendorCustomerResume: vendorCustomerResumeSchema,
+      VendorDashboard: vendorDashboardSchema,
+      VendorProvisioningPackage: vendorProvisioningPackageSchema,
+      VendorProvisioningPackageIssueResponse: vendorProvisioningPackageIssueResponseSchema,
+      VendorProvisioningPackageListResponse: vendorProvisioningPackageListResponseSchema,
+      VendorProvisioningPackageReissue: vendorProvisioningPackageReissueSchema,
     }).map(([name, schema]) => [name, toJsonSchema(schema)]),
   );
 }
@@ -1144,6 +1154,104 @@ export function buildOpenApiDocument(options: OpenApiOptions): Record<string, un
             401: errorResponse("Не аутентифицирован"),
             403: errorResponse("Требуется MFA, step-up или роль superadmin"),
             404: errorResponse("Клиент не найден"),
+          },
+        },
+      },
+      "/v1/vendor/packages": {
+        get: {
+          tags: ["Vendor finance"],
+          summary: "Список пакетов подключения",
+          security: vendorSessionSecurity,
+          parameters: [
+            {
+              name: "customerId",
+              in: "query",
+              required: false,
+              schema: { type: "string", format: "uuid" },
+            },
+            {
+              name: "status",
+              in: "query",
+              required: false,
+              schema: {
+                type: "string",
+                enum: ["issued", "downloaded", "activated", "expired", "revoked"],
+              },
+            },
+            {
+              name: "limit",
+              in: "query",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 500, default: 100 },
+            },
+          ],
+          responses: {
+            200: {
+              description: "Пакеты",
+              content: jsonContent(schemaRef("VendorProvisioningPackageListResponse")),
+            },
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA или роль"),
+          },
+        },
+      },
+      "/v1/vendor/customers/{id}/packages": {
+        post: {
+          tags: ["Vendor finance"],
+          summary: "Выдать пакет подключения",
+          description: "Только superadmin. Токен возвращается один раз.",
+          security: vendorSessionSecurity,
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          responses: {
+            201: {
+              description: "Пакет выдан",
+              content: jsonContent(schemaRef("VendorProvisioningPackageIssueResponse")),
+            },
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA или роль superadmin"),
+            404: errorResponse("Клиент не найден"),
+          },
+        },
+      },
+      "/v1/vendor/packages/{id}/reissue": {
+        post: {
+          tags: ["Vendor finance"],
+          summary: "Перевыпустить пакет",
+          description: "Только superadmin и support. Старый пакет отзывается.",
+          security: vendorSessionSecurity,
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          requestBody: {
+            required: false,
+            content: jsonContent(schemaRef("VendorProvisioningPackageReissue")),
+          },
+          responses: {
+            201: {
+              description: "Пакет перевыпущен",
+              content: jsonContent(schemaRef("VendorProvisioningPackageIssueResponse")),
+            },
+            400: errorResponse("Некорректный запрос"),
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA или роль superadmin/support"),
+            404: errorResponse("Пакет или клиент не найден"),
+          },
+        },
+      },
+      "/v1/vendor/dashboard": {
+        get: {
+          tags: ["Vendor finance"],
+          summary: "Сводка воронки",
+          security: vendorSessionSecurity,
+          responses: {
+            200: {
+              description: "Счётчики по статусам",
+              content: jsonContent(schemaRef("VendorDashboard")),
+            },
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA или роль"),
           },
         },
       },

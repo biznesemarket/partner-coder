@@ -407,6 +407,131 @@ export function parseVendorInvoiceOne(value: unknown): VendorInvoice | null {
   if (!isRecord(value) || !isRecord(value.invoice)) return null;
   return parseVendorInvoice(value.invoice);
 }
+
+const PACKAGE_STATUSES = ["issued", "downloaded", "activated", "expired", "revoked"] as const;
+
+export type VendorProvisioningPackageStatus = (typeof PACKAGE_STATUSES)[number];
+
+export type VendorProvisioningPackage = {
+  id: string;
+  customerId: string;
+  customerLegalName: string;
+  tokenPrefix: string;
+  version: string;
+  checksum: string | null;
+  status: VendorProvisioningPackageStatus;
+  expiresAt: string;
+  activatedAt: string | null;
+  activatedIp: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type VendorProvisioningPackageIssue = {
+  package: VendorProvisioningPackage;
+  token: string;
+};
+
+export type VendorDashboardGroup = {
+  total: number;
+  byStatus: Record<string, number>;
+};
+
+export type VendorDashboard = {
+  customers: VendorDashboardGroup;
+  subscriptions: VendorDashboardGroup;
+  invoices: VendorDashboardGroup;
+  packages: VendorDashboardGroup;
+  onboarding: {
+    total: number;
+    byState: Record<string, number>;
+  };
+};
+
+export function parseVendorProvisioningPackage(value: unknown): VendorProvisioningPackage | null {
+  if (!isRecord(value)) return null;
+  const checksum = nullableString(value.checksum);
+  const activatedAt = nullableString(value.activatedAt);
+  const activatedIp = nullableString(value.activatedIp);
+  const createdBy = nullableString(value.createdBy);
+  if (
+    typeof value.id !== "string" ||
+    typeof value.customerId !== "string" ||
+    typeof value.customerLegalName !== "string" ||
+    typeof value.tokenPrefix !== "string" ||
+    typeof value.version !== "string" ||
+    checksum === undefined ||
+    !isOneOf(value.status, PACKAGE_STATUSES) ||
+    typeof value.expiresAt !== "string" ||
+    activatedAt === undefined ||
+    activatedIp === undefined ||
+    createdBy === undefined ||
+    typeof value.createdAt !== "string" ||
+    typeof value.updatedAt !== "string"
+  ) {
+    return null;
+  }
+  return { ...value, checksum, activatedAt, activatedIp, createdBy } as VendorProvisioningPackage;
+}
+
+export function parseVendorProvisioningPackageList(
+  value: unknown,
+): readonly VendorProvisioningPackage[] | null {
+  return parseList(value, parseVendorProvisioningPackage);
+}
+
+export function parseVendorProvisioningPackageIssue(
+  value: unknown,
+): VendorProvisioningPackageIssue | null {
+  if (!isRecord(value) || typeof value.token !== "string") return null;
+  const pkg = parseVendorProvisioningPackage(value.package);
+  return pkg === null ? null : { package: pkg, token: value.token };
+}
+
+function parseCountMap(value: unknown): Record<string, number> | null {
+  if (!isRecord(value)) return null;
+  const result: Record<string, number> = {};
+  for (const [key, count] of Object.entries(value)) {
+    if (typeof count !== "number") return null;
+    result[key] = count;
+  }
+  return result;
+}
+
+function parseDashboardGroup(value: unknown): VendorDashboardGroup | null {
+  if (!isRecord(value) || typeof value.total !== "number") return null;
+  const byStatus = parseCountMap(value.byStatus);
+  return byStatus === null ? null : { total: value.total, byStatus };
+}
+
+export function parseVendorDashboard(value: unknown): VendorDashboard | null {
+  if (!isRecord(value)) return null;
+  const customers = parseDashboardGroup(value.customers);
+  const subscriptions = parseDashboardGroup(value.subscriptions);
+  const invoices = parseDashboardGroup(value.invoices);
+  const packages = parseDashboardGroup(value.packages);
+  if (!isRecord(value.onboarding) || typeof value.onboarding.total !== "number") {
+    return null;
+  }
+  const byState = parseCountMap(value.onboarding.byState);
+  if (
+    customers === null ||
+    subscriptions === null ||
+    invoices === null ||
+    packages === null ||
+    byState === null
+  ) {
+    return null;
+  }
+  return {
+    customers,
+    subscriptions,
+    invoices,
+    packages,
+    onboarding: { total: value.onboarding.total, byState },
+  };
+}
 export function readVendorErrorCode(value: unknown): string | null {
   if (!isRecord(value)) {
     return null;

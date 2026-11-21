@@ -22,6 +22,7 @@ export interface TtlCleanupResult {
   readonly vendorAuthVerifications: number;
   readonly vendorAuthRateLimits: number;
   readonly vendorAuthEmailLimits: number;
+  readonly provisioningPackagesExpired: number;
   readonly heartbeats: number;
 }
 
@@ -130,6 +131,14 @@ export async function runTtlCleanup(
      where window_started_at < now() - interval '1 day'
   `);
 
+  const expiredPackages = await db.execute(sql`
+    update provisioning_packages
+       set status = 'expired',
+           updated_at = now()
+     where status in ('issued', 'downloaded')
+       and expires_at < now()
+  `);
+
   const heartbeats = await db.execute(sql`
     select retention_delete_heartbeats(
       now() - make_interval(days => ${options.heartbeatRetentionDays})
@@ -153,6 +162,7 @@ export async function runTtlCleanup(
     vendorAuthVerifications: affected(vendorVerifications.rowCount),
     vendorAuthRateLimits: affected(vendorRateLimits.rowCount),
     vendorAuthEmailLimits: affected(vendorEmailLimits.rowCount),
+    provisioningPackagesExpired: affected(expiredPackages.rowCount),
     heartbeats: deletedHeartbeats,
   };
 }

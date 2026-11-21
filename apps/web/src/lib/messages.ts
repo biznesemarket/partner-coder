@@ -51,6 +51,8 @@ export const nav = {
   plans: "Тарифы",
   invoices: "Счета",
   payments: "Платежи",
+  packages: "Пакеты",
+  dashboard: "Обзор",
   profile: "Профиль",
   security: "Безопасность",
 } as const;
@@ -438,6 +440,74 @@ export const renewForm = {
   renewed: "Подписка продлена",
   datesInvalid: "Окончание должно быть позже начала",
 } as const;
+export const packageStatuses = {
+  issued: "Выдан",
+  downloaded: "Скачан",
+  activated: "Активирован",
+  expired: "Просрочен",
+  revoked: "Отозван",
+} as const;
+
+export const onboardingStates = {
+  issued: "Пакет выдан",
+  downloaded: "Пакет скачан",
+  enrolled: "Устройство подключено",
+  profile: "Профиль",
+  git: "Git",
+  policy: "Политика",
+  team: "Команда",
+  active: "Активен",
+  blocked: "Заблокирован",
+} as const;
+
+export const packages = {
+  title: "Пакеты",
+  description: "Пакеты подключения клиентов и их статусы.",
+  emptyTitle: "Пакетов пока нет",
+  emptyDescription: "Выдайте пакет в карточке клиента.",
+  customerLabel: "Клиент",
+  prefixLabel: "Префикс токена",
+  versionLabel: "Версия",
+  statusLabel: "Статус",
+  expiresLabel: "Действует до",
+  createdLabel: "Выдан",
+  reissue: "Перевыпустить",
+  issue: "Выдать пакет",
+  tokenTitle: "Токен пакета",
+  tokenWarning: "Скопируйте токен сейчас. Повторно он не показывается.",
+  copy: "Скопировать",
+  copied: "Токен скопирован",
+  close: "Закрыть",
+} as const;
+
+export const packageForm = {
+  issueTitle: "Выдать пакет подключения",
+  issueDescription: "Будет создан одноразовый токен и сброшен онбординг клиента.",
+  reissueTitle: "Перевыпустить пакет",
+  reissueDescription: "Старый пакет будет отозван, клиенту нужен новый токен.",
+  reasonLabel: "Причина",
+  submitIssue: "Выдать",
+  submitReissue: "Перевыпустить",
+  pending: "Создаём…",
+  issued: "Пакет выдан",
+  reissued: "Пакет перевыпущен",
+} as const;
+
+export const dashboard = {
+  title: "Обзор",
+  description: "Воронка клиентов, подписок, счетов и пакетов.",
+  customers: "Клиенты",
+  subscriptions: "Подписки",
+  invoices: "Счета",
+  packages: "Пакеты",
+  onboarding: "Онбординг",
+  total: "Всего",
+  empty: "Пока нет данных",
+  activeCustomers: "Активные клиенты",
+  activeSubscriptions: "Активные подписки",
+  issuedPackages: "Выданные пакеты",
+  activeOnboarding: "Онбординг в работе",
+} as const;
 export const messages = {
   roles,
   statuses,
@@ -455,6 +525,11 @@ export const messages = {
   renewForm,
   invoiceStatuses,
   subscriptionStatuses,
+  packageStatuses,
+  onboardingStates,
+  packages,
+  packageForm,
+  dashboard,
   contractStatuses,
   paymentMethods,
   stepUp,
