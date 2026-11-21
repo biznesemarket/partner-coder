@@ -152,6 +152,9 @@ export const subscriptions = pgTable(
     periodStart: date("period_start", { mode: "string" }).notNull(),
     periodEnd: date("period_end", { mode: "string" }).notNull(),
     graceUntil: timestamp("grace_until", { withTimezone: true, precision: 3 }),
+    statusChangedAt: timestamp("status_changed_at", { withTimezone: true, precision: 3 })
+      .notNull()
+      .defaultNow(),
     seats: integer("seats").notNull(),
     projectsLimit: integer("projects_limit").notNull(),
     createdAt: createdAt(),
@@ -159,9 +162,36 @@ export const subscriptions = pgTable(
   },
   (t) => [
     index("subscriptions_customer_idx").on(t.customerId),
+    index("subscriptions_status_idx").on(t.status),
     check("subscriptions_period_chk", sql`${t.periodEnd} >= ${t.periodStart}`),
     check("subscriptions_seats_chk", sql`${t.seats} >= 1`),
     check("subscriptions_projects_chk", sql`${t.projectsLimit} >= 1`),
+  ],
+);
+
+export const subscriptionDiscounts = pgTable(
+  "subscription_discounts",
+  {
+    id: uuidPk(),
+    subscriptionId: uuid("subscription_id")
+      .notNull()
+      .references(() => subscriptions.id, { onDelete: "restrict" }),
+    percentBp: integer("percent_bp").notNull(),
+    startsOn: date("starts_on", { mode: "string" }).notNull(),
+    endsOn: date("ends_on", { mode: "string" }),
+    note: text("note"),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => vendorUsers.id, { onDelete: "restrict" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("subscription_discounts_subscription_idx").on(t.subscriptionId, t.startsOn),
+    check("subscription_discounts_percent_chk", sql`${t.percentBp} between 1000 and 5000`),
+    check(
+      "subscription_discounts_period_chk",
+      sql`${t.endsOn} is null or ${t.endsOn} >= ${t.startsOn}`,
+    ),
   ],
 );
 

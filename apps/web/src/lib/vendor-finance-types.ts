@@ -176,6 +176,237 @@ export function parseVendorPlanList(value: unknown): readonly VendorPlan[] | nul
   return items;
 }
 
+const CONTRACT_STATUSES = ["draft", "active", "ended", "terminated"] as const;
+const SUBSCRIPTION_STATUSES = [
+  "trial",
+  "active",
+  "grace",
+  "expired",
+  "suspended",
+  "cancelled",
+] as const;
+const INVOICE_STATUSES = ["draft", "issued", "paid", "partial", "overdue", "void"] as const;
+const PAYMENT_METHODS = ["bank_transfer", "card", "cash", "other"] as const;
+
+export type VendorContractStatus = (typeof CONTRACT_STATUSES)[number];
+export type VendorSubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
+export type VendorInvoiceStatus = (typeof INVOICE_STATUSES)[number];
+export type VendorPaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+export type VendorContract = {
+  id: string;
+  customerId: string;
+  planId: string;
+  number: string;
+  startsOn: string;
+  endsOn: string | null;
+  limits: Record<string, number>;
+  status: VendorContractStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type VendorSubscription = {
+  id: string;
+  customerId: string;
+  contractId: string;
+  status: VendorSubscriptionStatus;
+  periodStart: string;
+  periodEnd: string;
+  graceUntil: string | null;
+  statusChangedAt: string;
+  seats: number;
+  projectsLimit: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type VendorDiscount = {
+  id: string;
+  subscriptionId: string;
+  percentBp: number;
+  startsOn: string;
+  endsOn: string | null;
+  note: string | null;
+  createdBy: string;
+  createdAt: string;
+};
+
+export type VendorInvoice = {
+  id: string;
+  customerId: string;
+  contractId: string;
+  number: string;
+  issuedOn: string;
+  dueOn: string;
+  amountKopecks: string;
+  status: VendorInvoiceStatus;
+  pdfUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type VendorPayment = {
+  id: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  customerId: string;
+  customerLegalName: string;
+  paidOn: string;
+  amountKopecks: string;
+  method: VendorPaymentMethod;
+  reference: string | null;
+  recordedBy: string;
+  createdAt: string;
+};
+
+function isOneOf<T extends string>(value: unknown, values: readonly T[]): value is T {
+  return typeof value === "string" && (values as readonly string[]).includes(value);
+}
+
+function nullableString(value: unknown): string | null | undefined {
+  if (value === null) return null;
+  return typeof value === "string" ? value : undefined;
+}
+
+export function parseVendorContract(value: unknown): VendorContract | null {
+  if (!isRecord(value)) return null;
+  const endsOn = nullableString(value.endsOn);
+  if (
+    typeof value.id !== "string" ||
+    typeof value.customerId !== "string" ||
+    typeof value.planId !== "string" ||
+    typeof value.number !== "string" ||
+    typeof value.startsOn !== "string" ||
+    endsOn === undefined ||
+    !isRecord(value.limits) ||
+    !isOneOf(value.status, CONTRACT_STATUSES) ||
+    typeof value.createdAt !== "string" ||
+    typeof value.updatedAt !== "string"
+  ) {
+    return null;
+  }
+  return { ...value, endsOn, limits: value.limits as Record<string, number> } as VendorContract;
+}
+
+export function parseVendorSubscription(value: unknown): VendorSubscription | null {
+  if (!isRecord(value)) return null;
+  const graceUntil = nullableString(value.graceUntil);
+  if (
+    typeof value.id !== "string" ||
+    typeof value.customerId !== "string" ||
+    typeof value.contractId !== "string" ||
+    !isOneOf(value.status, SUBSCRIPTION_STATUSES) ||
+    typeof value.periodStart !== "string" ||
+    typeof value.periodEnd !== "string" ||
+    graceUntil === undefined ||
+    typeof value.statusChangedAt !== "string" ||
+    typeof value.seats !== "number" ||
+    typeof value.projectsLimit !== "number" ||
+    typeof value.createdAt !== "string" ||
+    typeof value.updatedAt !== "string"
+  ) {
+    return null;
+  }
+  return { ...value, graceUntil } as VendorSubscription;
+}
+
+export function parseVendorDiscount(value: unknown): VendorDiscount | null {
+  if (!isRecord(value)) return null;
+  const endsOn = nullableString(value.endsOn);
+  const note = nullableString(value.note);
+  if (
+    typeof value.id !== "string" ||
+    typeof value.subscriptionId !== "string" ||
+    typeof value.percentBp !== "number" ||
+    typeof value.startsOn !== "string" ||
+    endsOn === undefined ||
+    note === undefined ||
+    typeof value.createdBy !== "string" ||
+    typeof value.createdAt !== "string"
+  ) {
+    return null;
+  }
+  return { ...value, endsOn, note } as VendorDiscount;
+}
+
+export function parseVendorInvoice(value: unknown): VendorInvoice | null {
+  if (!isRecord(value)) return null;
+  const pdfUrl = nullableString(value.pdfUrl);
+  if (
+    typeof value.id !== "string" ||
+    typeof value.customerId !== "string" ||
+    typeof value.contractId !== "string" ||
+    typeof value.number !== "string" ||
+    typeof value.issuedOn !== "string" ||
+    typeof value.dueOn !== "string" ||
+    typeof value.amountKopecks !== "string" ||
+    !isOneOf(value.status, INVOICE_STATUSES) ||
+    pdfUrl === undefined ||
+    typeof value.createdAt !== "string" ||
+    typeof value.updatedAt !== "string"
+  ) {
+    return null;
+  }
+  return { ...value, pdfUrl } as VendorInvoice;
+}
+
+export function parseVendorPayment(value: unknown): VendorPayment | null {
+  if (!isRecord(value)) return null;
+  const reference = nullableString(value.reference);
+  if (
+    typeof value.id !== "string" ||
+    typeof value.invoiceId !== "string" ||
+    typeof value.invoiceNumber !== "string" ||
+    typeof value.customerId !== "string" ||
+    typeof value.customerLegalName !== "string" ||
+    typeof value.paidOn !== "string" ||
+    typeof value.amountKopecks !== "string" ||
+    !isOneOf(value.method, PAYMENT_METHODS) ||
+    reference === undefined ||
+    typeof value.recordedBy !== "string" ||
+    typeof value.createdAt !== "string"
+  ) {
+    return null;
+  }
+  return { ...value, reference } as VendorPayment;
+}
+
+function parseList<T>(value: unknown, parse: (item: unknown) => T | null): readonly T[] | null {
+  if (!isRecord(value) || !Array.isArray(value.items)) return null;
+  const items: T[] = [];
+  for (const item of value.items) {
+    const parsed = parse(item);
+    if (parsed === null) return null;
+    items.push(parsed);
+  }
+  return items;
+}
+
+export const parseVendorContractList = (value: unknown): readonly VendorContract[] | null =>
+  parseList(value, parseVendorContract);
+
+export const parseVendorSubscriptionList = (value: unknown): readonly VendorSubscription[] | null =>
+  parseList(value, parseVendorSubscription);
+
+export const parseVendorDiscountList = (value: unknown): readonly VendorDiscount[] | null =>
+  parseList(value, parseVendorDiscount);
+
+export const parseVendorInvoiceList = (value: unknown): readonly VendorInvoice[] | null =>
+  parseList(value, parseVendorInvoice);
+
+export const parseVendorPaymentList = (value: unknown): readonly VendorPayment[] | null =>
+  parseList(value, parseVendorPayment);
+
+export function parseVendorCustomerOne(value: unknown): VendorCustomer | null {
+  if (!isRecord(value) || !isRecord(value.customer)) return null;
+  return parseVendorCustomer(value.customer);
+}
+
+export function parseVendorInvoiceOne(value: unknown): VendorInvoice | null {
+  if (!isRecord(value) || !isRecord(value.invoice)) return null;
+  return parseVendorInvoice(value.invoice);
+}
 export function readVendorErrorCode(value: unknown): string | null {
   if (!isRecord(value)) {
     return null;

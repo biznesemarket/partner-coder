@@ -1460,7 +1460,56 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Карточка клиента */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Клиент */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorCustomerResponse"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Клиент не найден */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
         put?: never;
         post?: never;
         delete?: never;
@@ -1734,6 +1783,1073 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/v1/vendor/contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Список договоров */
+        get: {
+            parameters: {
+                query?: {
+                    customerId?: string;
+                    status?: "draft" | "active" | "ended" | "terminated";
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Договоры */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorContractListResponse"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Создать договор */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VendorContractCreate"];
+                };
+            };
+            responses: {
+                /** @description Договор создан */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorContractResponse"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль superadmin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Клиент или тариф не найден */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Договор с таким номером уже существует */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vendor/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Список подписок */
+        get: {
+            parameters: {
+                query?: {
+                    customerId?: string;
+                    status?: "trial" | "active" | "grace" | "expired" | "suspended" | "cancelled";
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Подписки */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorSubscriptionListResponse"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Создать подписку */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VendorSubscriptionCreate"];
+                };
+            };
+            responses: {
+                /** @description Подписка создана */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorSubscriptionResponse"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль superadmin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Клиент, договор или тариф не найден */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vendor/subscriptions/{id}/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Продлить подписку
+         * @description Требует step-up. Частичные оплаты и переплаты не сверяются автоматически.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VendorSubscriptionRenew"];
+                };
+            };
+            responses: {
+                /** @description Подписка продлена */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorSubscriptionResponse"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA, step-up или роль finance */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Подписка не найдена */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Подписка приостановлена или отменена */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vendor/subscriptions/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Изменить статус подписки
+         * @description Требует step-up. Приостановка выполняется через карточку клиента.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VendorSubscriptionStatusUpdate"];
+                };
+            };
+            responses: {
+                /** @description Статус изменён */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorSubscriptionResponse"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA, step-up или роль finance */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Подписка не найдена */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Переход статуса запрещён */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vendor/subscriptions/{id}/discounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Скидки подписки */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Скидки */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorDiscountListResponse"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Подписка не найдена */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Назначить скидку
+         * @description Требует step-up и роль superadmin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VendorDiscountCreate"];
+                };
+            };
+            responses: {
+                /** @description Скидка назначена */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorDiscountResponse"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA, step-up или роль superadmin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Подписка не найдена */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Скидка на этот период уже назначена */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vendor/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Список счетов */
+        get: {
+            parameters: {
+                query?: {
+                    customerId?: string;
+                    status?: "draft" | "issued" | "paid" | "partial" | "overdue" | "void";
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Счета */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorInvoiceListResponse"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Создать счёт
+         * @description Требует step-up и роль finance.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VendorInvoiceCreate"];
+                };
+            };
+            responses: {
+                /** @description Счёт создан */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorInvoiceResponse"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA, step-up или роль finance */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Клиент или договор не найден */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Счёт с таким номером уже существует */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vendor/invoices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Изменить счёт
+         * @description Статус и ссылка на PDF. Требует step-up и роль finance.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VendorInvoiceUpdate"];
+                };
+            };
+            responses: {
+                /** @description Счёт обновлён */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorInvoiceResponse"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA, step-up или роль finance */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Счёт не найден */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/v1/vendor/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Список платежей */
+        get: {
+            parameters: {
+                query?: {
+                    invoiceId?: string;
+                    customerId?: string;
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Платежи */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorPaymentListResponse"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA или роль */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Внести платёж
+         * @description Требует step-up и роль finance. Статус счёта не сверяется автоматически.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VendorPaymentCreate"];
+                };
+            };
+            responses: {
+                /** @description Платёж внесён */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorPaymentResponse"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA, step-up или роль finance */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Счёт или клиент не найден */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Счёт нельзя оплатить */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vendor/customers/{id}/suspend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Приостановить клиента
+         * @description Требует step-up и роль superadmin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["VendorCustomerSuspend"];
+                };
+            };
+            responses: {
+                /** @description Клиент приостановлен */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorCustomerResponse"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA, step-up или роль superadmin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Клиент не найден */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vendor/customers/{id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Возобновить клиента
+         * @description Требует step-up и роль superadmin.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["VendorCustomerResume"];
+                };
+            };
+            responses: {
+                /** @description Клиент возобновлён */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VendorCustomerResponse"];
+                    };
+                };
+                /** @description Некорректный запрос */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Не аутентифицирован */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Требуется MFA, step-up или роль superadmin */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+                /** @description Клиент не найден */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorEnvelope"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
 }
@@ -2212,6 +3328,367 @@ export interface components {
                 createdAt: string;
                 updatedAt: string;
             }[];
+        };
+        VendorContract: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            customerId: string;
+            /** Format: uuid */
+            planId: string;
+            number: string;
+            startsOn: string;
+            endsOn: string | null;
+            limits: {
+                [key: string]: number;
+            };
+            /** @enum {string} */
+            status: "draft" | "active" | "ended" | "terminated";
+            createdAt: string;
+            updatedAt: string;
+        };
+        VendorContractCreate: {
+            /** Format: uuid */
+            customerId: string;
+            /** Format: uuid */
+            planId: string;
+            number: string;
+            startsOn: string;
+            endsOn?: string | null;
+            limits?: {
+                [key: string]: number;
+            };
+            /**
+             * @default draft
+             * @enum {string}
+             */
+            status: "draft" | "active" | "ended" | "terminated";
+        };
+        VendorContractResponse: {
+            contract: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                customerId: string;
+                /** Format: uuid */
+                planId: string;
+                number: string;
+                startsOn: string;
+                endsOn: string | null;
+                limits: {
+                    [key: string]: number;
+                };
+                /** @enum {string} */
+                status: "draft" | "active" | "ended" | "terminated";
+                createdAt: string;
+                updatedAt: string;
+            };
+        };
+        VendorContractListResponse: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                customerId: string;
+                /** Format: uuid */
+                planId: string;
+                number: string;
+                startsOn: string;
+                endsOn: string | null;
+                limits: {
+                    [key: string]: number;
+                };
+                /** @enum {string} */
+                status: "draft" | "active" | "ended" | "terminated";
+                createdAt: string;
+                updatedAt: string;
+            }[];
+        };
+        VendorSubscription: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            customerId: string;
+            /** Format: uuid */
+            contractId: string;
+            /** @enum {string} */
+            status: "trial" | "active" | "grace" | "expired" | "suspended" | "cancelled";
+            periodStart: string;
+            periodEnd: string;
+            graceUntil: string | null;
+            statusChangedAt: string;
+            seats: number;
+            projectsLimit: number;
+            createdAt: string;
+            updatedAt: string;
+        };
+        VendorSubscriptionCreate: {
+            /** Format: uuid */
+            customerId: string;
+            /** Format: uuid */
+            contractId: string;
+            /**
+             * @default trial
+             * @enum {string}
+             */
+            status: "trial" | "active" | "grace" | "expired" | "suspended" | "cancelled";
+            periodStart: string;
+            periodEnd: string;
+            seats?: number;
+            projectsLimit?: number;
+        };
+        VendorSubscriptionResponse: {
+            subscription: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                customerId: string;
+                /** Format: uuid */
+                contractId: string;
+                /** @enum {string} */
+                status: "trial" | "active" | "grace" | "expired" | "suspended" | "cancelled";
+                periodStart: string;
+                periodEnd: string;
+                graceUntil: string | null;
+                statusChangedAt: string;
+                seats: number;
+                projectsLimit: number;
+                createdAt: string;
+                updatedAt: string;
+            };
+        };
+        VendorSubscriptionListResponse: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                customerId: string;
+                /** Format: uuid */
+                contractId: string;
+                /** @enum {string} */
+                status: "trial" | "active" | "grace" | "expired" | "suspended" | "cancelled";
+                periodStart: string;
+                periodEnd: string;
+                graceUntil: string | null;
+                statusChangedAt: string;
+                seats: number;
+                projectsLimit: number;
+                createdAt: string;
+                updatedAt: string;
+            }[];
+        };
+        VendorSubscriptionRenew: {
+            periodStart: string;
+            periodEnd: string;
+        };
+        VendorSubscriptionStatusUpdate: {
+            /** @enum {string} */
+            status: "active" | "grace" | "expired";
+            graceUntil?: string | null;
+            reason?: string;
+        };
+        VendorDiscount: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            subscriptionId: string;
+            percentBp: number;
+            startsOn: string;
+            endsOn: string | null;
+            note: string | null;
+            /** Format: uuid */
+            createdBy: string;
+            createdAt: string;
+        };
+        VendorDiscountCreate: {
+            percentBp: number;
+            startsOn: string;
+            endsOn?: string | null;
+            note?: string | null;
+        };
+        VendorDiscountResponse: {
+            discount: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                subscriptionId: string;
+                percentBp: number;
+                startsOn: string;
+                endsOn: string | null;
+                note: string | null;
+                /** Format: uuid */
+                createdBy: string;
+                createdAt: string;
+            };
+        };
+        VendorDiscountListResponse: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                subscriptionId: string;
+                percentBp: number;
+                startsOn: string;
+                endsOn: string | null;
+                note: string | null;
+                /** Format: uuid */
+                createdBy: string;
+                createdAt: string;
+            }[];
+        };
+        VendorInvoice: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            customerId: string;
+            /** Format: uuid */
+            contractId: string;
+            number: string;
+            issuedOn: string;
+            dueOn: string;
+            amountKopecks: string;
+            /** @enum {string} */
+            status: "draft" | "issued" | "paid" | "partial" | "overdue" | "void";
+            pdfUrl: string | null;
+            createdAt: string;
+            updatedAt: string;
+        };
+        VendorInvoiceCreate: {
+            /** Format: uuid */
+            customerId: string;
+            /** Format: uuid */
+            contractId: string;
+            number: string;
+            issuedOn: string;
+            dueOn: string;
+            amountKopecks: string;
+            /**
+             * @default draft
+             * @enum {string}
+             */
+            status: "draft" | "issued" | "paid" | "partial" | "overdue" | "void";
+            pdfUrl?: string | null;
+        };
+        VendorInvoiceUpdate: {
+            /** @enum {string} */
+            status?: "draft" | "issued" | "paid" | "partial" | "overdue" | "void";
+            pdfUrl?: string | null;
+        };
+        VendorInvoiceResponse: {
+            invoice: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                customerId: string;
+                /** Format: uuid */
+                contractId: string;
+                number: string;
+                issuedOn: string;
+                dueOn: string;
+                amountKopecks: string;
+                /** @enum {string} */
+                status: "draft" | "issued" | "paid" | "partial" | "overdue" | "void";
+                pdfUrl: string | null;
+                createdAt: string;
+                updatedAt: string;
+            };
+        };
+        VendorInvoiceListResponse: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                customerId: string;
+                /** Format: uuid */
+                contractId: string;
+                number: string;
+                issuedOn: string;
+                dueOn: string;
+                amountKopecks: string;
+                /** @enum {string} */
+                status: "draft" | "issued" | "paid" | "partial" | "overdue" | "void";
+                pdfUrl: string | null;
+                createdAt: string;
+                updatedAt: string;
+            }[];
+        };
+        VendorPayment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            invoiceId: string;
+            invoiceNumber: string;
+            /** Format: uuid */
+            customerId: string;
+            customerLegalName: string;
+            paidOn: string;
+            amountKopecks: string;
+            /** @enum {string} */
+            method: "bank_transfer" | "card" | "cash" | "other";
+            reference: string | null;
+            /** Format: uuid */
+            recordedBy: string;
+            createdAt: string;
+        };
+        VendorPaymentCreate: {
+            /** Format: uuid */
+            invoiceId: string;
+            paidOn: string;
+            amountKopecks: string;
+            /**
+             * @default bank_transfer
+             * @enum {string}
+             */
+            method: "bank_transfer" | "card" | "cash" | "other";
+            reference?: string | null;
+        };
+        VendorPaymentResponse: {
+            payment: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                invoiceId: string;
+                invoiceNumber: string;
+                /** Format: uuid */
+                customerId: string;
+                customerLegalName: string;
+                paidOn: string;
+                amountKopecks: string;
+                /** @enum {string} */
+                method: "bank_transfer" | "card" | "cash" | "other";
+                reference: string | null;
+                /** Format: uuid */
+                recordedBy: string;
+                createdAt: string;
+            };
+        };
+        VendorPaymentListResponse: {
+            items: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                invoiceId: string;
+                invoiceNumber: string;
+                /** Format: uuid */
+                customerId: string;
+                customerLegalName: string;
+                paidOn: string;
+                amountKopecks: string;
+                /** @enum {string} */
+                method: "bank_transfer" | "card" | "cash" | "other";
+                reference: string | null;
+                /** Format: uuid */
+                recordedBy: string;
+                createdAt: string;
+            }[];
+        };
+        VendorCustomerSuspend: {
+            reason?: string;
+        };
+        VendorCustomerResume: {
+            periodStart?: string;
+            periodEnd?: string;
+            reason?: string;
         };
     };
     responses: never;

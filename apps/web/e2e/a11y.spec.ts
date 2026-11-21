@@ -73,6 +73,20 @@ test.describe("доступность: финансы", () => {
     await expect(page.getByRole("heading", { name: "Тарифы", level: 1 })).toBeVisible();
     await expectNoSeriousViolations(page);
   });
+
+  test("страница счетов", async ({ page }) => {
+    await page.goto("/invoices");
+
+    await expect(page.getByRole("heading", { name: "Счета", level: 1 })).toBeVisible();
+    await expectNoSeriousViolations(page);
+  });
+
+  test("страница платежей", async ({ page }) => {
+    await page.goto("/payments");
+
+    await expect(page.getByRole("heading", { name: "Платежи", level: 1 })).toBeVisible();
+    await expectNoSeriousViolations(page);
+  });
 });
 
 test.describe("доступность: консоль", () => {

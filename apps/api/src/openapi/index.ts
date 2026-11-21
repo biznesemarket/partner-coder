@@ -20,19 +20,44 @@ import {
   tenantProjectsResponseSchema,
   tenantSwitchResponseSchema,
   vendorAuthMeResponseSchema,
+  vendorContractCreateSchema,
+  vendorContractListResponseSchema,
+  vendorContractResponseSchema,
+  vendorContractSchema,
   vendorCustomerCreateSchema,
   vendorCustomerListResponseSchema,
   vendorCustomerResponseSchema,
   vendorCustomerSchema,
+  vendorCustomerResumeSchema,
+  vendorCustomerSuspendSchema,
   vendorCustomerUpdateSchema,
+  vendorDiscountCreateSchema,
+  vendorDiscountListResponseSchema,
+  vendorDiscountResponseSchema,
+  vendorDiscountSchema,
+  vendorInvoiceCreateSchema,
+  vendorInvoiceListResponseSchema,
+  vendorInvoiceResponseSchema,
+  vendorInvoiceSchema,
+  vendorInvoiceUpdateSchema,
   vendorMfaResetResponseSchema,
   vendorPasswordResetResponseSchema,
+  vendorPaymentCreateSchema,
+  vendorPaymentListResponseSchema,
+  vendorPaymentResponseSchema,
+  vendorPaymentSchema,
   vendorPlanCreateSchema,
   vendorPlanListResponseSchema,
   vendorPlanResponseSchema,
   vendorPlanSchema,
   vendorPlanUpdateSchema,
   vendorStepUpResponseSchema,
+  vendorSubscriptionCreateSchema,
+  vendorSubscriptionListResponseSchema,
+  vendorSubscriptionRenewSchema,
+  vendorSubscriptionResponseSchema,
+  vendorSubscriptionSchema,
+  vendorSubscriptionStatusUpdateSchema,
   vendorStepUpSchema,
   vendorUserCreateSchema,
   vendorUserListResponseSchema,
@@ -101,6 +126,31 @@ function componentSchemas(): Record<string, JsonSchema> {
       VendorPlanUpdate: vendorPlanUpdateSchema,
       VendorPlanResponse: vendorPlanResponseSchema,
       VendorPlanListResponse: vendorPlanListResponseSchema,
+      VendorContract: vendorContractSchema,
+      VendorContractCreate: vendorContractCreateSchema,
+      VendorContractResponse: vendorContractResponseSchema,
+      VendorContractListResponse: vendorContractListResponseSchema,
+      VendorSubscription: vendorSubscriptionSchema,
+      VendorSubscriptionCreate: vendorSubscriptionCreateSchema,
+      VendorSubscriptionResponse: vendorSubscriptionResponseSchema,
+      VendorSubscriptionListResponse: vendorSubscriptionListResponseSchema,
+      VendorSubscriptionRenew: vendorSubscriptionRenewSchema,
+      VendorSubscriptionStatusUpdate: vendorSubscriptionStatusUpdateSchema,
+      VendorDiscount: vendorDiscountSchema,
+      VendorDiscountCreate: vendorDiscountCreateSchema,
+      VendorDiscountResponse: vendorDiscountResponseSchema,
+      VendorDiscountListResponse: vendorDiscountListResponseSchema,
+      VendorInvoice: vendorInvoiceSchema,
+      VendorInvoiceCreate: vendorInvoiceCreateSchema,
+      VendorInvoiceUpdate: vendorInvoiceUpdateSchema,
+      VendorInvoiceResponse: vendorInvoiceResponseSchema,
+      VendorInvoiceListResponse: vendorInvoiceListResponseSchema,
+      VendorPayment: vendorPaymentSchema,
+      VendorPaymentCreate: vendorPaymentCreateSchema,
+      VendorPaymentResponse: vendorPaymentResponseSchema,
+      VendorPaymentListResponse: vendorPaymentListResponseSchema,
+      VendorCustomerSuspend: vendorCustomerSuspendSchema,
+      VendorCustomerResume: vendorCustomerResumeSchema,
     }).map(([name, schema]) => [name, toJsonSchema(schema)]),
   );
 }
@@ -612,6 +662,23 @@ export function buildOpenApiDocument(options: OpenApiOptions): Record<string, un
         },
       },
       "/v1/vendor/customers/{id}": {
+        get: {
+          tags: ["Vendor finance"],
+          summary: "Карточка клиента",
+          security: vendorSessionSecurity,
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          responses: {
+            200: {
+              description: "Клиент",
+              content: jsonContent(schemaRef("VendorCustomerResponse")),
+            },
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA или роль"),
+            404: errorResponse("Клиент не найден"),
+          },
+        },
         patch: {
           tags: ["Vendor finance"],
           summary: "Изменить клиента",
@@ -692,6 +759,391 @@ export function buildOpenApiDocument(options: OpenApiOptions): Record<string, un
             401: errorResponse("Не аутентифицирован"),
             403: errorResponse("Требуется MFA или роль superadmin"),
             404: errorResponse("Тариф не найден"),
+          },
+        },
+      },
+      "/v1/vendor/contracts": {
+        get: {
+          tags: ["Vendor finance"],
+          summary: "Список договоров",
+          security: vendorSessionSecurity,
+          parameters: [
+            {
+              name: "customerId",
+              in: "query",
+              required: false,
+              schema: { type: "string", format: "uuid" },
+            },
+            {
+              name: "status",
+              in: "query",
+              required: false,
+              schema: { type: "string", enum: ["draft", "active", "ended", "terminated"] },
+            },
+            {
+              name: "limit",
+              in: "query",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 500, default: 100 },
+            },
+          ],
+          responses: {
+            200: {
+              description: "Договоры",
+              content: jsonContent(schemaRef("VendorContractListResponse")),
+            },
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA или роль"),
+          },
+        },
+        post: {
+          tags: ["Vendor finance"],
+          summary: "Создать договор",
+          security: vendorSessionSecurity,
+          requestBody: { required: true, content: jsonContent(schemaRef("VendorContractCreate")) },
+          responses: {
+            201: {
+              description: "Договор создан",
+              content: jsonContent(schemaRef("VendorContractResponse")),
+            },
+            400: errorResponse("Некорректный запрос"),
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA или роль superadmin"),
+            404: errorResponse("Клиент или тариф не найден"),
+            409: errorResponse("Договор с таким номером уже существует"),
+          },
+        },
+      },
+      "/v1/vendor/subscriptions": {
+        get: {
+          tags: ["Vendor finance"],
+          summary: "Список подписок",
+          security: vendorSessionSecurity,
+          parameters: [
+            {
+              name: "customerId",
+              in: "query",
+              required: false,
+              schema: { type: "string", format: "uuid" },
+            },
+            {
+              name: "status",
+              in: "query",
+              required: false,
+              schema: {
+                type: "string",
+                enum: ["trial", "active", "grace", "expired", "suspended", "cancelled"],
+              },
+            },
+            {
+              name: "limit",
+              in: "query",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 500, default: 100 },
+            },
+          ],
+          responses: {
+            200: {
+              description: "Подписки",
+              content: jsonContent(schemaRef("VendorSubscriptionListResponse")),
+            },
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA или роль"),
+          },
+        },
+        post: {
+          tags: ["Vendor finance"],
+          summary: "Создать подписку",
+          security: vendorSessionSecurity,
+          requestBody: {
+            required: true,
+            content: jsonContent(schemaRef("VendorSubscriptionCreate")),
+          },
+          responses: {
+            201: {
+              description: "Подписка создана",
+              content: jsonContent(schemaRef("VendorSubscriptionResponse")),
+            },
+            400: errorResponse("Некорректный запрос"),
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA или роль superadmin"),
+            404: errorResponse("Клиент, договор или тариф не найден"),
+          },
+        },
+      },
+      "/v1/vendor/subscriptions/{id}/renew": {
+        post: {
+          tags: ["Vendor finance"],
+          summary: "Продлить подписку",
+          description: "Требует step-up. Частичные оплаты и переплаты не сверяются автоматически.",
+          security: vendorSessionSecurity,
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          requestBody: {
+            required: true,
+            content: jsonContent(schemaRef("VendorSubscriptionRenew")),
+          },
+          responses: {
+            200: {
+              description: "Подписка продлена",
+              content: jsonContent(schemaRef("VendorSubscriptionResponse")),
+            },
+            400: errorResponse("Некорректный запрос"),
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA, step-up или роль finance"),
+            404: errorResponse("Подписка не найдена"),
+            409: errorResponse("Подписка приостановлена или отменена"),
+          },
+        },
+      },
+      "/v1/vendor/subscriptions/{id}/status": {
+        post: {
+          tags: ["Vendor finance"],
+          summary: "Изменить статус подписки",
+          description: "Требует step-up. Приостановка выполняется через карточку клиента.",
+          security: vendorSessionSecurity,
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          requestBody: {
+            required: true,
+            content: jsonContent(schemaRef("VendorSubscriptionStatusUpdate")),
+          },
+          responses: {
+            200: {
+              description: "Статус изменён",
+              content: jsonContent(schemaRef("VendorSubscriptionResponse")),
+            },
+            400: errorResponse("Некорректный запрос"),
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA, step-up или роль finance"),
+            404: errorResponse("Подписка не найдена"),
+            409: errorResponse("Переход статуса запрещён"),
+          },
+        },
+      },
+      "/v1/vendor/subscriptions/{id}/discounts": {
+        get: {
+          tags: ["Vendor finance"],
+          summary: "Скидки подписки",
+          security: vendorSessionSecurity,
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          responses: {
+            200: {
+              description: "Скидки",
+              content: jsonContent(schemaRef("VendorDiscountListResponse")),
+            },
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA или роль"),
+            404: errorResponse("Подписка не найдена"),
+          },
+        },
+        post: {
+          tags: ["Vendor finance"],
+          summary: "Назначить скидку",
+          description: "Требует step-up и роль superadmin.",
+          security: vendorSessionSecurity,
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          requestBody: {
+            required: true,
+            content: jsonContent(schemaRef("VendorDiscountCreate")),
+          },
+          responses: {
+            201: {
+              description: "Скидка назначена",
+              content: jsonContent(schemaRef("VendorDiscountResponse")),
+            },
+            400: errorResponse("Некорректный запрос"),
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA, step-up или роль superadmin"),
+            404: errorResponse("Подписка не найдена"),
+            409: errorResponse("Скидка на этот период уже назначена"),
+          },
+        },
+      },
+      "/v1/vendor/invoices": {
+        get: {
+          tags: ["Vendor finance"],
+          summary: "Список счетов",
+          security: vendorSessionSecurity,
+          parameters: [
+            {
+              name: "customerId",
+              in: "query",
+              required: false,
+              schema: { type: "string", format: "uuid" },
+            },
+            {
+              name: "status",
+              in: "query",
+              required: false,
+              schema: {
+                type: "string",
+                enum: ["draft", "issued", "paid", "partial", "overdue", "void"],
+              },
+            },
+            {
+              name: "limit",
+              in: "query",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 500, default: 100 },
+            },
+          ],
+          responses: {
+            200: {
+              description: "Счета",
+              content: jsonContent(schemaRef("VendorInvoiceListResponse")),
+            },
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA или роль"),
+          },
+        },
+        post: {
+          tags: ["Vendor finance"],
+          summary: "Создать счёт",
+          description: "Требует step-up и роль finance.",
+          security: vendorSessionSecurity,
+          requestBody: { required: true, content: jsonContent(schemaRef("VendorInvoiceCreate")) },
+          responses: {
+            201: {
+              description: "Счёт создан",
+              content: jsonContent(schemaRef("VendorInvoiceResponse")),
+            },
+            400: errorResponse("Некорректный запрос"),
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA, step-up или роль finance"),
+            404: errorResponse("Клиент или договор не найден"),
+            409: errorResponse("Счёт с таким номером уже существует"),
+          },
+        },
+      },
+      "/v1/vendor/invoices/{id}": {
+        patch: {
+          tags: ["Vendor finance"],
+          summary: "Изменить счёт",
+          description: "Статус и ссылка на PDF. Требует step-up и роль finance.",
+          security: vendorSessionSecurity,
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          requestBody: { required: true, content: jsonContent(schemaRef("VendorInvoiceUpdate")) },
+          responses: {
+            200: {
+              description: "Счёт обновлён",
+              content: jsonContent(schemaRef("VendorInvoiceResponse")),
+            },
+            400: errorResponse("Некорректный запрос"),
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA, step-up или роль finance"),
+            404: errorResponse("Счёт не найден"),
+          },
+        },
+      },
+      "/v1/vendor/payments": {
+        get: {
+          tags: ["Vendor finance"],
+          summary: "Список платежей",
+          security: vendorSessionSecurity,
+          parameters: [
+            {
+              name: "invoiceId",
+              in: "query",
+              required: false,
+              schema: { type: "string", format: "uuid" },
+            },
+            {
+              name: "customerId",
+              in: "query",
+              required: false,
+              schema: { type: "string", format: "uuid" },
+            },
+            {
+              name: "limit",
+              in: "query",
+              required: false,
+              schema: { type: "integer", minimum: 1, maximum: 500, default: 100 },
+            },
+          ],
+          responses: {
+            200: {
+              description: "Платежи",
+              content: jsonContent(schemaRef("VendorPaymentListResponse")),
+            },
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA или роль"),
+          },
+        },
+        post: {
+          tags: ["Vendor finance"],
+          summary: "Внести платёж",
+          description: "Требует step-up и роль finance. Статус счёта не сверяется автоматически.",
+          security: vendorSessionSecurity,
+          requestBody: { required: true, content: jsonContent(schemaRef("VendorPaymentCreate")) },
+          responses: {
+            201: {
+              description: "Платёж внесён",
+              content: jsonContent(schemaRef("VendorPaymentResponse")),
+            },
+            400: errorResponse("Некорректный запрос"),
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA, step-up или роль finance"),
+            404: errorResponse("Счёт или клиент не найден"),
+            409: errorResponse("Счёт нельзя оплатить"),
+          },
+        },
+      },
+      "/v1/vendor/customers/{id}/suspend": {
+        post: {
+          tags: ["Vendor finance"],
+          summary: "Приостановить клиента",
+          description: "Требует step-up и роль superadmin.",
+          security: vendorSessionSecurity,
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          requestBody: {
+            required: false,
+            content: jsonContent(schemaRef("VendorCustomerSuspend")),
+          },
+          responses: {
+            200: {
+              description: "Клиент приостановлен",
+              content: jsonContent(schemaRef("VendorCustomerResponse")),
+            },
+            400: errorResponse("Некорректный запрос"),
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA, step-up или роль superadmin"),
+            404: errorResponse("Клиент не найден"),
+          },
+        },
+      },
+      "/v1/vendor/customers/{id}/resume": {
+        post: {
+          tags: ["Vendor finance"],
+          summary: "Возобновить клиента",
+          description: "Требует step-up и роль superadmin.",
+          security: vendorSessionSecurity,
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+          ],
+          requestBody: {
+            required: false,
+            content: jsonContent(schemaRef("VendorCustomerResume")),
+          },
+          responses: {
+            200: {
+              description: "Клиент возобновлён",
+              content: jsonContent(schemaRef("VendorCustomerResponse")),
+            },
+            400: errorResponse("Некорректный запрос"),
+            401: errorResponse("Не аутентифицирован"),
+            403: errorResponse("Требуется MFA, step-up или роль superadmin"),
+            404: errorResponse("Клиент не найден"),
           },
         },
       },

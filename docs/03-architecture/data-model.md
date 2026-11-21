@@ -1,17 +1,17 @@
 # Данные: схема, изоляция, аудит
 
-| Поле      | Значение                                         |
-| --------- | ------------------------------------------------ |
-| Код       | ARCH-DATA                                        |
-| Версия    | 1.1                                              |
-| Статус    | реализовано в M2.1; вендорский auth — M3 PR A    |
-| Связанные | ADR-0002, ADR-0006, ADR-0007, ADR-0009, ADR-0013 |
+| Поле      | Значение                                                 |
+| --------- | -------------------------------------------------------- |
+| Код       | ARCH-DATA                                                |
+| Версия    | 1.1                                                      |
+| Статус    | реализовано в M2.1; вендорский контур — M3 PR A/B и M3.1 |
+| Связанные | ADR-0002, ADR-0006, ADR-0007, ADR-0009, ADR-0013         |
 
 ## 1. Контуры
 
 | Контур      | Таблицы                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Вендор      | `vendor_users`, `customers`, `plans`, `contracts`, `subscriptions`, `invoices`, `payments`, `provisioning_packages`, `onboarding_sessions`, `vendor_audit_events`, `vendor_audit_anchors`                                                                                                                                                                                                                                                                                                              |
+| Вендор      | `vendor_users`, `customers`, `plans`, `contracts`, `subscriptions`, `subscription_discounts`, `invoices`, `payments`, `provisioning_packages`, `onboarding_sessions`, `vendor_audit_events`, `vendor_audit_anchors`                                                                                                                                                                                                                                                                                    |
 | Вендор-auth | `vendor_auth_accounts`, `vendor_auth_sessions`, `vendor_auth_verifications`, `vendor_auth_two_factors`, `vendor_auth_passkeys`, `vendor_auth_rate_limits`, `vendor_auth_email_limits` (доступ только у `partner_coder_vendor_auth`)                                                                                                                                                                                                                                                                    |
 | Tenant      | `users`, `auth_sessions`, `tenants`, `memberships`, `projects`, `project_members`, `policies`, `rate_versions`, `valuation_versions`, `work_sessions`, `heartbeats`, `intervals`, `day_records`, `day_adjustments`, `day_flags`, `disputes`, `payout_batches`, `payout_items`, `devices`, `device_tokens`, `invitations`, `git_integrations`, `connector_events`, `repo_facts`, `notifications`, `digest_runs`, `monthly_snapshots`, `tenant_audit_events`, `tenant_audit_anchors`, `idempotency_keys` |
 | Auth        | `auth_accounts`, `auth_verifications`, `auth_two_factors`, `auth_passkeys`, `auth_rate_limits` (глобальные, доступ только у `partner_coder_auth`)                                                                                                                                                                                                                                                                                                                                                      |
@@ -114,6 +114,26 @@
   `vendor_auth_email_limits`. TOTP-секреты и passkeys по TTL не удаляются.
 - `verify_vendor_audit_chain()` проверяет целостность вендорской хеш-цепочки;
   `verify_tenant_audit_chain(uuid)` остаётся для tenant-контура.
+
+### 3.2 Биллинг M3.1
+
+- `subscriptions.status_changed_at` фиксирует начало текущего статуса. Автопереходы
+  worker считает по календарным границам: `active -> grace` в 00:00 UTC
+  `period_end`, `grace -> expired` по `grace_until`, `expired -> suspended`
+  через 30 дней после начала `expired`, `trial -> expired` в `period_end`.
+  Один запуск может провести подписку через несколько состояний.
+- `subscription_discounts` — скидка на подписку: `percent_bp` 1000…5000
+  (10…50%), период `starts_on`/`ends_on`, автор. Пересечение периодов
+  запрещено на уровне сервиса; одна активная скидка на подписку.
+- `invoices` хранят номер, даты, сумму, статус и ссылку на PDF. Нумерацию,
+  обязательные поля и сверку частичных оплат/переплат ведёт бухгалтерия;
+  система не меняет статус счёта по сумме платежей.
+- `payments` — внесённые суммы; `recorded_by` — вендорский пользователь.
+  Платёж не запускает автоматическую сверку счёта.
+- Миграция `0007` добавляет `status_changed_at`, `subscription_discounts`,
+  индекс по статусу и гранты `partner_coder_vendor`; RLS не включается.
+- Все финансовые действия и автопереходы пишутся в `vendor_audit_events`
+  (`vendor.contract/subscription/invoice/payment/discount/customer.*`).
 
 ## 4. Append-only и аудит
 

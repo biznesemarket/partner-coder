@@ -20,7 +20,7 @@ const MAX_BODY_BYTES = 64 * 1024;
 
 const MAX_QUERY_BYTES = 8 * 1024;
 
-const UPSTREAM_TIMEOUT_MS = 15_000;
+const UPSTREAM_TIMEOUT_MS = Number(process.env.PROXY_UPSTREAM_TIMEOUT_MS ?? 30_000);
 
 export type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
 

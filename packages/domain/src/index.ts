@@ -14,6 +14,7 @@ export * from "./errors.js";
 export * from "./flags.js";
 export * from "./explain.js";
 export * from "./hash.js";
+export * from "./billing.js";
 
 export * from "./time/timezone.js";
 export * from "./time/intervals.js";

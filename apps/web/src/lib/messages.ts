@@ -49,6 +49,8 @@ export const common = {
 export const nav = {
   clients: "Клиенты",
   plans: "Тарифы",
+  invoices: "Счета",
+  payments: "Платежи",
   profile: "Профиль",
   security: "Безопасность",
 } as const;
@@ -284,6 +286,158 @@ export const errors = {
   generic: "Не удалось выполнить действие. Попробуйте ещё раз.",
 } as const;
 
+export const invoiceStatuses = {
+  draft: "Черновик",
+  issued: "Выставлен",
+  paid: "Оплачен",
+  partial: "Частично оплачен",
+  overdue: "Просрочен",
+  void: "Отменён",
+} as const;
+
+export const subscriptionStatuses = {
+  trial: "Пробный",
+  active: "Активна",
+  grace: "Льготный период",
+  expired: "Истекла",
+  suspended: "Приостановлена",
+  cancelled: "Отменена",
+} as const;
+
+export const contractStatuses = {
+  draft: "Черновик",
+  active: "Действует",
+  ended: "Завершён",
+  terminated: "Расторгнут",
+} as const;
+
+export const paymentMethods = {
+  bank_transfer: "Банковский перевод",
+  card: "Карта",
+  cash: "Наличные",
+  other: "Другое",
+} as const;
+
+export const stepUp = {
+  title: "Подтвердите действие",
+  description: "Финансовые операции требуют повторного ввода пароля.",
+  passwordLabel: "Пароль",
+  passwordRequired: "Введите пароль",
+  submit: "Подтвердить",
+  pending: "Проверяем…",
+  cancel: "Отмена",
+  success: "Пароль подтверждён",
+  failed: "Не удалось подтвердить пароль",
+} as const;
+
+export const clientCard = {
+  back: "К списку клиентов",
+  title: "Карточка клиента",
+  requisites: "Реквизиты",
+  contact: "Контакт",
+  noContact: "Контакт не указан",
+  contracts: "Договоры",
+  noContracts: "Договоров нет",
+  subscriptions: "Подписки",
+  noSubscriptions: "Подписок нет",
+  invoices: "Счета",
+  noInvoices: "Счетов нет",
+  payments: "Платежи",
+  noPayments: "Платежей нет",
+  discount: "Скидка",
+  noDiscount: "Скидка не назначена",
+  period: "Период",
+  seats: "Мест",
+  projects: "Проектов",
+  plan: "Тариф",
+  contractNumber: "Номер договора",
+  startsOn: "Начало",
+  endsOn: "Окончание",
+  issuedOn: "Выставлен",
+  dueOn: "Оплатить до",
+  paidOn: "Оплачен",
+  amount: "Сумма",
+  reference: "Назначение платежа",
+  pdf: "PDF",
+  invoiceNumber: "Номер счёта",
+  createInvoice: "Создать счёт",
+  recordPayment: "Внести платёж",
+  renew: "Продлить подписку",
+  suspend: "Приостановить",
+  resume: "Возобновить",
+  assignDiscount: "Назначить скидку",
+} as const;
+
+export const invoices = {
+  title: "Счета",
+  description: "Выставленные и оплаченные счета клиентов.",
+  emptyTitle: "Счетов пока нет",
+  emptyDescription: "Создайте счёт в карточке клиента.",
+  numberLabel: "Номер",
+  customerLabel: "Клиент",
+  issuedLabel: "Выставлен",
+  dueLabel: "Оплатить до",
+  amountLabel: "Сумма",
+  statusLabel: "Статус",
+} as const;
+
+export const payments = {
+  title: "Платежи",
+  description: "Поступившие оплаты по счетам.",
+  emptyTitle: "Платежей пока нет",
+  emptyDescription: "Внесите платёж в карточке клиента.",
+  dateLabel: "Дата",
+  customerLabel: "Клиент",
+  invoiceLabel: "Счёт",
+  amountLabel: "Сумма",
+  methodLabel: "Способ",
+  referenceLabel: "Назначение",
+} as const;
+
+export const invoiceForm = {
+  title: "Новый счёт",
+  description: "Номер и реквизиты счёта ведёт бухгалтерия.",
+  numberLabel: "Номер счёта",
+  contractLabel: "Договор",
+  issuedLabel: "Дата выставления",
+  dueLabel: "Оплатить до",
+  amountLabel: "Сумма, ₽",
+  pdfLabel: "Ссылка на PDF",
+  statusLabel: "Статус",
+  submit: "Создать",
+  pending: "Создаём…",
+  created: "Счёт создан",
+  numberRequired: "Введите номер счёта",
+  contractRequired: "Выберите договор",
+  amountFormat: "Укажите положительную сумму",
+  datesInvalid: "Дата оплаты не может быть раньше выставления",
+} as const;
+
+export const paymentForm = {
+  title: "Новый платёж",
+  description: "Статус счёта бухгалтерия сверяет вручную.",
+  invoiceLabel: "Счёт",
+  dateLabel: "Дата платежа",
+  amountLabel: "Сумма, ₽",
+  methodLabel: "Способ",
+  referenceLabel: "Назначение платежа",
+  submit: "Внести",
+  pending: "Вносим…",
+  created: "Платёж внесён",
+  invoiceRequired: "Выберите счёт",
+  amountFormat: "Укажите положительную сумму",
+} as const;
+
+export const renewForm = {
+  title: "Продление подписки",
+  description: "Оплаченный период вступает в силу сразу.",
+  startLabel: "Начало периода",
+  endLabel: "Окончание периода",
+  submit: "Продлить",
+  pending: "Продлеваем…",
+  renewed: "Подписка продлена",
+  datesInvalid: "Окончание должно быть позже начала",
+} as const;
 export const messages = {
   roles,
   statuses,
@@ -293,6 +447,17 @@ export const messages = {
   nav,
   clients,
   plans,
+  clientCard,
+  invoices,
+  payments,
+  invoiceForm,
+  paymentForm,
+  renewForm,
+  invoiceStatuses,
+  subscriptionStatuses,
+  contractStatuses,
+  paymentMethods,
+  stepUp,
   profile,
   session,
   security,
