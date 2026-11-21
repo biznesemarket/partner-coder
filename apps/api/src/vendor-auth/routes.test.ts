@@ -493,6 +493,34 @@ describe("vendor auth routes", () => {
     });
   });
 
+  it("не даёт снять последнего активного суперадминистратора", async () => {
+    const actor = await seedUser({ role: "superadmin", twoFactorEnabled: true });
+    const target = await seedUser({ role: "superadmin", twoFactorEnabled: true });
+    setSession(identity({ userId: actor.id, email: actor.email }));
+    const app = buildApp();
+
+    await database.pool.query(
+      "update vendor_users set status = 'disabled' where role = 'superadmin' and status = 'active' and id <> $1",
+      [target.id],
+    );
+    await database.pool.query("update vendor_users set role = 'finance' where id = $1", [actor.id]);
+    const auditBefore = await countAudit("vendor.user.role_changed");
+
+    const denied = await app.inject({
+      method: "PATCH",
+      url: `/v1/vendor/users/${target.id}`,
+      payload: { role: "finance" },
+    });
+
+    expect(denied.statusCode).toBe(409);
+    expect(denied.json()).toMatchObject({ error: { code: "vendor_last_superadmin" } });
+    const targetRow = await database.pool.query<{ role: string }>(
+      "select role from vendor_users where id = $1",
+      [target.id],
+    );
+    expect(targetRow.rows[0]?.role).toBe("superadmin");
+    expect(await countAudit("vendor.user.role_changed")).toBe(auditBefore);
+  });
   it("reset-mfa удаляет TOTP/passkeys и аудирует", async () => {
     const admin = await seedUser({ role: "superadmin", twoFactorEnabled: true });
     const target = await seedUser({ role: "support", twoFactorEnabled: true });
