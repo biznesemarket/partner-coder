@@ -40,6 +40,7 @@ const expectedTables = [
   "provisioning_packages",
   "rate_versions",
   "repo_facts",
+  "subscription_discounts",
   "subscriptions",
   "tenant_audit_anchors",
   "tenant_audit_events",

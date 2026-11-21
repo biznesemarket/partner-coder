@@ -1,6 +1,7 @@
 export * from "./jobs/day-close.js";
 export * from "./jobs/day-close-scan.js";
 export * from "./jobs/audit-anchor.js";
+export * from "./jobs/billing-status.js";
 export * from "./jobs/ttl-cleanup.js";
 export * from "./schedule.js";
 export * from "./boss.js";

@@ -169,6 +169,15 @@ export function registerVendorFinanceRoutes(
     return { items: items.map(customerResponse) };
   });
 
+  server.get("/v1/vendor/customers/:id", { preHandler: readGuards }, async (request) => {
+    const { id } = parseParams(vendorIdParamsSchema, request.params);
+    const customer = await getCustomerById(runtime.db, id);
+    if (!customer) {
+      throw new ApiError(404, "vendor_customer_not_found", "Клиент не найден");
+    }
+    return { customer: customerResponse(customer) };
+  });
+
   server.post("/v1/vendor/customers", { preHandler: writeGuards }, async (request, reply) => {
     const identity = request.vendorAuth!;
     const input = parseBody(vendorCustomerCreateSchema, request.body);

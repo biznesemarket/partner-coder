@@ -7,6 +7,7 @@ import type { Database } from "@partner-coder/db";
 
 import type { JobMetrics } from "./metrics.js";
 import { anchorAudits } from "./jobs/audit-anchor.js";
+import { advanceBillingStatuses } from "./jobs/billing-status.js";
 import { closeProjectDay } from "./jobs/day-close.js";
 import { scanDueDays } from "./jobs/day-close-scan.js";
 import { runTtlCleanup } from "./jobs/ttl-cleanup.js";
@@ -16,6 +17,7 @@ export const queueNames = {
   dayClose: "day-close",
   auditAnchor: "audit-anchor",
   ttlCleanup: "ttl-cleanup",
+  billingStatusScan: "billing-status-scan",
 } as const;
 
 export const deadLetterNames = {
@@ -23,6 +25,7 @@ export const deadLetterNames = {
   dayClose: "day-close-dlq",
   auditAnchor: "audit-anchor-dlq",
   ttlCleanup: "ttl-cleanup-dlq",
+  billingStatusScan: "billing-status-scan-dlq",
 } as const;
 
 const dayCloseJobSchema = z.object({
@@ -117,6 +120,10 @@ export async function startWorker(options: WorkerOptions): Promise<WorkerRuntime
     return anchorAudits(db);
   });
 
+  await work<null>(queueNames.billingStatusScan, async () => {
+    return advanceBillingStatuses(db);
+  });
+
   await work<null>(queueNames.ttlCleanup, async () => {
     return runTtlCleanup(db, {
       sessionRetentionDays: env.AUTH_SESSION_RETENTION_DAYS,
@@ -129,6 +136,7 @@ export async function startWorker(options: WorkerOptions): Promise<WorkerRuntime
   await boss.schedule(queueNames.dayCloseScan, env.DAY_CLOSE_CRON, null, schedule);
   await boss.schedule(queueNames.auditAnchor, env.AUDIT_ANCHOR_CRON, null, schedule);
   await boss.schedule(queueNames.ttlCleanup, env.TTL_CLEANUP_CRON, null, schedule);
+  await boss.schedule(queueNames.billingStatusScan, env.BILLING_STATUS_CRON, null, schedule);
 
   logger.info(
     {
@@ -136,6 +144,7 @@ export async function startWorker(options: WorkerOptions): Promise<WorkerRuntime
       dayCloseCron: env.DAY_CLOSE_CRON,
       auditAnchorCron: env.AUDIT_ANCHOR_CRON,
       ttlCleanupCron: env.TTL_CLEANUP_CRON,
+      billingStatusCron: env.BILLING_STATUS_CRON,
     },
     "worker_started",
   );

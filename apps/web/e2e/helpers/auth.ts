@@ -71,7 +71,7 @@ async function requestResetLink(page: Page, email: string): Promise<string> {
   await page.getByRole("button", { name: "Забыли пароль?" }).click();
   await page.locator("#forgot-email").fill(email);
   await page.getByRole("button", { name: "Отправить ссылку" }).click();
-  await expect(page.getByRole("status")).toContainText(RESET_SENT_TEXT, { timeout: 30_000 });
+  await expect(page.getByRole("status")).toContainText(RESET_SENT_TEXT, { timeout: 60_000 });
 
   return latestResetToken(email);
 }

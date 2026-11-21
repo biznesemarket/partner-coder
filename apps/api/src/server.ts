@@ -16,6 +16,7 @@ import type { VendorAuthRuntime } from "./vendor-auth/runtime.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerTenantRoutes } from "./routes/tenant.js";
 import { normalizeBaseUrl, registerVendorAuthRoutes } from "./routes/vendor-auth.js";
+import { registerVendorBillingRoutes } from "./routes/vendor-billing.js";
 import { registerVendorFinanceRoutes } from "./routes/vendor-finance.js";
 import { registerVendorRoutes } from "./routes/vendor.js";
 
@@ -292,6 +293,7 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
     });
     registerVendorRoutes(server, vendorSetup.runtime);
     registerVendorFinanceRoutes(server, vendorSetup.runtime);
+    registerVendorBillingRoutes(server, vendorSetup.runtime);
   }
 
   return server;

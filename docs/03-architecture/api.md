@@ -94,10 +94,31 @@ Tenant-auth не менялся.
 | `POST /v1/vendor/users/:id/reset-password` | superadmin + TOTP                | ссылка установки пароля                             |
 | `POST /v1/vendor/users/:id/reset-mfa`      | superadmin + TOTP                | удаление TOTP/passkeys и сессий                     |
 
-`requireVendorStepUp` и поле сессии `step_up_until` реализованы, а
-`POST /v1/vendor/auth/step-up` обновляет окно. При этом ни один маршрут PR A
-не требует step-up: обязательная проверка появится у первого опасного
-действия M3.1 (счета, платежи, смена финансового статуса).
+### 2.2.1 Биллинг (M3.1)
+
+| Маршрут                                           | Доступ                                    | Назначение                           |
+| ------------------------------------------------- | ----------------------------------------- | ------------------------------------ |
+| `GET/POST /v1/vendor/contracts`                   | чтение — все; POST — superadmin           | договоры                             |
+| `GET/POST /v1/vendor/subscriptions`               | чтение — все; POST — superadmin           | подписки                             |
+| `POST /v1/vendor/subscriptions/:id/renew`         | finance + step-up                         | продление оплаченного периода        |
+| `POST /v1/vendor/subscriptions/:id/status`        | finance + step-up                         | ручной статус без приостановки       |
+| `GET/POST /v1/vendor/subscriptions/:id/discounts` | чтение — все; POST — superadmin + step-up | скидка 10…50%                        |
+| `GET/POST /v1/vendor/invoices`                    | чтение — все; POST — finance + step-up    | счета                                |
+| `PATCH /v1/vendor/invoices/:id`                   | finance + step-up                         | статус и ссылка на PDF               |
+| `GET/POST /v1/vendor/payments`                    | чтение — все; POST — finance + step-up    | платежи                              |
+| `POST /v1/vendor/customers/:id/suspend\|resume`   | superadmin + step-up                      | приостановка и возобновление клиента |
+
+Суммы — в копейках строками. Статус счёта не выводится из суммы платежей:
+частичные оплаты и переплаты сверяет бухгалтерия. Worker `billing-status-scan`
+выполняет автопереходы `trial -> expired` и
+`active -> grace -> expired -> suspended`; расписание —
+`BILLING_STATUS_CRON` (по умолчанию `5 * * * *`, UTC). Все мутации и
+автопереходы пишутся в `vendor_audit_events`.
+
+`requireVendorStepUp` и поле сессии `step_up_until` подключены к финансовым
+мутациям M3.1: счета, платежи, продление и смена статуса подписки, скидки,
+приостановка и возобновление клиента. `POST /v1/vendor/auth/step-up` обновляет
+окно.
 
 Прокси пропускает только нужные Better Auth endpoints. На `/sign-in/email` и
 `/request-password-reset` действует per-email лимит 5/60 секунд (memory

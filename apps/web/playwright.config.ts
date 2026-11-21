@@ -46,7 +46,8 @@ export default defineConfig({
       command: "pnpm start",
       url: "http://localhost:3001/login",
       env: {
-        API_BASE_URL: "http://localhost:4000",
+        API_BASE_URL: "http://127.0.0.1:4000",
+        PROXY_UPSTREAM_TIMEOUT_MS: "60000",
         VENDOR_BASE_URL: "http://localhost:3001",
       },
       reuseExistingServer: false,

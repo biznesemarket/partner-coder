@@ -33,6 +33,8 @@ import { useSignOut } from "./logout-button";
 const NAV_ITEMS = [
   { href: "/clients", label: messages.nav.clients },
   { href: "/plans", label: messages.nav.plans },
+  { href: "/invoices", label: messages.nav.invoices },
+  { href: "/payments", label: messages.nav.payments },
   { href: "/me", label: messages.nav.profile },
   { href: "/me/security", label: messages.nav.security },
 ] as const;

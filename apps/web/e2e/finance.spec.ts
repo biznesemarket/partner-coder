@@ -19,6 +19,17 @@ test.describe("клиенты и тарифы", () => {
     await expect(page.getByText("Клиент создан")).toBeVisible();
     await expect(page.getByText(customerName, { exact: true })).toBeVisible();
 
+    await page.getByRole("link", { name: customerName }).click();
+    await expect(page.getByRole("heading", { name: customerName, level: 1 })).toBeVisible();
+    await expect(page.getByText("Карточка клиента", { exact: true })).toBeVisible();
+    await expect(page.getByText("Договоров нет", { exact: true })).toBeVisible();
+
+    await page.goto("/invoices");
+    await expect(page.getByRole("heading", { name: "Счета", level: 1 })).toBeVisible();
+
+    await page.goto("/payments");
+    await expect(page.getByRole("heading", { name: "Платежи", level: 1 })).toBeVisible();
+
     await page.goto("/plans");
     await expect(page.getByRole("heading", { name: "Тарифы", level: 1 })).toBeVisible();
 

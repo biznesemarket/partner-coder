@@ -393,6 +393,281 @@ export const vendorPlanListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(100),
 });
 
+export const vendorContractStatusSchema = z.enum(["draft", "active", "ended", "terminated"]);
+
+export const vendorContractLimitsSchema = z.record(
+  z.string(),
+  z.number().int().min(0).max(100_000),
+);
+
+export const vendorContractCreateSchema = z.object({
+  customerId: z.uuid(),
+  planId: z.uuid(),
+  number: z.string().trim().min(1).max(64),
+  startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endsOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .optional(),
+  limits: vendorContractLimitsSchema.optional(),
+  status: vendorContractStatusSchema.default("draft"),
+});
+
+export const vendorContractSchema = z.object({
+  id: z.uuid(),
+  customerId: z.uuid(),
+  planId: z.uuid(),
+  number: z.string(),
+  startsOn: z.string(),
+  endsOn: z.string().nullable(),
+  limits: vendorContractLimitsSchema,
+  status: vendorContractStatusSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const vendorContractResponseSchema = z.object({ contract: vendorContractSchema });
+
+export const vendorContractListResponseSchema = z.object({ items: z.array(vendorContractSchema) });
+
+export const vendorContractListQuerySchema = z.object({
+  customerId: z.uuid().optional(),
+  status: vendorContractStatusSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+
+export const vendorSubscriptionStatusSchema = z.enum([
+  "trial",
+  "active",
+  "grace",
+  "expired",
+  "suspended",
+  "cancelled",
+]);
+
+export const vendorSubscriptionCreateSchema = z.object({
+  customerId: z.uuid(),
+  contractId: z.uuid(),
+  status: vendorSubscriptionStatusSchema.default("trial"),
+  periodStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  periodEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  seats: z.number().int().min(1).max(1000).optional(),
+  projectsLimit: z.number().int().min(1).max(1000).optional(),
+});
+
+export const vendorSubscriptionSchema = z.object({
+  id: z.uuid(),
+  customerId: z.uuid(),
+  contractId: z.uuid(),
+  status: vendorSubscriptionStatusSchema,
+  periodStart: z.string(),
+  periodEnd: z.string(),
+  graceUntil: z.string().nullable(),
+  statusChangedAt: z.string(),
+  seats: z.number().int(),
+  projectsLimit: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const vendorSubscriptionResponseSchema = z.object({
+  subscription: vendorSubscriptionSchema,
+});
+
+export const vendorSubscriptionListResponseSchema = z.object({
+  items: z.array(vendorSubscriptionSchema),
+});
+
+export const vendorSubscriptionListQuerySchema = z.object({
+  customerId: z.uuid().optional(),
+  status: vendorSubscriptionStatusSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+
+export const vendorSubscriptionRenewSchema = z
+  .object({
+    periodStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    periodEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  })
+  .refine((value) => value.periodEnd > value.periodStart, {
+    message: "Дата окончания должна быть позже даты начала",
+    path: ["periodEnd"],
+  });
+
+export const vendorSubscriptionStatusUpdateSchema = z.object({
+  status: z.enum(["active", "grace", "expired"]),
+  graceUntil: z.iso.datetime({ offset: true }).nullable().optional(),
+  reason: z.string().trim().max(500).optional(),
+});
+
+export const vendorDiscountCreateSchema = z
+  .object({
+    percentBp: z.number().int().min(1000).max(5000),
+    startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    endsOn: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .nullable()
+      .optional(),
+    note: z.string().trim().max(500).nullable().optional(),
+  })
+  .refine(
+    (value) =>
+      value.endsOn === undefined || value.endsOn === null || value.endsOn >= value.startsOn,
+    {
+      message: "Дата окончания скидки должна быть не раньше начала",
+      path: ["endsOn"],
+    },
+  );
+
+export const vendorDiscountSchema = z.object({
+  id: z.uuid(),
+  subscriptionId: z.uuid(),
+  percentBp: z.number().int(),
+  startsOn: z.string(),
+  endsOn: z.string().nullable(),
+  note: z.string().nullable(),
+  createdBy: z.uuid(),
+  createdAt: z.string(),
+});
+
+export const vendorDiscountResponseSchema = z.object({ discount: vendorDiscountSchema });
+
+export const vendorDiscountListResponseSchema = z.object({ items: z.array(vendorDiscountSchema) });
+
+export const vendorInvoiceStatusSchema = z.enum([
+  "draft",
+  "issued",
+  "paid",
+  "partial",
+  "overdue",
+  "void",
+]);
+
+const kopecksSchema = z
+  .string()
+  .max(15)
+  .regex(/^\d+$/, "Сумма в копейках должна быть целым числом");
+
+const vendorPdfUrlSchema = z
+  .string()
+  .trim()
+  .max(2048)
+  .refine((value) => {
+    try {
+      const url = new URL(value);
+      return url.protocol === "http:" || url.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }, "Укажите ссылку http(s)");
+
+export const vendorInvoiceCreateSchema = z
+  .object({
+    customerId: z.uuid(),
+    contractId: z.uuid(),
+    number: z.string().trim().min(1).max(64),
+    issuedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    dueOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    amountKopecks: kopecksSchema,
+    status: vendorInvoiceStatusSchema.default("draft"),
+    pdfUrl: vendorPdfUrlSchema.nullable().optional(),
+  })
+  .refine((value) => value.dueOn >= value.issuedOn, {
+    message: "Срок оплаты не может быть раньше даты выставления",
+    path: ["dueOn"],
+  });
+
+export const vendorInvoiceUpdateSchema = z.object({
+  status: vendorInvoiceStatusSchema.optional(),
+  pdfUrl: vendorPdfUrlSchema.nullable().optional(),
+});
+
+export const vendorInvoiceSchema = z.object({
+  id: z.uuid(),
+  customerId: z.uuid(),
+  contractId: z.uuid(),
+  number: z.string(),
+  issuedOn: z.string(),
+  dueOn: z.string(),
+  amountKopecks: z.string(),
+  status: vendorInvoiceStatusSchema,
+  pdfUrl: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const vendorInvoiceResponseSchema = z.object({ invoice: vendorInvoiceSchema });
+
+export const vendorInvoiceListResponseSchema = z.object({ items: z.array(vendorInvoiceSchema) });
+
+export const vendorInvoiceListQuerySchema = z.object({
+  customerId: z.uuid().optional(),
+  status: vendorInvoiceStatusSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+
+export const vendorPaymentMethodSchema = z.enum(["bank_transfer", "card", "cash", "other"]);
+
+export const vendorPaymentCreateSchema = z.object({
+  invoiceId: z.uuid(),
+  paidOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  amountKopecks: kopecksSchema.refine((value) => value !== "0", {
+    message: "Платёж должен быть больше нуля",
+  }),
+  method: vendorPaymentMethodSchema.default("bank_transfer"),
+  reference: z.string().trim().max(200).nullable().optional(),
+});
+
+export const vendorPaymentSchema = z.object({
+  id: z.uuid(),
+  invoiceId: z.uuid(),
+  invoiceNumber: z.string(),
+  customerId: z.uuid(),
+  customerLegalName: z.string(),
+  paidOn: z.string(),
+  amountKopecks: z.string(),
+  method: vendorPaymentMethodSchema,
+  reference: z.string().nullable(),
+  recordedBy: z.uuid(),
+  createdAt: z.string(),
+});
+
+export const vendorPaymentResponseSchema = z.object({ payment: vendorPaymentSchema });
+
+export const vendorPaymentListResponseSchema = z.object({ items: z.array(vendorPaymentSchema) });
+
+export const vendorPaymentListQuerySchema = z.object({
+  invoiceId: z.uuid().optional(),
+  customerId: z.uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+
+export const vendorCustomerSuspendSchema = z.object({
+  reason: z.string().trim().max(500).optional(),
+});
+
+export const vendorCustomerResumeSchema = z
+  .object({
+    periodStart: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    periodEnd: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    reason: z.string().trim().max(500).optional(),
+  })
+  .refine((value) => (value.periodStart === undefined) === (value.periodEnd === undefined), {
+    message: "Укажите обе даты периода или ни одной",
+    path: ["periodStart"],
+  })
+  .refine((value) => value.periodEnd === undefined || value.periodEnd > value.periodStart!, {
+    message: "Дата окончания должна быть позже даты начала",
+    path: ["periodEnd"],
+  });
 export type InvitationCreateInput = z.infer<typeof invitationCreateSchema>;
 export type DeviceCreateInput = z.infer<typeof deviceCreateSchema>;
 export type DaysQueryInput = z.infer<typeof daysQuerySchema>;

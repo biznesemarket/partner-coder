@@ -1,5 +1,6 @@
 import { Badge, EmptyState, PageHeader } from "@partner-coder/ui";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { ConsoleGuard } from "@/components/console/console-guard";
@@ -46,7 +47,14 @@ function CustomerTable({ items }: { items: readonly VendorCustomer[] }) {
         <tbody className="divide-y">
           {items.map((customer) => (
             <tr key={customer.id} className="align-top">
-              <td className="px-4 py-3 font-medium">{customer.legalName}</td>
+              <td className="px-4 py-3 font-medium">
+                <Link
+                  className="underline-offset-4 hover:underline"
+                  href={`/clients/${customer.id}`}
+                >
+                  {customer.legalName}
+                </Link>
+              </td>
               <td className="px-4 py-3 text-muted-foreground">{customer.inn ?? "—"}</td>
               <td className="px-4 py-3 text-muted-foreground">{customer.contact.email ?? "—"}</td>
               <td className="px-4 py-3">

@@ -111,6 +111,7 @@ export const envSchema = z
     DAY_CLOSE_CATCHUP_DAYS: z.coerce.number().int().min(1).max(366).default(31),
     AUDIT_ANCHOR_CRON: z.string().min(1).default("15 0 * * *"),
     TTL_CLEANUP_CRON: z.string().min(1).default("30 * * * *"),
+    BILLING_STATUS_CRON: z.string().min(1).default("5 * * * *"),
     JOB_RETRY_LIMIT: z.coerce.number().int().min(0).max(20).default(5),
     AUTH_SESSION_RETENTION_DAYS: z.coerce.number().int().min(0).max(365).default(7),
     AUTH_VERIFICATION_RETENTION_DAYS: z.coerce.number().int().min(0).max(90).default(1),
