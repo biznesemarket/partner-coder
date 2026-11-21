@@ -29,7 +29,9 @@ test.describe("клиенты и тарифы", () => {
     await expect(
       page.getByText("Скопируйте токен сейчас. Повторно он не показывается."),
     ).toBeVisible();
-    await expect(page.getByText(/^pcp_/)).toBeVisible();
+    const token = page.locator("#package-token");
+    await expect(token).toBeVisible();
+    await expect(token).toHaveText(/^pcp_/);
     await page.getByRole("button", { name: "Закрыть" }).first().click();
     await expect(page.locator("tbody").getByText("Выдан", { exact: true })).toBeVisible();
 
