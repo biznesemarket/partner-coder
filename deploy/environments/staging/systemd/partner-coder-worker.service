@@ -1,0 +1,29 @@
+[Unit]
+Description=Partner Coder worker
+Documentation=https://github.com/biznesemarket/partner-coder
+After=network-online.target partner-coder-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=partner-coder
+Group=partner-coder
+WorkingDirectory=/opt/partner-coder
+EnvironmentFile=/etc/partner-coder/worker.env
+ExecStart=/usr/bin/node /opt/partner-coder/apps/worker/dist/main.js
+Restart=always
+RestartSec=3
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

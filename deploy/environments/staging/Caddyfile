@@ -1,0 +1,29 @@
+{
+	email {$ACME_EMAIL:ops@partnercoder.ru}
+}
+
+staging.pcoder.ru {
+	encode zstd gzip
+	reverse_proxy {$STAGING_WEB_UPSTREAM:127.0.0.1:3001} {
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+}
+
+staging-api.pcoder.ru {
+	@allowed remote_ip {$STAGING_API_ALLOWLIST:127.0.0.1}
+	handle @allowed {
+		reverse_proxy {$STAGING_API_UPSTREAM:127.0.0.1:4000} {
+			header_up Host {host}
+			header_up X-Real-IP {remote_host}
+		}
+	}
+	respond 403
+}

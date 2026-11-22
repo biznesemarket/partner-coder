@@ -15,6 +15,7 @@
 | PostgreSQL | managed PG 17, отдельная БД, PITR, daily backup                            |
 | SMTP       | отдельный ящик с SPF/DKIM/DMARC                                            |
 | S3         | отдельный bucket, приватный, versioning                                    |
+| Edge       | Caddy: TLS, `X-Forwarded-For` overwrite, allowlist для `staging-api`       |
 
 ## Переменные
 

@@ -153,6 +153,62 @@ DATABASE_URL='...' pnpm db:check
 create schema if not exists pgboss authorization pc_worker_login;
 ```
 
+## 8.1 Systemd и Caddy
+
+Готовые unit-файлы и Caddyfile лежат в репозитории:
+
+- `deploy/environments/staging/systemd/partner-coder-api.service`
+- `deploy/environments/staging/systemd/partner-coder-worker.service`
+- `deploy/environments/staging/systemd/partner-coder-web.service`
+- `deploy/environments/staging/Caddyfile`
+
+```bash
+sudo useradd --system --home /opt/partner-coder --shell /usr/sbin/nologin partner-coder
+sudo install -d -o partner-coder -g partner-coder /opt/partner-coder /etc/partner-coder
+sudo install -d -o root -g partner-coder -m 0750 /etc/partner-coder
+```
+
+Код и зависимости:
+
+```bash
+sudo -u partner-coder git clone <repo> /opt/partner-coder
+cd /opt/partner-coder
+sudo -u partner-coder pnpm install --frozen-lockfile
+sudo -u partner-coder pnpm build
+sudo -u partner-coder mkdir -p apps/web/.next/cache
+```
+
+Env-файлы (root:partner-coder, `0640`): `/etc/partner-coder/api.env`,
+`worker.env`, `web.env`. В `api.env` и `web.env` задайте одинаковый
+`TRUSTED_CLIENT_IP_SECRET` (>= 32 байт); `AUDIT_HMAC_KEY` — только api/worker.
+Web не должен иметь DB-секретов.
+
+Caddy:
+
+```bash
+sudo install -m 0644 deploy/environments/staging/Caddyfile /etc/caddy/Caddyfile
+sudo systemctl edit caddy
+```
+
+В drop-in задайте `STAGING_WEB_UPSTREAM=127.0.0.1:3001`,
+`STAGING_API_UPSTREAM=127.0.0.1:4000`,
+`STAGING_API_ALLOWLIST="127.0.0.1/32 10.0.0.0/8"` и `ACME_EMAIL`.
+Caddy по умолчанию выставляет `X-Forwarded-For` из `{remote_host}` и не
+доверяет клиентскому значению; это условие корректной подписи client IP в
+BFF. Не включайте `trusted_proxies` для клиентских адресов и не добавляйте
+клиентский `X-Forwarded-For` в `header_up`.
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now partner-coder-api partner-coder-worker partner-coder-web
+sudo systemctl reload caddy
+curl -fsS https://staging.pcoder.ru/login >/dev/null
+curl -fsS http://127.0.0.1:4000/healthz
+```
+
+`staging-api.pcoder.ru` закрыт `remote_ip`-allowlist и нужен только для
+smoke/партнёрских вызовов; BFF ходит в API напрямую по loopback.
+
 ## 9. Бэкапы в S3 MakeCloud
 
 Установить pgBackRest:

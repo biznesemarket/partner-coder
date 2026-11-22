@@ -129,6 +129,11 @@
 
 ### Security
 
+- Добавлены staging deploy assets: Caddyfile для `staging.pcoder.ru` /
+  `staging-api.pcoder.ru` (TLS, security headers, `X-Forwarded-For`
+  overwrite, IP allowlist API) и hardened systemd units для API, worker и web.
+  Runbook `makecloud-vps.md` дополнен установкой.
+
 - Доверенный client IP за BFF: reverse proxy передаёт `X-Forwarded-For`,
   web подписывает первый IP HMAC-ключом `TRUSTED_CLIENT_IP_SECRET`, API
   проверяет `x-pc-client-ip`/`x-pc-client-ip-signature` и использует его в
