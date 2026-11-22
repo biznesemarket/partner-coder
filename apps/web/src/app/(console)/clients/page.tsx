@@ -37,10 +37,10 @@ function CustomerTable({ items }: { items: readonly VendorCustomer[] }) {
               {messages.clients.contactEmailLabel}
             </th>
             <th scope="col" className="px-4 py-3 font-medium">
-              Статус
+              {messages.common.status}
             </th>
             <th scope="col" className="px-4 py-3 font-medium">
-              Создан
+              {messages.clients.createdLabel}
             </th>
           </tr>
         </thead>

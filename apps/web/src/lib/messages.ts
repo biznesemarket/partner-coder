@@ -40,6 +40,7 @@ export const common = {
   cancel: "Отмена",
   skipToContent: "Перейти к содержимому",
   openMenu: "Открыть меню",
+  status: "Статус",
   userMenu: "Меню пользователя",
   navigation: "Навигация",
   mainNavigation: "Основная навигация",
@@ -72,6 +73,7 @@ export const clients = {
   contactEmailLabel: "Email контакта",
   notesLabel: "Заметки",
   legalNameRequired: "Введите название организации",
+  createdLabel: "Создан",
   innFormat: "ИНН должен содержать 10–12 цифр",
   kppFormat: "КПП должен содержать 9 цифр",
   submit: "Создать",
@@ -94,6 +96,8 @@ export const plans = {
   seatsLabel: "Мест",
   projectsLabel: "Проектов",
   activeLabel: "Активен",
+  inactiveLabel: "Выключен",
+  statusLabel: "Статус",
   codeFormat: "Код: строчные латинские буквы, цифры, _ и -",
   nameRequired: "Введите название тарифа",
   priceFormat: "Укажите цену целым числом",
@@ -352,6 +356,14 @@ export const clientCard = {
   noPayments: "Платежей нет",
   discount: "Скидка",
   noDiscount: "Скидка не назначена",
+  contractsEmptyDescription: "Договор создаётся до подписки и счёта.",
+  subscriptionsEmptyDescription: "Подписка связывает договор, тариф и оплаченный период.",
+  invoicesEmptyDescription: "Счёт создаёт бухгалтерия после согласования периода.",
+  paymentsEmptyDescription: "Платёж вносится по выставленному счёту.",
+  changedAt: "Изменён",
+  method: "Способ",
+  discountSize: "Размер",
+  indefinite: "бессрочно",
   period: "Период",
   seats: "Мест",
   projects: "Проектов",
@@ -417,6 +429,7 @@ export const invoiceForm = {
   contractRequired: "Выберите договор",
   amountFormat: "Укажите положительную сумму",
   datesInvalid: "Дата оплаты не может быть раньше выставления",
+  numberExists: "Счёт с таким номером уже существует",
 } as const;
 
 export const paymentForm = {
@@ -432,6 +445,7 @@ export const paymentForm = {
   created: "Платёж внесён",
   invoiceRequired: "Выберите счёт",
   amountFormat: "Укажите положительную сумму",
+  kopecksShort: "коп.",
 } as const;
 
 export const renewForm = {
@@ -512,12 +526,19 @@ export const dashboard = {
   issuedPackages: "Выданные пакеты",
   activeOnboarding: "Онбординг в работе",
 } as const;
+export const metadata = {
+  titleDefault: "Партнёр кодер — консоль вендора",
+  titleTemplate: "%s — Партнёр кодер",
+  description: "Консоль вендорских сотрудников «Партнёр кодер».",
+} as const;
+
 export const messages = {
   roles,
   statuses,
   customerStatuses,
   planPeriods,
   common,
+  metadata,
   nav,
   clients,
   plans,

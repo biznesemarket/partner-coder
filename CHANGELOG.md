@@ -129,6 +129,11 @@
 
 ### Security
 
+- UI i18n boundary: оставшиеся строки карточки клиента, списков, тарифов,
+  диалогов и metadata перенесены в `apps/web/src/lib/messages.ts`. ESLint
+  запрещает кириллические литералы и JSX-текст в `apps/web/src/**/*.tsx`
+  вне каталога сообщений.
+
 - `/metrics` можно ограничить по `METRICS_IP_ALLOWLIST` (CSV IP/CIDR).
   Проверка идёт по verified client IP; пустой список оставляет прежнее
   поведение. Дополнительно к `METRICS_TOKEN`.

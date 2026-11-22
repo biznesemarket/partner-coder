@@ -114,7 +114,7 @@ export function CreateInvoiceDialog({
       }
 
       if (readVendorErrorCode(body) === "vendor_invoice_number_exists") {
-        setErrors({ number: "Счёт с таким номером уже существует" });
+        setErrors({ number: messages.invoiceForm.numberExists });
         return;
       }
       toast.error(messages.errors.createFailed);

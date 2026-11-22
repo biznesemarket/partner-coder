@@ -78,7 +78,7 @@ function ContractsTable({
     return (
       <EmptyState
         title={messages.clientCard.noContracts}
-        description="Договор создаётся до подписки и счёта."
+        description={messages.clientCard.contractsEmptyDescription}
       />
     );
   }
@@ -100,7 +100,7 @@ function ContractsTable({
               {messages.clientCard.endsOn}
             </th>
             <th scope="col" className="px-4 py-3 font-medium">
-              Статус
+              {messages.common.status}
             </th>
           </tr>
         </thead>
@@ -129,7 +129,7 @@ function SubscriptionsTable({ subscriptions }: { subscriptions: readonly VendorS
     return (
       <EmptyState
         title={messages.clientCard.noSubscriptions}
-        description="Подписка связывает договор, тариф и оплаченный период."
+        description={messages.clientCard.subscriptionsEmptyDescription}
       />
     );
   }
@@ -148,10 +148,10 @@ function SubscriptionsTable({ subscriptions }: { subscriptions: readonly VendorS
               {messages.clientCard.projects}
             </th>
             <th scope="col" className="px-4 py-3 font-medium">
-              Статус
+              {messages.common.status}
             </th>
             <th scope="col" className="px-4 py-3 font-medium">
-              Изменён
+              {messages.clientCard.changedAt}
             </th>
           </tr>
         </thead>
@@ -184,7 +184,7 @@ function InvoicesTable({ invoices }: { invoices: readonly VendorInvoice[] }) {
     return (
       <EmptyState
         title={messages.clientCard.noInvoices}
-        description="Счёт создаёт бухгалтерия после согласования периода."
+        description={messages.clientCard.invoicesEmptyDescription}
       />
     );
   }
@@ -206,7 +206,7 @@ function InvoicesTable({ invoices }: { invoices: readonly VendorInvoice[] }) {
               {messages.clientCard.amount}
             </th>
             <th scope="col" className="px-4 py-3 font-medium">
-              Статус
+              {messages.common.status}
             </th>
             <th scope="col" className="px-4 py-3 font-medium">
               {messages.clientCard.pdf}
@@ -306,7 +306,7 @@ function PaymentsTable({ payments }: { payments: readonly VendorPayment[] }) {
     return (
       <EmptyState
         title={messages.clientCard.noPayments}
-        description="Платёж вносится по выставленному счёту."
+        description={messages.clientCard.paymentsEmptyDescription}
       />
     );
   }
@@ -325,7 +325,7 @@ function PaymentsTable({ payments }: { payments: readonly VendorPayment[] }) {
               {messages.clientCard.amount}
             </th>
             <th scope="col" className="px-4 py-3 font-medium">
-              Способ
+              {messages.clientCard.method}
             </th>
             <th scope="col" className="px-4 py-3 font-medium">
               {messages.clientCard.reference}
@@ -456,7 +456,7 @@ async function ClientView({
               <span>{customer.item.contact.email ?? messages.clientCard.noContact}</span>
             </div>
             <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Статус</span>
+              <span className="text-muted-foreground">{messages.common.status}</span>
               <Badge variant="secondary">{messages.customerStatuses[customer.item.status]}</Badge>
             </div>
           </CardContent>
@@ -469,7 +469,7 @@ async function ClientView({
             {currentSubscription ? (
               <>
                 <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Статус</span>
+                  <span className="text-muted-foreground">{messages.common.status}</span>
                   <Badge variant="secondary">
                     {messages.subscriptionStatuses[currentSubscription.status]}
                   </Badge>
@@ -503,14 +503,14 @@ async function ClientView({
             {discount ? (
               <>
                 <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Размер</span>
+                  <span className="text-muted-foreground">{messages.clientCard.discountSize}</span>
                   <span>{(discount.percentBp / 100).toLocaleString("ru-RU")}%</span>
                 </div>
                 <div className="flex justify-between gap-4">
                   <span className="text-muted-foreground">{messages.clientCard.period}</span>
                   <span>
                     {formatDate(discount.startsOn)} —{" "}
-                    {discount.endsOn ? formatDate(discount.endsOn) : "бессрочно"}
+                    {discount.endsOn ? formatDate(discount.endsOn) : messages.clientCard.indefinite}
                   </span>
                 </div>
                 {discount.note ? <p className="text-muted-foreground">{discount.note}</p> : null}
