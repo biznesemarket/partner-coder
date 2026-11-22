@@ -52,7 +52,8 @@ M2.2 закрыл аутентификацию, роли и tenant-изоляц�
 - Для managed PostgreSQL нужен runbook: роли, `pgboss`, `AUTH_DATABASE_URL`,
   права на схему и retention-функцию.
 - Метрики `/metrics` по умолчанию открыты в local/staging; в prod задается
-  `METRICS_TOKEN` или сетевой allowlist.
+  `METRICS_TOKEN` и/или `METRICS_IP_ALLOWLIST` (CIDR; проверка по verified
+  client IP).
 - OTel auto-instrumentation включается только при заданном endpoint; Sentry
   не обязателен.
 - Retention heartbeat удаляет сырые события; агрегированные интервалы,

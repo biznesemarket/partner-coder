@@ -270,6 +270,8 @@ WAL архивируется непрерывно через `archive_command`; 
 
 ## 11. Мониторинг
 
+- `/metrics` слушает loopback; при внешнем scrape задайте `METRICS_TOKEN`
+  и `METRICS_IP_ALLOWLIST` (CIDR).
 - `pg_isready` каждую минуту.
 - Свободное место на диске.
 - Размер WAL и очередь архивации.

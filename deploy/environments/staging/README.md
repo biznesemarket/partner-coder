@@ -62,8 +62,8 @@ Rate limit: вне local по умолчанию используется общ
 диагностики на одном инстансе (ADR-0012).
 
 Наблюдаемость: `SENTRY_DSN`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `LOG_LEVEL=info`.
-Метрики: `METRICS_TOKEN` (если `/metrics` доступен не только из private
-network). Worker: `WORKER_METRICS_PORT=4100`, cron-переменные
+Метрики: `METRICS_TOKEN` и/или `METRICS_IP_ALLOWLIST` (CSV IP/CIDR), если
+`/metrics` доступен не только из private network. Worker: `WORKER_METRICS_PORT=4100`, cron-переменные
 `DAY_CLOSE_CRON`, `AUDIT_ANCHOR_CRON`, `TTL_CLEANUP_CRON`.
 
 ## Секрет вендорского auth
