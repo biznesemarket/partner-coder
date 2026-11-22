@@ -37,7 +37,7 @@
 | Подделка passkey-регистрации   | Gate `vendor_mfa_required`, проверка сессии и статуса, origin-check, rate limit                     |
 | Атака через BFF                | Только два префикса, whitelist заголовков, лимиты 8/64 KiB, origin-check, API остаётся энфорсером   |
 | Подбор пароля вендора          | password ≥ 12, per-email 5/60, Better Auth rate limit, lockout TOTP, единый ответ на reset          |
-| Кража/повтор reset-токена      | одноразовый токен, TTL 30 минут, verification identifier (не хеш), отзыв сессий после сброса        |
+| Кража/повтор reset-токена      | одноразовый токен, TTL 30 минут, SHA-256 identifier в БД, отзыв сессий после сброса                 |
 | Reset-токен в URL              | `no-referrer`, `noindex`, удаление из адресной строки после чтения, без аналитики и логов BFF       |
 | Кража вендорской сессии        | HttpOnly/SameSite cookie, TTL 8 часов, отзыв при suspend/reset, origin guard, step-up               |
 | Обход TOTP / сброс MFA         | TOTP обязателен для всех ролей, `/two-factor/disable` запрещён, reset-mfa только superadmin+аудит   |
@@ -86,14 +86,14 @@ COOP и HSTS вне local.
 `noindex`; токен не пишется в аналитику, логи BFF и аудит. Это снижает утечку
 через историю/referrer, но не отменяет остаточный риск хранения токена.
 
-Reset-токены вендора в Better Auth 1.7.25 хранятся как
-`vendor_auth_verifications.identifier = reset-password:<raw token>`: TTL 30
-минут и одна активация, но **не хешируются**. Строку читает только роль
-`partner_coder_vendor_auth`; остаточный риск — компрометация этой роли или
-дампа БД в пределах TTL. Tenant magic-link и invitation-токены по-прежнему
-хранятся хешами (`auth_verifications`, `invitations.token_hash`); вендорский
-reset-токен — осознанное отличие нативного Better Auth, хеширование не
-реализовано.
+Reset-токены вендора хешируются: Better Auth 1.7.25 с
+`verification.storeIdentifier: "hashed"` хранит в
+`vendor_auth_verifications.identifier` только
+`base64url(SHA-256("reset-password:<raw token>"))`. TTL 30 минут, одна
+активация; сырой токен есть только в письме и URL. Строку по-прежнему читает
+только роль `partner_coder_vendor_auth`, но дамп БД больше не раскрывает
+действующие токены. Tenant magic-link и invitation-токены также хешируются
+(`auth_verifications`, `invitations.token_hash`).
 
 ## 3. Приватность
 

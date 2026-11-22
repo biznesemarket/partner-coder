@@ -175,11 +175,18 @@ describe("Vendor Better Auth под ролью partner_coder_vendor_auth", () =>
     const token = new URL(message!.url).searchParams.get("token");
     expect(token).toBeTruthy();
 
-    const verification = await authPool.query<{ count: string }>(
+    const stored = await authPool.query<{ identifier: string }>(
+      "select identifier from vendor_auth_verifications where value = $1 order by created_at desc limit 1",
+      [userId],
+    );
+    expect(stored.rows[0]?.identifier).toBeDefined();
+    expect(stored.rows[0]?.identifier).not.toContain(token);
+    expect(stored.rows[0]?.identifier.startsWith("reset-password:")).toBe(false);
+    const plaintext = await authPool.query<{ count: string }>(
       "select count(*)::text as count from vendor_auth_verifications where identifier = $1",
       [`reset-password:${token}`],
     );
-    expect(verification.rows[0]?.count).toBe("1");
+    expect(plaintext.rows[0]?.count).toBe("0");
 
     await auth.api.resetPassword({ body: { token: token!, newPassword: password } });
     expect(await getVendorUserById(authDb, userId)).toMatchObject({

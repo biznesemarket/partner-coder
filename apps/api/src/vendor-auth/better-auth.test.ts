@@ -185,6 +185,15 @@ async function enableTotp(
   return { secret, backupCodes: enabled.backupCodes, totpURI: enabled.totpURI };
 }
 
+async function latestVerificationIdentifier(userId: string): Promise<string> {
+  const row = await database.pool.query<{ identifier: string }>(
+    "select identifier from vendor_auth_verifications where value = $1 order by created_at desc limit 1",
+    [userId],
+  );
+  expect(row.rows[0]).toBeDefined();
+  return row.rows[0]!.identifier;
+}
+
 async function resetTokenFromLastMail(): Promise<string> {
   const message = mailer.vendorPasswordResets.at(-1);
   expect(message).toBeDefined();
@@ -254,17 +263,38 @@ describe("Vendor Better Auth: password", () => {
     expect(await hasAudit(database.pool, "vendor.auth.password_reset_completed")).toBe(true);
   });
 
-  it("reset-токен одноразовый и истекает", async () => {
+  it("хранит reset-токен только как хеш", async () => {
     const auth = buildAuth();
-    const email = uniqueEmail("token");
-    await signUp(auth, email);
+    const email = uniqueEmail("hashed-token");
+    const userId = await signUp(auth, email);
 
     mailer.vendorPasswordResets.length = 0;
     await auth.api.requestPasswordReset({ body: { email, redirectTo: resetRedirect } });
     const token = await resetTokenFromLastMail();
+
+    const plaintext = await database.pool.query<{ count: string }>(
+      "select count(*)::text as count from vendor_auth_verifications where identifier = $1",
+      [`reset-password:${token}`],
+    );
+    expect(plaintext.rows[0]?.count).toBe("0");
+
+    const stored = await latestVerificationIdentifier(userId);
+    expect(stored).not.toContain(token);
+    expect(stored.startsWith("reset-password:")).toBe(false);
+    expect(stored).toHaveLength(43);
+  });
+  it("reset-токен одноразовый и истекает", async () => {
+    const auth = buildAuth();
+    const email = uniqueEmail("token");
+    const userId = await signUp(auth, email);
+
+    mailer.vendorPasswordResets.length = 0;
+    await auth.api.requestPasswordReset({ body: { email, redirectTo: resetRedirect } });
+    const token = await resetTokenFromLastMail();
+    const identifier = await latestVerificationIdentifier(userId);
     const ttl = await database.pool.query<{ minutes: number }>(
       "select round(extract(epoch from (expires_at - now())) / 60)::int as minutes from vendor_auth_verifications where identifier = $1",
-      [`reset-password:${token}`],
+      [identifier],
     );
     expect(ttl.rows[0]?.minutes).toBeGreaterThanOrEqual(29);
     expect(ttl.rows[0]?.minutes).toBeLessThanOrEqual(31);
@@ -278,9 +308,10 @@ describe("Vendor Better Auth: password", () => {
     await auth.api.requestPasswordReset({ body: { email, redirectTo: resetRedirect } });
     const expiredToken = await resetTokenFromLastMail();
 
+    const expiredIdentifier = await latestVerificationIdentifier(userId);
     const expired = await database.pool.query(
       "update vendor_auth_verifications set expires_at = now() - interval '1 minute' where identifier = $1",
-      [`reset-password:${expiredToken}`],
+      [expiredIdentifier],
     );
     expect(expired.rowCount).toBe(1);
 

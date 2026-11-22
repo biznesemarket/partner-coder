@@ -408,11 +408,12 @@ pnpm --filter @partner-coder/api vendor:admin -- --email ops@example.com --name 
 5. Пользователь входит с email и паролем, если статус позволяет.
 
 Ссылка одноразовая, TTL 30 минут по умолчанию. Токен не логируется;
-query-redaction pino уже покрывает `token`. Нативный Better Auth 1.7.25 хранит
-его как `vendor_auth_verifications.identifier = reset-password:<raw token>`:
-TTL и одна активация, но без хеширования; строку читает только
-`partner_coder_vendor_auth`. Это остаточный риск (компрометация роли/дампа в
-пределах TTL); tenant magic-link и invitation-токены остаются хешированными.
+query-redaction pino уже покрывает `token`. Better Auth настроен с
+`verification.storeIdentifier: "hashed"`, поэтому в
+`vendor_auth_verifications.identifier` лежит только
+`base64url(SHA-256("reset-password:<raw token>"))`. Сырой токен есть только
+в письме и URL; TTL и одна активация сохраняются. Tenant magic-link и
+invitation-токены также хешируются.
 
 `sendResetPassword` перед отправкой проверяет `vendor_users.status`:
 для `suspended`/`disabled` письмо не отправляется, а публичный запрос

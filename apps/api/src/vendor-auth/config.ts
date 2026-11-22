@@ -129,6 +129,9 @@ export function createVendorAuth(options: CreateVendorAuthOptions) {
         }
       }),
     },
+    verification: {
+      storeIdentifier: "hashed",
+    },
     advanced: {
       database: {
         generateId: () => randomUUID(),
