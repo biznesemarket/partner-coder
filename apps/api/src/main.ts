@@ -212,6 +212,7 @@ const server = buildServer({
   emailRateLimitStore,
   vendorRuntime,
   vendorEmailRateLimitStore,
+  metricsIpAllowlist: parseList(env.METRICS_IP_ALLOWLIST),
   ...(env.TRUSTED_CLIENT_IP_SECRET === undefined
     ? {}
     : { trustedClientIpSecret: env.TRUSTED_CLIENT_IP_SECRET }),

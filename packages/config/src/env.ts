@@ -132,6 +132,8 @@ export const envSchema = z
     API_CORS_ORIGINS: optionalString,
     /** Необязательный токен для /metrics; пусто — метрики открыты в local/staging. */
     METRICS_TOKEN: optionalString,
+    /** CSV IP/CIDR для /metrics; пусто — без сетевого ограничения. */
+    METRICS_IP_ALLOWLIST: optionalString,
   })
   .superRefine((value, ctx) => {
     if (value.APP_ENV !== "local" && !value.AUTH_DATABASE_URL) {

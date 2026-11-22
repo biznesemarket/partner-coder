@@ -129,6 +129,10 @@
 
 ### Security
 
+- `/metrics` можно ограничить по `METRICS_IP_ALLOWLIST` (CSV IP/CIDR).
+  Проверка идёт по verified client IP; пустой список оставляет прежнее
+  поведение. Дополнительно к `METRICS_TOKEN`.
+
 - Добавлены staging deploy assets: Caddyfile для `staging.pcoder.ru` /
   `staging-api.pcoder.ru` (TLS, security headers, `X-Forwarded-For`
   overwrite, IP allowlist API) и hardened systemd units для API, worker и web.

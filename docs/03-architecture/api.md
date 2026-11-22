@@ -231,7 +231,8 @@ BFF не попадает в OpenAPI и не является отдельным
   сохраняет/генерирует `x-request-id`, не логирует body/cookie/query и
   возвращает `cache-control: no-store`.
 - `/metrics` отдает `partner_coder_http_requests_total` и гистограмму
-  длительности; в prod закрывается `METRICS_TOKEN` или сетевым allowlist.
+  длительности; в prod закрывается `METRICS_TOKEN` и/или
+  `METRICS_IP_ALLOWLIST` (CSV IP/CIDR, проверка по verified client IP).
 - `/openapi.json` собирается из Zod-схем; типы клиента генерируются командой
   `pnpm --filter @partner-coder/api openapi:types`.
 - Rate limit: global 300/min на инстанс, создание приглашения 20/min,

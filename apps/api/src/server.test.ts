@@ -126,6 +126,25 @@ describe("api skeleton", () => {
     await server.close();
   });
 
+  it("ограничивает /metrics по IP allowlist", async () => {
+    const server = buildServer({ metricsIpAllowlist: ["203.0.113.0/24"] });
+
+    const allowed = await server.inject({
+      method: "GET",
+      url: "/metrics",
+      remoteAddress: "203.0.113.5",
+    });
+    expect(allowed.statusCode).toBe(200);
+
+    const denied = await server.inject({
+      method: "GET",
+      url: "/metrics",
+      remoteAddress: "198.51.100.5",
+    });
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json()).toEqual({ error: "metrics_forbidden" });
+    await server.close();
+  });
   it("отдает OpenAPI 3.1 из Zod-схем", async () => {
     const server = buildServer({ apiBaseUrl: "https://api.example.test" });
     const response = await server.inject({ method: "GET", url: "/openapi.json" });

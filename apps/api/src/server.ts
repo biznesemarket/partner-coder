@@ -11,10 +11,11 @@ import type { LoggerOptions } from "pino";
 import type { ErrorEnvelope } from "@partner-coder/contracts";
 import { AuthServiceError } from "@partner-coder/db";
 
-import { verifyTrustedClientIp } from "./client-ip.js";
+import { requestClientIp, verifyTrustedClientIp } from "./client-ip.js";
 import { ApiError } from "./errors.js";
 import type { AuthRuntime } from "./auth/runtime.js";
 import { createHttpMetrics } from "./metrics.js";
+import { createMetricsIpAllowlist } from "./metrics-ip-allowlist.js";
 import { buildOpenApiDocument } from "./openapi/index.js";
 import type { EmailRateLimitStore } from "./auth/email-rate-limit.js";
 import type { VendorAuthRuntime } from "./vendor-auth/runtime.js";
@@ -73,6 +74,7 @@ export interface BuildServerOptions {
   readonly authRuntime?: AuthRuntime;
   readonly corsOrigins?: readonly string[];
   readonly metricsToken?: string;
+  readonly metricsIpAllowlist?: readonly string[];
   readonly appEnv?: string;
   readonly apiBaseUrl?: string;
   readonly emailRateLimit?: number | false;
@@ -170,6 +172,7 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
   }
 
   const metrics = createHttpMetrics();
+  const metricsAllowed = createMetricsIpAllowlist(options.metricsIpAllowlist ?? []);
 
   server.addHook("onRequest", async (request) => {
     (request as FastifyRequest & { metricsStart?: bigint }).metricsStart = process.hrtime.bigint();
@@ -204,6 +207,9 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
   });
 
   server.get("/metrics", async (request, reply) => {
+    if (!metricsAllowed(requestClientIp(request))) {
+      return reply.status(403).send({ error: "metrics_forbidden" });
+    }
     if (options.metricsToken) {
       const authorization = request.headers.authorization;
       const token = request.headers["x-metrics-token"];
