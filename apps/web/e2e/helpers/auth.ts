@@ -152,9 +152,13 @@ async function awaitPasswordStep(page: Page): Promise<PasswordStepOutcome> {
 /**
  * Вход в консоль по паролю и TOTP. Код генерируется из сохранённого URI.
  */
-export async function loginWithTotp(page: Page, credentials: AdminCredentials): Promise<void> {
+export async function loginWithTotp(
+  page: Page,
+  credentials: AdminCredentials,
+  path = "/login",
+): Promise<void> {
   await clearVendorRateLimits();
-  await page.goto("/login");
+  await page.goto(path);
   await page.locator("#login-email").fill(credentials.email);
   await page.locator("#login-password").fill(credentials.password);
   await page.getByRole("button", { name: "Войти", exact: true }).click();

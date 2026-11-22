@@ -2,6 +2,12 @@ const DEFAULT_RETURN_TO = "/me";
 
 const BASE_ORIGIN = "http://local";
 
+const SELF_RETURN_PATHS = ["/login", "/reset-password", "/setup-mfa"] as const;
+
+function isSelfReturn(pathname: string): boolean {
+  return SELF_RETURN_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+}
+
 export function sanitizeReturnTo(value: string | null | undefined): string {
   if (typeof value !== "string") {
     return DEFAULT_RETURN_TO;
@@ -27,6 +33,10 @@ export function sanitizeReturnTo(value: string | null | undefined): string {
     }
 
     if (!url.pathname.startsWith("/") || url.pathname.startsWith("//")) {
+      return DEFAULT_RETURN_TO;
+    }
+
+    if (isSelfReturn(url.pathname)) {
       return DEFAULT_RETURN_TO;
     }
 

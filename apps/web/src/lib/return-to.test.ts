@@ -9,6 +9,10 @@ describe("sanitizeReturnTo", () => {
     ["https://evil.example", "/me"],
     ["\\\\evil.example", "/me"],
     ["/me?token=secret", "/me"],
+    ["/login", "/me"],
+    ["/login/", "/me"],
+    ["/reset-password", "/me"],
+    ["/setup-mfa", "/me"],
     [undefined, "/me"],
   ])("sanitizeReturnTo(%s) -> %s", (input, expected) => {
     expect(sanitizeReturnTo(input)).toBe(expected);
