@@ -129,6 +129,12 @@
 
 ### Security
 
+- Аудит-цепочка переведена на HMAC-SHA-256 с ключом `AUDIT_HMAC_KEY` вне БД.
+  Ключ передаётся в сессию PostgreSQL через connection options; запись без
+  ключа отклоняется, проверка с другим ключом возвращает false. Формат
+  канонизации — `v3`; прежние dev-события несовместимы (продукт не в
+  продакшене).
+
 - Reset-токены вендора хранятся только как
   `base64url(SHA-256("reset-password:<token>"))` через Better Auth
   `verification.storeIdentifier: "hashed"`. Сырой токен остаётся только в

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_AUDIT_HMAC_KEY,
   EnvValidationError,
   parseEnv,
   parseList,
@@ -16,6 +17,7 @@ const validEnv = {
   API_BASE_URL: "http://localhost:4000",
   WEB_BASE_URL: "http://localhost:3000",
   AUTH_SECRET: "0123456789abcdef0123456789abcdef",
+  AUDIT_HMAC_KEY: "f".repeat(64),
   S3_ENDPOINT: "http://localhost:9000",
   S3_BUCKET: "partner-coder",
   S3_ACCESS_KEY: "partner",
@@ -46,6 +48,10 @@ describe("валидация окружения", () => {
     expect(env.PG_BOSS_SCHEMA).toBe("pgboss");
     expect(env.DAY_CLOSE_CRON).toBe("*/15 * * * *");
     expect(env.HEARTBEAT_RETENTION_DAYS).toBe(90);
+    expect(env.AUDIT_HMAC_KEY).toBe("f".repeat(64));
+    expect(parseEnv({ ...validEnv, AUDIT_HMAC_KEY: undefined }).AUDIT_HMAC_KEY).toBe(
+      DEFAULT_AUDIT_HMAC_KEY,
+    );
   });
 
   it("проверяет имя схемы pg-boss", () => {

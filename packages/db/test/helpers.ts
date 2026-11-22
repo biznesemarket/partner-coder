@@ -13,6 +13,11 @@ export const API_ROLE = "partner_coder_api";
 export const VENDOR_ROLE = "partner_coder_vendor";
 export const WORKER_ROLE = "partner_coder_worker";
 export const AUTH_ROLE = "partner_coder_auth";
+export const TEST_AUDIT_HMAC_KEY = "0".repeat(64);
+
+function withAuditKey(key = TEST_AUDIT_HMAC_KEY) {
+  return { options: `-c app.audit_hmac_key=${key}` };
+}
 
 export function databaseUrl(): string {
   try {
@@ -49,7 +54,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
   }
 
   const url = urlWithDatabase(base, name);
-  const pool = new Pool({ connectionString: url, max: 5 });
+  const pool = new Pool({ connectionString: url, max: 5, ...withAuditKey() });
   const db = drizzle(pool, { schema });
   await migrate(db, { migrationsFolder });
 
@@ -73,12 +78,12 @@ export async function createTestDatabase(): Promise<TestDatabase> {
 
 /** Дополнительный пул к тестовой БД: имитация второго API-инстанса. */
 export function createPoolForDatabase(database: TestDatabase, max = 2): Pool {
-  return new Pool({ connectionString: database.url, max });
+  return new Pool({ connectionString: database.url, max, ...withAuditKey() });
 }
 
 /** Пул с отдельными учётными данными (роль-ограниченный логин). */
 export function createPoolForUrl(url: string, max = 2): Pool {
-  return new Pool({ connectionString: url, max });
+  return new Pool({ connectionString: url, max, ...withAuditKey() });
 }
 
 export interface SqlClient {

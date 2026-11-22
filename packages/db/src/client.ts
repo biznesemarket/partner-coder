@@ -7,8 +7,12 @@ import * as schema from "./schema/index.js";
 export type Database = NodePgDatabase<typeof schema>;
 export type DbTransaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
-export function createPool(connectionString: string, max = 10): Pool {
-  return new Pool({ connectionString, max });
+export function createPool(connectionString: string, max = 10, auditHmacKey?: string): Pool {
+  return new Pool({
+    connectionString,
+    max,
+    ...(auditHmacKey === undefined ? {} : { options: `-c app.audit_hmac_key=${auditHmacKey}` }),
+  });
 }
 
 export function createDatabase(pool: Pool): Database {
