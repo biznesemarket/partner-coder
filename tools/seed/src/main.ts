@@ -13,7 +13,7 @@ async function main(): Promise<void> {
 
   const connectionString =
     process.env.DATABASE_URL ?? "postgres://partner:partner@localhost:5432/partner_coder";
-  const pool = createPool(connectionString);
+  const pool = createPool(connectionString, undefined, process.env.AUDIT_HMAC_KEY);
   try {
     const summary = await seedDemo(createDatabase(pool));
     process.stdout.write(

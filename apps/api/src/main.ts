@@ -53,18 +53,27 @@ const logger = pino(loggerOptions(env));
 const { initTelemetry } = await import("./telemetry.js");
 const telemetry = await initTelemetry(env, { serviceName: "partner-coder-api", version });
 
-const apiPool = createPool(env.DATABASE_URL, env.DATABASE_POOL_MAX);
+const apiPool = createPool(env.DATABASE_URL, env.DATABASE_POOL_MAX, env.AUDIT_HMAC_KEY);
 const db = createDatabase(apiPool);
 
-const authPool = createPool(env.AUTH_DATABASE_URL ?? env.DATABASE_URL, env.DATABASE_POOL_MAX);
+const authPool = createPool(
+  env.AUTH_DATABASE_URL ?? env.DATABASE_URL,
+  env.DATABASE_POOL_MAX,
+  env.AUDIT_HMAC_KEY,
+);
 const authDb = createDatabase(authPool);
 
-const vendorPool = createPool(env.VENDOR_DATABASE_URL ?? env.DATABASE_URL, env.DATABASE_POOL_MAX);
+const vendorPool = createPool(
+  env.VENDOR_DATABASE_URL ?? env.DATABASE_URL,
+  env.DATABASE_POOL_MAX,
+  env.AUDIT_HMAC_KEY,
+);
 const vendorDb = createDatabase(vendorPool);
 
 const vendorAuthPool = createPool(
   env.VENDOR_AUTH_DATABASE_URL ?? env.DATABASE_URL,
   env.DATABASE_POOL_MAX,
+  env.AUDIT_HMAC_KEY,
 );
 const vendorAuthDb = createDatabase(vendorAuthPool);
 

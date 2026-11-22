@@ -58,10 +58,15 @@ sudo ufw enable
 ```bash
 sudo apt install -y postgresql-common
 sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
-sudo apt install -y postgresql-17 postgresql-client-17
+sudo apt install -y postgresql-17 postgresql-client-17 postgresql-contrib-17
 sudo systemctl enable --now postgresql
 psql --version
 ```
+
+`postgresql-contrib` нужен для `pgcrypto`: миграция аудита включает
+`CREATE EXTENSION IF NOT EXISTS pgcrypto` и HMAC-SHA-256. `AUDIT_HMAC_KEY`
+(64 hex, `openssl rand -hex 32`) хранится в секрет-менеджере и передаётся
+API/worker; без него запись аудита падает.
 
 ## 5. Базовая настройка
 

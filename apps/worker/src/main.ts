@@ -22,7 +22,7 @@ loadEnvFile();
 const env = parseEnv();
 const logger = createLogger(env);
 const metrics = new JobMetrics();
-const pool = createPool(env.DATABASE_URL, env.DATABASE_POOL_MAX);
+const pool = createPool(env.DATABASE_URL, env.DATABASE_POOL_MAX, env.AUDIT_HMAC_KEY);
 const db = createDatabase(pool);
 
 if (env.APP_ENV !== "local") {

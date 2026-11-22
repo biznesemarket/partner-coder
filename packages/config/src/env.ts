@@ -14,6 +14,8 @@ const optionalString = z
   .optional()
   .transform((value) => (value === "" ? undefined : value));
 
+export const DEFAULT_AUDIT_HMAC_KEY = "0".repeat(64);
+
 /** Origin без path/query/fragment: используется как доверенный источник. */
 const originUrl = z
   .string()
@@ -54,6 +56,11 @@ export const envSchema = z
     VENDOR_WEBAUTHN_RP_ID: optionalString.pipe(rpIdSchema.optional()),
 
     AUTH_SECRET: z.string().min(32, "AUTH_SECRET: минимум 32 символа"),
+    /** HMAC-ключ цепочки аудита: 32 байта hex, вне БД. */
+    AUDIT_HMAC_KEY: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/i, "AUDIT_HMAC_KEY: 64 hex-символа")
+      .default(DEFAULT_AUDIT_HMAC_KEY),
     /** Доверенные заголовки IP через запятую; пусто — дефолт Better Auth. */
     AUTH_IP_HEADERS: optionalString,
     /** Доверенные прокси/CIDR через запятую для разбора X-Forwarded-For. */
@@ -139,6 +146,13 @@ export const envSchema = z
         code: "custom",
         path: ["AUTH_SECRET"],
         message: "AUTH_SECRET не должен совпадать с примером вне local",
+      });
+    }
+    if (value.APP_ENV !== "local" && value.AUDIT_HMAC_KEY === DEFAULT_AUDIT_HMAC_KEY) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["AUDIT_HMAC_KEY"],
+        message: "AUDIT_HMAC_KEY обязателен вне local: локальный пример запрещён",
       });
     }
     if (value.APP_ENV !== "local" && !value.VENDOR_DATABASE_URL) {

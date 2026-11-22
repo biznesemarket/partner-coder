@@ -46,7 +46,7 @@
 | CSRF вендорской консоли        | Origin guard на `/v1/vendor/*` и `/api/vendor-auth/*`, SameSite cookie, origin-check BFF            |
 | Per-IP лимиты за BFF           | BFF видит egress-IP; ключ per-email 5/60 и lockout остаются, trusted client IP — follow-up          |
 | Audit IP за BFF                | События фиксируют egress-IP BFF; корреляция по `x-request-id`, follow-up — доверенный IP            |
-| Подмена вендорского аудита     | append-only, хеш-цепочка, `verify_vendor_audit_chain()`, дневной якорь                              |
+| Подмена вендорского аудита     | append-only, HMAC-цепочка с ключом вне БД, `verify_vendor_audit_chain()`, дневной якорь             |
 | Prompt injection через данные  | MCP не исполняет данные как инструкции; allowlist инструментов                                      |
 | Подмена счета/оплаты           | append-only, аудит с хеш-цепочкой, права финансов                                                   |
 | Компрометация цепочки поставок | lockfile, Dependabot, CodeQL, SBOM, подписанные релизы                                              |
@@ -127,7 +127,9 @@ Reset-токены вендора хешируются: Better Auth 1.7.25 с
 ## 5. Аудит
 
 - Append-only `tenant_audit_events` и `vendor_audit_events`.
-- Хеш-цепочка: `prev_hash` + `hash`; ежедневный якорь.
+- HMAC-цепочка: `prev_hash` + `hash` (HMAC-SHA-256), ключ
+  `AUDIT_HMAC_KEY` вне БД; ежедневный якорь. Запись без ключа отклоняется
+  (`audit_hmac_key_missing`), проверка с другим ключом возвращает false.
 - Все опасные действия (политика, выплаты, споры, отзыв устройства,
   перевыпуск пакета) — обязательная запись.
 - Вендорский контур пишет приглашения, bootstrap, смену роли/статуса, сброс

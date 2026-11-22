@@ -183,7 +183,11 @@ async function main(): Promise<void> {
   const options = parseCliArgs(argv);
   const env = parseEnv();
   const vendorBaseUrl = resolveVendorBaseUrl(env);
-  const vendorPool = createPool(env.VENDOR_DATABASE_URL ?? env.DATABASE_URL, env.DATABASE_POOL_MAX);
+  const vendorPool = createPool(
+    env.VENDOR_DATABASE_URL ?? env.DATABASE_URL,
+    env.DATABASE_POOL_MAX,
+    env.AUDIT_HMAC_KEY,
+  );
   const vendorAuthPool = createPool(
     env.VENDOR_AUTH_DATABASE_URL ?? env.DATABASE_URL,
     env.DATABASE_POOL_MAX,

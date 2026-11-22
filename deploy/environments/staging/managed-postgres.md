@@ -39,7 +39,8 @@ tenant-таблиц, потому что атрибут остаётся у те
    - `CREATE ROLE` / `GRANT` / `ALTER ROLE ... BYPASSRLS`;
    - `ALTER FUNCTION ... OWNER TO` (нужно `SET ROLE` в целевую роль и
      `CREATE` на схему `public`);
-   - `CREATE` на БД и схему `public`.
+   - `CREATE` на БД и схему `public`;
+   - `CREATE EXTENSION pgcrypto` (миграция `0008` включает HMAC для аудита).
 3. **`ALTER ROLE ... BYPASSRLS` требует superuser.** `CREATEROLE` сам по себе
    недостаточен (проверено на PG 17). Если тариф не даёт superuser или
    эквивалент (`rds_superuser`, `cloudsqlsuperuser`, `azure_pg_admin` — надо
@@ -49,8 +50,10 @@ tenant-таблиц, потому что атрибут остаётся у те
 4. Worker и миграции подключаются напрямую или через session pooling.
    Transaction pooling (PgBouncer) может ломать session-scoped advisory locks
    и настройки соединения; для worker нужен direct/session endpoint.
-5. Managed PG даёт PITR и daily backup; `VENDOR_AUTH_SECRET` и `AUTH_SECRET`
-   хранятся в секрет-менеджере и входят в тот же контур восстановления.
+5. Managed PG даёт PITR и daily backup; `VENDOR_AUTH_SECRET`, `AUTH_SECRET`,
+   `AUDIT_HMAC_KEY` (64 hex) хранятся в секрет-менеджере и входят в тот же
+   контур восстановления. Потеря `AUDIT_HMAC_KEY` делает старые цепочки
+   аудита непроверяемыми — хранить две копии.
 
 Проверка прав администратора:
 
