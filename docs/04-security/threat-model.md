@@ -72,8 +72,12 @@ authenticator; Safari/Firefox проверяются вручную.
 глобальный Fastify-лимит видят egress-IP BFF и становятся instance-global;
 первичная защита — per-email 5/60 и account lockout. Audit-события за BFF
 фиксируют egress-IP BFF, а не клиентский; доверенный client IP требует выбора
-хостинга и подписи заголовка (follow-up). CSP с nonce — тоже follow-up;
-сейчас выставляются `no-referrer`, `nosniff`, `DENY`, `Permissions-Policy`,
+хостинга и подписи заголовка (follow-up). CSP с nonce реализован в `apps/web/src/proxy.ts`:
+`script-src 'self' 'nonce-…' 'strict-dynamic'`, `object-src 'none'`,
+`base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`; в dev
+разрешены `unsafe-eval` и websocket, в production —
+`upgrade-insecure-requests`. Inline-стили разрешены для Tailwind/Radix.
+Остальные заголовки: `no-referrer`, `nosniff`, `DENY`, `Permissions-Policy`,
 COOP и HSTS вне local.
 
 **Reset-токен в URL.** Ссылка ведёт на `/reset-password?token=…`; страница

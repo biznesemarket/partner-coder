@@ -2,6 +2,7 @@ import "@fontsource-variable/inter";
 
 import { Toaster } from "@partner-coder/ui";
 import type { Metadata, Viewport } from "next";
+import { connection } from "next/server";
 import type { ReactNode } from "react";
 
 import { ThemeProvider } from "@/components/theme-provider";
@@ -31,7 +32,9 @@ type RootLayoutProps = Readonly<{
   children: ReactNode;
 }>;
 
-export default function RootLayout({ children }: RootLayoutProps) {
+export default async function RootLayout({ children }: RootLayoutProps) {
+  await connection();
+
   return (
     <html lang="ru" suppressHydrationWarning>
       <body>
