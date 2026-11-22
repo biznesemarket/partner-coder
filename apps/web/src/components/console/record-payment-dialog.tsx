@@ -138,7 +138,7 @@ export function RecordPaymentDialog({ invoices }: { invoices: readonly VendorInv
             >
               {payable.map((invoice) => (
                 <option key={invoice.id} value={invoice.id}>
-                  {invoice.number} · {invoice.amountKopecks} коп.
+                  {invoice.number} · {invoice.amountKopecks} {messages.paymentForm.kopecksShort}
                 </option>
               ))}
             </select>

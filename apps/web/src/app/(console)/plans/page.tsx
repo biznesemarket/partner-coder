@@ -48,7 +48,7 @@ function PlanTable({ items }: { items: readonly VendorPlan[] }) {
               {messages.plans.projectsLabel}
             </th>
             <th scope="col" className="px-4 py-3 font-medium">
-              Статус
+              {messages.plans.statusLabel}
             </th>
           </tr>
         </thead>
@@ -68,7 +68,7 @@ function PlanTable({ items }: { items: readonly VendorPlan[] }) {
               <td className="px-4 py-3">{plan.projectsLimit}</td>
               <td className="px-4 py-3">
                 <Badge variant={plan.isActive ? "secondary" : "outline"}>
-                  {plan.isActive ? "Активен" : "Выключен"}
+                  {plan.isActive ? messages.plans.activeLabel : messages.plans.inactiveLabel}
                 </Badge>
               </td>
             </tr>

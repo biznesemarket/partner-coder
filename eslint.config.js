@@ -53,6 +53,26 @@ export default tseslint.config(
     },
   },
   {
+    files: ["apps/web/src/**/*.tsx"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Literal[value=/[А-Яа-яЁё]/]",
+          message: "Пользовательские строки — в apps/web/src/lib/messages.ts",
+        },
+        {
+          selector: "JSXText[value=/[А-Яа-яЁё]/]",
+          message: "Пользовательские строки — в apps/web/src/lib/messages.ts",
+        },
+        {
+          selector: "TemplateElement[value.raw=/[А-Яа-яЁё]/]",
+          message: "Пользовательские строки — в apps/web/src/lib/messages.ts",
+        },
+      ],
+    },
+  },
+  {
     files: ["apps/web/**/*.{js,jsx,mjs,ts,tsx}"],
     rules: { "no-console": "off" },
   },

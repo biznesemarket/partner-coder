@@ -6,15 +6,16 @@ import { connection } from "next/server";
 import type { ReactNode } from "react";
 
 import { ThemeProvider } from "@/components/theme-provider";
+import { messages } from "@/lib/messages";
 
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Партнёр кодер — консоль вендора",
-    template: "%s — Партнёр кодер",
+    default: messages.metadata.titleDefault,
+    template: messages.metadata.titleTemplate,
   },
-  description: "Консоль вендорских сотрудников «Партнёр кодер».",
+  description: messages.metadata.description,
   robots: {
     index: false,
     follow: false,
