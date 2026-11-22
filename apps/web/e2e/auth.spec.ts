@@ -27,6 +27,14 @@ test.describe("вендорская аутентификация", () => {
     );
   });
 
+  test("не зацикливает returnTo на страницу входа", async ({ page }) => {
+    const credentials = loadAdminCredentials();
+
+    await loginWithTotp(page, credentials, "/login?returnTo=%2Flogin");
+
+    await expect(page.getByRole("heading", { name: "Профиль", level: 1 })).toBeVisible();
+    await expect(page).toHaveURL(/\/me$/);
+  });
   test("выставляет CSP nonce и применяет его к скриптам", async ({ page }) => {
     const response = await page.goto("/login");
     const csp = response?.headers()["content-security-policy"];
