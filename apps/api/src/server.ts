@@ -131,6 +131,7 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
 
   const trustedClientIpSecret = options.trustedClientIpSecret;
 
+  // codeql[js/missing-rate-limiting]: global hook, rate limit is registered below and keyed by the verified IP.
   server.addHook("onRequest", (request, _reply, done) => {
     const rawIp = request.headers[TRUSTED_CLIENT_IP_HEADER];
     const rawSignature = request.headers[TRUSTED_CLIENT_IP_SIGNATURE_HEADER];
