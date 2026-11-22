@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -175,9 +175,17 @@ describe("Vendor Better Auth под ролью partner_coder_vendor_auth", () =>
     const token = new URL(message!.url).searchParams.get("token");
     expect(token).toBeTruthy();
 
-    const verification = await authPool.query<{ count: string }>(
+    const hashedIdentifier = createHash("sha256")
+      .update(`reset-password:${token}`)
+      .digest("base64url");
+    const plaintext = await authPool.query<{ count: string }>(
       "select count(*)::text as count from vendor_auth_verifications where identifier = $1",
       [`reset-password:${token}`],
+    );
+    expect(plaintext.rows[0]?.count).toBe("0");
+    const verification = await authPool.query<{ count: string }>(
+      "select count(*)::text as count from vendor_auth_verifications where identifier = $1",
+      [hashedIdentifier],
     );
     expect(verification.rows[0]?.count).toBe("1");
 

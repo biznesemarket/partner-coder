@@ -129,6 +129,11 @@
 
 ### Security
 
+- Reset-токены вендора хранятся только как
+  `base64url(SHA-256("reset-password:<token>"))` через Better Auth
+  `verification.storeIdentifier: "hashed"`. Сырой токен остаётся только в
+  письме и URL; тесты проверяют отсутствие plaintext в БД.
+
 - CSP с per-request nonce в веб-консоли: strict-dynamic для скриптов,
   запрет object/base/frame, dev-послабления только для `unsafe-eval` и
   websocket. Страницы переведены на динамический рендер через

@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -185,6 +185,10 @@ async function enableTotp(
   return { secret, backupCodes: enabled.backupCodes, totpURI: enabled.totpURI };
 }
 
+function hashedResetIdentifier(token: string): string {
+  return createHash("sha256").update(`reset-password:${token}`).digest("base64url");
+}
+
 async function resetTokenFromLastMail(): Promise<string> {
   const message = mailer.vendorPasswordResets.at(-1);
   expect(message).toBeDefined();
@@ -254,6 +258,27 @@ describe("Vendor Better Auth: password", () => {
     expect(await hasAudit(database.pool, "vendor.auth.password_reset_completed")).toBe(true);
   });
 
+  it("хранит reset-токен только как SHA-256", async () => {
+    const auth = buildAuth();
+    const email = uniqueEmail("hashed-token");
+    await signUp(auth, email);
+
+    mailer.vendorPasswordResets.length = 0;
+    await auth.api.requestPasswordReset({ body: { email, redirectTo: resetRedirect } });
+    const token = await resetTokenFromLastMail();
+
+    const plaintext = await database.pool.query<{ count: string }>(
+      "select count(*)::text as count from vendor_auth_verifications where identifier = $1",
+      [`reset-password:${token}`],
+    );
+    expect(plaintext.rows[0]?.count).toBe("0");
+
+    const hashed = await database.pool.query<{ count: string }>(
+      "select count(*)::text as count from vendor_auth_verifications where identifier = $1",
+      [hashedResetIdentifier(token)],
+    );
+    expect(hashed.rows[0]?.count).toBe("1");
+  });
   it("reset-токен одноразовый и истекает", async () => {
     const auth = buildAuth();
     const email = uniqueEmail("token");
@@ -264,7 +289,7 @@ describe("Vendor Better Auth: password", () => {
     const token = await resetTokenFromLastMail();
     const ttl = await database.pool.query<{ minutes: number }>(
       "select round(extract(epoch from (expires_at - now())) / 60)::int as minutes from vendor_auth_verifications where identifier = $1",
-      [`reset-password:${token}`],
+      [hashedResetIdentifier(token)],
     );
     expect(ttl.rows[0]?.minutes).toBeGreaterThanOrEqual(29);
     expect(ttl.rows[0]?.minutes).toBeLessThanOrEqual(31);
@@ -280,7 +305,7 @@ describe("Vendor Better Auth: password", () => {
 
     const expired = await database.pool.query(
       "update vendor_auth_verifications set expires_at = now() - interval '1 minute' where identifier = $1",
-      [`reset-password:${expiredToken}`],
+      [hashedResetIdentifier(expiredToken)],
     );
     expect(expired.rowCount).toBe(1);
 
