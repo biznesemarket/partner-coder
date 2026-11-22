@@ -65,6 +65,10 @@ export const envSchema = z
     AUTH_IP_HEADERS: optionalString,
     /** Доверенные прокси/CIDR через запятую для разбора X-Forwarded-For. */
     AUTH_TRUSTED_PROXIES: optionalString,
+    /** Секрет подписи доверенного client IP от BFF; пусто — фича выключена. */
+    TRUSTED_CLIENT_IP_SECRET: optionalString.pipe(z.string().min(32).optional()),
+    /** Заголовок reverse proxy с клиентским IP для BFF (обычно x-forwarded-for). */
+    TRUSTED_CLIENT_IP_SOURCE_HEADER: optionalString,
     SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(720).default(12),
     MAGIC_LINK_TTL_MINUTES: z.coerce.number().int().min(5).max(120).default(30),
     /**

@@ -129,6 +129,12 @@
 
 ### Security
 
+- Доверенный client IP за BFF: reverse proxy передаёт `X-Forwarded-For`,
+  web подписывает первый IP HMAC-ключом `TRUSTED_CLIENT_IP_SECRET`, API
+  проверяет `x-pc-client-ip`/`x-pc-client-ip-signature` и использует его в
+  Better Auth, Fastify rate limit и аудите. Подделанные заголовки удаляются;
+  без секрета остаётся egress-IP BFF.
+
 - `minimatch` 10.x закреплён override на 11.0.1: закрывает dev-only
   Dependabot alert GHSA-g3hv-75wg-m249. Lint после обновления зелёный.
 

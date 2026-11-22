@@ -27,6 +27,7 @@ import { SmtpMailer } from "./auth/mailer.js";
 import { createAuthRuntime } from "./auth/runtime.js";
 import { loggerOptions } from "./logger.js";
 import { VENDOR_AUDIT_ACTIONS } from "./vendor-auth/audit-actions.js";
+import { TRUSTED_CLIENT_IP_HEADER } from "@partner-coder/domain";
 import { createVendorAuth } from "./vendor-auth/config.js";
 import type { VendorAuthRuntime } from "./vendor-auth/runtime.js";
 
@@ -174,7 +175,9 @@ const vendorAuth = createVendorAuth({
     }
   },
   rateLimitStorage,
-  ipAddressHeaders: parseList(env.AUTH_IP_HEADERS),
+  ipAddressHeaders: env.TRUSTED_CLIENT_IP_SECRET
+    ? [TRUSTED_CLIENT_IP_HEADER]
+    : parseList(env.AUTH_IP_HEADERS),
   trustedProxies: parseList(env.AUTH_TRUSTED_PROXIES),
 });
 
@@ -209,6 +212,9 @@ const server = buildServer({
   emailRateLimitStore,
   vendorRuntime,
   vendorEmailRateLimitStore,
+  ...(env.TRUSTED_CLIENT_IP_SECRET === undefined
+    ? {}
+    : { trustedClientIpSecret: env.TRUSTED_CLIENT_IP_SECRET }),
   onError: (error) => telemetry.captureException(error),
 });
 

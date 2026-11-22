@@ -1,3 +1,8 @@
+import {
+  TRUSTED_CLIENT_IP_HEADER,
+  TRUSTED_CLIENT_IP_SIGNATURE_HEADER,
+  verifyClientIpSignature,
+} from "@partner-coder/domain";
 import { describe, expect, it, vi } from "vitest";
 
 import { proxyVendorRequest } from "./proxy";
@@ -40,6 +45,62 @@ describe("proxyVendorRequest", () => {
     ]);
   });
 
+  it("подписывает доверенный client IP из reverse proxy", async () => {
+    const secret = "unit-test-trusted-client-ip-secret-32-bytes";
+    let forwarded: Headers | undefined;
+    const fetchImpl: FetchLike = async (_url, init) => {
+      forwarded = new Headers(init.headers);
+      return new Response("{}", { status: 200 });
+    };
+
+    await proxyVendorRequest(
+      createRequest("/api/vendor-auth/me", {
+        headers: { "x-forwarded-for": "203.0.113.5, 10.0.0.1" },
+      }),
+      ["me"],
+      {
+        ...options,
+        fetchImpl,
+        trustedClientIpSecret: secret,
+        clientIpSourceHeader: "x-forwarded-for",
+      },
+    );
+
+    const headers = forwarded as Headers;
+    expect(headers.get(TRUSTED_CLIENT_IP_HEADER)).toBe("203.0.113.5");
+    expect(
+      verifyClientIpSignature(
+        secret,
+        "203.0.113.5",
+        headers.get(TRUSTED_CLIENT_IP_SIGNATURE_HEADER) ?? "",
+      ),
+    ).toBe(true);
+    expect(headers.get("x-forwarded-for")).toBeNull();
+  });
+
+  it("не подписывает невалидный client IP", async () => {
+    let forwarded: Headers | undefined;
+    const fetchImpl: FetchLike = async (_url, init) => {
+      forwarded = new Headers(init.headers);
+      return new Response("{}", { status: 200 });
+    };
+
+    await proxyVendorRequest(
+      createRequest("/api/vendor-auth/me", {
+        headers: { "x-forwarded-for": "unknown" },
+      }),
+      ["me"],
+      {
+        ...options,
+        fetchImpl,
+        trustedClientIpSecret: "unit-test-trusted-client-ip-secret-32-bytes",
+      },
+    );
+
+    const headers = forwarded as Headers;
+    expect(headers.get(TRUSTED_CLIENT_IP_HEADER)).toBeNull();
+    expect(headers.get(TRUSTED_CLIENT_IP_SIGNATURE_HEADER)).toBeNull();
+  });
   it("не пересылает host, referer и x-forwarded-*", async () => {
     let forwarded: Headers | undefined;
     const fetchImpl: FetchLike = async (_url, init) => {

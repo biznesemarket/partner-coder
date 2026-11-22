@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 
+import { trustedClientIpOptions } from "@/lib/client-ip-options";
 import { jsonError, proxyVendorRequest } from "@/lib/proxy";
 
 export const runtime = "nodejs";
@@ -21,6 +22,7 @@ async function handle(request: NextRequest, context: RouteContext): Promise<Resp
   return proxyVendorRequest(request, path, {
     apiBaseUrl,
     targetPathPrefix: "/api/vendor-auth",
+    ...trustedClientIpOptions(),
   });
 }
 

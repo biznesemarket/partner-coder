@@ -1,3 +1,10 @@
+import {
+  normalizeClientIp,
+  signClientIp,
+  TRUSTED_CLIENT_IP_HEADER,
+  TRUSTED_CLIENT_IP_SIGNATURE_HEADER,
+} from "@partner-coder/domain";
+
 const FORWARD_HEADERS = [
   "cookie",
   "content-type",
@@ -33,6 +40,8 @@ export type ProxyVendorRequestOptions = {
   fetchImpl?: FetchLike;
   expectedOrigin?: string;
   logger?: ProxyLogger;
+  trustedClientIpSecret?: string;
+  clientIpSourceHeader?: string;
 };
 
 function defaultLogger(line: string): void {
@@ -148,7 +157,11 @@ function buildTargetUrl(
   return `${base}${prefix}/${pathSegments.join("/")}${search}`;
 }
 
-function buildForwardHeaders(request: Request, requestId: string): Headers {
+function buildForwardHeaders(
+  request: Request,
+  requestId: string,
+  options: ProxyVendorRequestOptions,
+): Headers {
   const headers = new Headers();
 
   for (const name of FORWARD_HEADERS) {
@@ -159,6 +172,20 @@ function buildForwardHeaders(request: Request, requestId: string): Headers {
   }
 
   headers.set("x-request-id", requestId);
+
+  if (options.trustedClientIpSecret) {
+    const ip = normalizeClientIp(
+      request.headers.get(options.clientIpSourceHeader?.trim() || "x-forwarded-for"),
+    );
+    if (ip !== null) {
+      headers.set(TRUSTED_CLIENT_IP_HEADER, ip);
+      headers.set(
+        TRUSTED_CLIENT_IP_SIGNATURE_HEADER,
+        signClientIp(options.trustedClientIpSecret, ip),
+      );
+    }
+  }
+
   return headers;
 }
 
@@ -253,7 +280,7 @@ export async function proxyVendorRequest(
 
   const init: RequestInit = {
     method,
-    headers: buildForwardHeaders(request, requestId),
+    headers: buildForwardHeaders(request, requestId, options),
     redirect: "manual",
     signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     cache: "no-store",

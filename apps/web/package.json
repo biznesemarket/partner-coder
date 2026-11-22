@@ -15,6 +15,7 @@
     "@better-auth/passkey": "1.7.25",
     "@fontsource-variable/inter": "5.3.0",
     "@hookform/resolvers": "7.0.6",
+    "@partner-coder/domain": "workspace:*",
     "@partner-coder/ui": "workspace:*",
     "@tailwindcss/postcss": "4.3.5",
     "better-auth": "1.7.25",

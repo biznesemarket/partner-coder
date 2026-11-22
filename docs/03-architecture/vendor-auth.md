@@ -744,12 +744,15 @@ guard). Для административных изменений аудит п
 (whitelist из двух имён) и переиспользуется для вендорского контура; SQL
 остаётся атомарным `INSERT … ON CONFLICT DO UPDATE`.
 
-За same-origin BFF (ADR-0014) per-IP лимиты Better Auth и глобальный
-Fastify-лимит видят egress-IP BFF и становятся instance-global. Для 4–10
-вендорских сотрудников это приемлемо; первичная защита — per-email 5/60 и
-account lockout, потому что ключ этих лимитов — email. По той же причине
-audit-события за BFF фиксируют egress-IP BFF, а не клиентский. Доверенный
-client IP — follow-up после выбора хостинга и подписи заголовка.
+Доверенный client IP реализован как подписанный заголовок. Reverse proxy
+перезаписывает `X-Forwarded-For`; BFF берёт первый IP, подписывает его
+HMAC-SHA-256 и передаёт `x-pc-client-ip` + `x-pc-client-ip-signature`.
+API проверяет подпись, удаляет подделку и только затем использует IP в
+Better Auth, глобальном Fastify-лимите и audit-событиях. Включается
+`TRUSTED_CLIENT_IP_SECRET` (>= 32 байт) одновременно на web и API;
+`TRUSTED_CLIENT_IP_SOURCE_HEADER` по умолчанию `x-forwarded-for`. Без
+секрета заголовки удаляются, а лимиты и аудит видят egress-IP BFF.
+Per-email 5/60 и account lockout остаются первичной защитой.
 
 ## 11. Окружение
 

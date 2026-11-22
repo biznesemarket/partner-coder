@@ -19,6 +19,7 @@ import {
   type VendorContact,
 } from "@partner-coder/db";
 
+import { requestClientIp } from "../client-ip.js";
 import { ApiError } from "../errors.js";
 import {
   vendorCustomerCreateSchema,
@@ -210,7 +211,7 @@ export function registerVendorFinanceRoutes(
             legalName: created.legalName,
             status: created.status,
           },
-          ip: request.ip || null,
+          ip: requestClientIp(request),
         });
         return created;
       });
@@ -263,7 +264,7 @@ export function registerVendorFinanceRoutes(
               status: customer.status,
               legalName: customer.legalName,
             },
-            ip: request.ip || null,
+            ip: requestClientIp(request),
           });
         }
         return customer;
@@ -323,7 +324,7 @@ export function registerVendorFinanceRoutes(
             priceKopecks: created.priceKopecks.toString(),
             isActive: created.isActive,
           },
-          ip: request.ip || null,
+          ip: requestClientIp(request),
         });
         return created;
       });
@@ -378,7 +379,7 @@ export function registerVendorFinanceRoutes(
           priceKopecks: plan.priceKopecks.toString(),
           isActive: plan.isActive,
         },
-        ip: request.ip || null,
+        ip: requestClientIp(request),
       });
       return plan;
     });

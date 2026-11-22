@@ -44,8 +44,8 @@
 | Passkey вместо TOTP            | Passkey не снимает `vendor_mfa_required`; password-only сессия не меняет пароль/сессии/ключи        |
 | Эскалация вендорской роли      | guard `superadmin`, `confirmSuperadmin`, отказ `vendor_role_denied` в аудите                        |
 | CSRF вендорской консоли        | Origin guard на `/v1/vendor/*` и `/api/vendor-auth/*`, SameSite cookie, origin-check BFF            |
-| Per-IP лимиты за BFF           | BFF видит egress-IP; ключ per-email 5/60 и lockout остаются, trusted client IP — follow-up          |
-| Audit IP за BFF                | События фиксируют egress-IP BFF; корреляция по `x-request-id`, follow-up — доверенный IP            |
+| Per-IP лимиты за BFF           | BFF подписывает client IP; API проверяет HMAC, per-email 5/60 и lockout остаются                    |
+| Audit IP за BFF                | Проверенный client IP из подписанного BFF-заголовка; иначе egress-IP BFF; `x-request-id`            |
 | Подмена вендорского аудита     | append-only, HMAC-цепочка с ключом вне БД, `verify_vendor_audit_chain()`, дневной якорь             |
 | Prompt injection через данные  | MCP не исполняет данные как инструкции; allowlist инструментов                                      |
 | Подмена счета/оплаты           | append-only, аудит с хеш-цепочкой, права финансов                                                   |

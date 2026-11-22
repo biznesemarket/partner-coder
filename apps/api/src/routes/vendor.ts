@@ -23,6 +23,7 @@ import {
 } from "@partner-coder/db";
 
 import { DatabaseEmailRateLimiter } from "../auth/email-rate-limit.js";
+import { requestClientIp } from "../client-ip.js";
 import { ApiError } from "../errors.js";
 import {
   vendorStepUpSchema,
@@ -90,7 +91,7 @@ async function sendInvite(
       role: user.role,
       status: user.status,
     },
-    ip: request.ip || null,
+    ip: requestClientIp(request),
   });
 }
 
@@ -175,7 +176,7 @@ export function registerVendorRoutes(server: FastifyInstance, runtime: VendorAut
           action: "vendor.auth.step_up_failed",
           entity: "vendor_session",
           after: { sessionId: identity.sessionId, reason: "invalid_password" },
-          ip: request.ip || null,
+          ip: requestClientIp(request),
         });
         throw new ApiError(400, "invalid_password", "Неверный пароль");
       }
@@ -198,7 +199,7 @@ export function registerVendorRoutes(server: FastifyInstance, runtime: VendorAut
         action: "vendor.auth.step_up_succeeded",
         entity: "vendor_session",
         after: { sessionId: identity.sessionId, stepUpUntil: stepUpUntil.toISOString() },
-        ip: request.ip || null,
+        ip: requestClientIp(request),
       });
 
       return { stepUpUntil };
@@ -294,7 +295,7 @@ export function registerVendorRoutes(server: FastifyInstance, runtime: VendorAut
             entity: "vendor_user",
             before: { role: before.role },
             after: { userId: id, role: after.role },
-            ip: request.ip || null,
+            ip: requestClientIp(request),
           });
         }
         if (input.status !== undefined && input.status !== before.status) {
@@ -304,7 +305,7 @@ export function registerVendorRoutes(server: FastifyInstance, runtime: VendorAut
             entity: "vendor_user",
             before: { status: before.status },
             after: { userId: id, status: after.status },
-            ip: request.ip || null,
+            ip: requestClientIp(request),
           });
         }
         return after;
@@ -332,7 +333,7 @@ export function registerVendorRoutes(server: FastifyInstance, runtime: VendorAut
           action: "vendor.session.revoked",
           entity: "vendor_user",
           after: { userId: id, count, reason: updated.status },
-          ip: request.ip || null,
+          ip: requestClientIp(request),
         });
       } catch (error) {
         request.log.warn({ err: error, vendorUserId: id }, "vendor_session_revoke_failed");
@@ -364,7 +365,7 @@ export function registerVendorRoutes(server: FastifyInstance, runtime: VendorAut
         action: "vendor.user.password_reset_requested",
         entity: "vendor_user",
         after: { userId: user.id },
-        ip: request.ip || null,
+        ip: requestClientIp(request),
       });
       return { status: true };
     },
@@ -380,7 +381,7 @@ export function registerVendorRoutes(server: FastifyInstance, runtime: VendorAut
 
     return resetVendorMfa(runtime.authDb, id, {
       actorId: identity.userId,
-      ip: request.ip || null,
+      ip: requestClientIp(request),
     });
   });
 }

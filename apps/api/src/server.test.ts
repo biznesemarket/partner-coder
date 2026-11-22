@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  signClientIp,
+  TRUSTED_CLIENT_IP_HEADER,
+  TRUSTED_CLIENT_IP_SIGNATURE_HEADER,
+} from "@partner-coder/domain";
+
 import { ApiError } from "./server.js";
 import { buildServer } from "./server.js";
 
@@ -40,6 +46,52 @@ describe("api skeleton", () => {
     await server.close();
   });
 
+  it("принимает только подписанный client IP и удаляет подделку", async () => {
+    const secret = "unit-test-trusted-client-ip-secret-32-bytes";
+    const server = buildServer({ trustedClientIpSecret: secret });
+    server.get("/test-client-ip", async (request) => ({
+      verified: request.headers[TRUSTED_CLIENT_IP_HEADER] ?? null,
+    }));
+
+    const valid = await server.inject({
+      method: "GET",
+      url: "/test-client-ip",
+      headers: {
+        [TRUSTED_CLIENT_IP_HEADER]: "203.0.113.5",
+        [TRUSTED_CLIENT_IP_SIGNATURE_HEADER]: signClientIp(secret, "203.0.113.5"),
+      },
+    });
+    expect(valid.json()).toEqual({ verified: "203.0.113.5" });
+
+    const forged = await server.inject({
+      method: "GET",
+      url: "/test-client-ip",
+      headers: {
+        [TRUSTED_CLIENT_IP_HEADER]: "203.0.113.5",
+        [TRUSTED_CLIENT_IP_SIGNATURE_HEADER]: "0".repeat(64),
+      },
+    });
+    expect(forged.json()).toEqual({ verified: null });
+    await server.close();
+  });
+
+  it("без секрета удаляет client IP заголовки в любом случае", async () => {
+    const server = buildServer();
+    server.get("/test-client-ip", async (request) => ({
+      verified: request.headers[TRUSTED_CLIENT_IP_HEADER] ?? null,
+    }));
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/test-client-ip",
+      headers: {
+        [TRUSTED_CLIENT_IP_HEADER]: "203.0.113.5",
+        [TRUSTED_CLIENT_IP_SIGNATURE_HEADER]: "0".repeat(64),
+      },
+    });
+    expect(response.json()).toEqual({ verified: null });
+    await server.close();
+  });
   it("входящий x-request-id сохраняется", async () => {
     const server = buildServer();
     const response = await server.inject({
