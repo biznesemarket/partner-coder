@@ -27,6 +27,19 @@ test.describe("вендорская аутентификация", () => {
     );
   });
 
+  test("выставляет CSP nonce и применяет его к скриптам", async ({ page }) => {
+    const response = await page.goto("/login");
+    const csp = response?.headers()["content-security-policy"];
+    expect(csp).toContain("script-src");
+    const nonce = csp?.match(/'nonce-([^']+)'/)?.[1];
+    expect(nonce).toBeTruthy();
+    const scriptNonces = await page.evaluate(() =>
+      Array.from(document.scripts)
+        .map((script) => script.nonce)
+        .filter(Boolean),
+    );
+    expect(scriptNonces).toContain(nonce);
+  });
   test("показывает русскую ошибку при неверном пароле", async ({ page }) => {
     // Очищаем окно sign-in/email: иначе special-rule Better Auth (3/10 с на
     // IP+путь) может ответить 429 вместо проверяемой ошибки.
