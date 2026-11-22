@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { Pool } from "pg";
 
-import { TEST_AUDIT_HMAC_KEY, createTestDatabase, type TestDatabase } from "./helpers.js";
+import { createTestDatabase, type TestDatabase } from "./helpers.js";
 import { seedVendorBase } from "./fixtures.js";
 
 let database: TestDatabase;
@@ -22,31 +22,24 @@ afterAll(async () => {
   await database?.drop();
 }, 60_000);
 
-function poolWithKey(key: string): Pool {
-  return new Pool({
-    connectionString: database.url,
-    max: 1,
-    options: `-c app.audit_hmac_key=${key}`,
-  });
-}
-
 describe("HMAC-ключ цепочки аудита", () => {
   it("проверяет цепочку только с тем же ключом", async () => {
-    const sameKey = poolWithKey(TEST_AUDIT_HMAC_KEY);
-    const otherKey = poolWithKey("1".repeat(64));
-    try {
-      const valid = await sameKey.query<{ ok: boolean }>(
-        "select verify_vendor_audit_chain() as ok",
-      );
-      expect(valid.rows[0]?.ok).toBe(true);
+    const valid = await database.pool.query<{ ok: boolean }>(
+      "select verify_vendor_audit_chain() as ok",
+    );
+    expect(valid.rows[0]?.ok).toBe(true);
 
-      const invalid = await otherKey.query<{ ok: boolean }>(
+    const client = await database.pool.connect();
+    try {
+      await client.query("begin");
+      await client.query("select set_config('app.audit_hmac_key', $1, true)", ["1".repeat(64)]);
+      const invalid = await client.query<{ ok: boolean }>(
         "select verify_vendor_audit_chain() as ok",
       );
       expect(invalid.rows[0]?.ok).toBe(false);
+      await client.query("rollback");
     } finally {
-      await sameKey.end();
-      await otherKey.end();
+      client.release();
     }
   });
 

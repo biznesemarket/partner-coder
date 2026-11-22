@@ -48,6 +48,8 @@ export default defineConfig({
       env: {
         API_BASE_URL: "http://127.0.0.1:4000",
         PROXY_UPSTREAM_TIMEOUT_MS: "60000",
+        TRUSTED_CLIENT_IP_SECRET: "e2e-trusted-client-ip-secret-32-bytes",
+        TRUSTED_CLIENT_IP_SOURCE_HEADER: "x-forwarded-for",
         VENDOR_BASE_URL: "http://localhost:3001",
       },
       reuseExistingServer: false,

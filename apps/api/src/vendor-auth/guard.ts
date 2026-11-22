@@ -2,6 +2,7 @@ import type { FastifyRequest } from "fastify";
 
 import { revokeVendorSessions, writeVendorAudit, type VendorRole } from "@partner-coder/db";
 
+import { requestClientIp } from "../client-ip.js";
 import { ApiError } from "../errors.js";
 import { resolveVendorIdentity, type VendorAuthRuntime, type VendorIdentity } from "./runtime.js";
 
@@ -59,7 +60,7 @@ async function auditRoleDenied(
         method: request.method,
         path: auditPath(request),
       },
-      ip: request.ip || null,
+      ip: requestClientIp(request),
     });
   } catch (error) {
     request.log.error({ err: error, vendorUserId: identity.userId }, "vendor_role_audit_failed");

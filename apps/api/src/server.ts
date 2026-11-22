@@ -1,3 +1,7 @@
+import {
+  TRUSTED_CLIENT_IP_HEADER,
+  TRUSTED_CLIENT_IP_SIGNATURE_HEADER,
+} from "@partner-coder/domain";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
@@ -7,6 +11,7 @@ import type { LoggerOptions } from "pino";
 import type { ErrorEnvelope } from "@partner-coder/contracts";
 import { AuthServiceError } from "@partner-coder/db";
 
+import { verifyTrustedClientIp } from "./client-ip.js";
 import { ApiError } from "./errors.js";
 import type { AuthRuntime } from "./auth/runtime.js";
 import { createHttpMetrics } from "./metrics.js";
@@ -74,6 +79,7 @@ export interface BuildServerOptions {
   readonly emailRateLimitStore?: EmailRateLimitStore;
   readonly vendorRuntime?: VendorAuthRuntime;
   readonly vendorEmailRateLimitStore?: EmailRateLimitStore;
+  readonly trustedClientIpSecret?: string;
   readonly onError?: (error: unknown, request: FastifyRequest) => void;
 }
 
@@ -123,11 +129,32 @@ export function buildServer(options: BuildServerOptions = {}): FastifyInstance {
     bodyLimit: 256 * 1024,
   });
 
+  const trustedClientIpSecret = options.trustedClientIpSecret;
+
+  server.addHook("onRequest", (request, _reply, done) => {
+    const rawIp = request.headers[TRUSTED_CLIENT_IP_HEADER];
+    const rawSignature = request.headers[TRUSTED_CLIENT_IP_SIGNATURE_HEADER];
+    delete request.headers[TRUSTED_CLIENT_IP_HEADER];
+    delete request.headers[TRUSTED_CLIENT_IP_SIGNATURE_HEADER];
+
+    if (trustedClientIpSecret) {
+      const verified = verifyTrustedClientIp(rawIp, rawSignature, trustedClientIpSecret);
+      if (verified !== null) {
+        request.headers[TRUSTED_CLIENT_IP_HEADER] = verified;
+      }
+    }
+    done();
+  });
+
   void server.register(rateLimit, {
     global: true,
     max: 300,
     timeWindow: "1 minute",
     allowList: (request) => request.url === "/healthz" || request.url === "/readyz",
+    keyGenerator: (request) => {
+      const verified = request.headers[TRUSTED_CLIENT_IP_HEADER];
+      return typeof verified === "string" && verified !== "" ? verified : request.ip;
+    },
   });
 
   if (options.corsOrigins && options.corsOrigins.length > 0) {

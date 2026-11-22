@@ -12,6 +12,7 @@ import {
   type ProvisioningPackage,
 } from "@partner-coder/db";
 
+import { requestClientIp } from "../client-ip.js";
 import { ApiError } from "../errors.js";
 import {
   vendorIdParamsSchema,
@@ -119,7 +120,7 @@ export function registerVendorPackageRoutes(
             expiresAt: issued.package.expiresAt.toISOString(),
             onboardingSessionId: onboarding.id,
           },
-          ip: request.ip || null,
+          ip: requestClientIp(request),
         });
         return issued;
       });
@@ -183,7 +184,7 @@ export function registerVendorPackageRoutes(
             onboardingSessionId: onboarding.id,
             reason: input.reason ?? null,
           },
-          ip: request.ip || null,
+          ip: requestClientIp(request),
         });
         return issued;
       });

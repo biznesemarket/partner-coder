@@ -15,6 +15,7 @@ export * from "./flags.js";
 export * from "./explain.js";
 export * from "./hash.js";
 export * from "./billing.js";
+export * from "./trusted-client-ip.js";
 
 export * from "./time/timezone.js";
 export * from "./time/intervals.js";

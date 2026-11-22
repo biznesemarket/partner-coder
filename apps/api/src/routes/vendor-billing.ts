@@ -33,6 +33,7 @@ import {
   type SubscriptionDiscount,
 } from "@partner-coder/db";
 
+import { requestClientIp } from "../client-ip.js";
 import { ApiError } from "../errors.js";
 import {
   vendorContractCreateSchema,
@@ -265,7 +266,7 @@ export function registerVendorBillingRoutes(
             number: created.number,
             status: created.status,
           },
-          ip: request.ip || null,
+          ip: requestClientIp(request),
         });
         return created;
       });
@@ -340,7 +341,7 @@ export function registerVendorBillingRoutes(
             periodStart: created.periodStart,
             periodEnd: created.periodEnd,
           },
-          ip: request.ip || null,
+          ip: requestClientIp(request),
         });
         return created;
       });
@@ -396,7 +397,7 @@ export function registerVendorBillingRoutes(
             periodStart: subscription.periodStart,
             periodEnd: subscription.periodEnd,
           },
-          ip: request.ip || null,
+          ip: requestClientIp(request),
         });
         return subscription;
       });
@@ -465,7 +466,7 @@ export function registerVendorBillingRoutes(
             graceUntil: subscription.graceUntil?.toISOString() ?? null,
             reason: input.reason ?? null,
           },
-          ip: request.ip || null,
+          ip: requestClientIp(request),
         });
         return subscription;
       });
@@ -535,7 +536,7 @@ export function registerVendorBillingRoutes(
             endsOn: created.endsOn,
             note: created.note,
           },
-          ip: request.ip || null,
+          ip: requestClientIp(request),
         });
         return created;
       });
@@ -605,7 +606,7 @@ export function registerVendorBillingRoutes(
               issuedOn: created.issuedOn,
               dueOn: created.dueOn,
             },
-            ip: request.ip || null,
+            ip: requestClientIp(request),
           });
           return created;
         });
@@ -655,7 +656,7 @@ export function registerVendorBillingRoutes(
           status: invoice.status,
           pdfUrl: invoice.pdfUrl,
         },
-        ip: request.ip || null,
+        ip: requestClientIp(request),
       });
       return invoice;
     });
@@ -720,7 +721,7 @@ export function registerVendorBillingRoutes(
             method: created.method,
             paidOn: created.paidOn,
           },
-          ip: request.ip || null,
+          ip: requestClientIp(request),
         });
         return created;
       });
@@ -782,7 +783,7 @@ export function registerVendorBillingRoutes(
             subscriptionIds: changed,
             reason: input.reason ?? null,
           },
-          ip: request.ip || null,
+          ip: requestClientIp(request),
         });
         return updatedCustomer;
       });
@@ -850,7 +851,7 @@ export function registerVendorBillingRoutes(
             periodEnd: input.periodEnd ?? null,
             reason: input.reason ?? null,
           },
-          ip: request.ip || null,
+          ip: requestClientIp(request),
         });
         return updatedCustomer;
       });

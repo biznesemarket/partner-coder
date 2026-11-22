@@ -48,9 +48,13 @@ WebAuthn требует HTTPS (кроме `localhost`), поэтому staging-�
 (значение считывается в `next.config.ts` на этапе `pnpm build` и попадает в
 build-манифест — задать только на runtime недостаточно).
 
-BFF видит egress-IP web-сервера: per-IP лимиты API и audit IP становятся
-общими на инстанс, пока не передан доверенный client IP (follow-up). CSP с
-nonce — тоже follow-up; сейчас выставляются базовые security-заголовки.
+Для доверенного client IP задайте `TRUSTED_CLIENT_IP_SECRET` (>= 32 байт)
+и на web, и на API; `TRUSTED_CLIENT_IP_SOURCE_HEADER` по умолчанию
+`x-forwarded-for`. BFF подписывает первый IP, API проверяет подпись и
+использует его в Better Auth, Fastify-лимите и аудите. Reverse proxy обязан
+**перезаписывать** `X-Forwarded-For`, а не добавлять к клиентскому значению.
+Без секрета лимиты и аудит видят egress-IP web-сервера.
+CSP с nonce реализован в web-контейнере.
 
 Rate limit: вне local по умолчанию используется общий PostgreSQL-store;
 `RATE_LIMIT_STORAGE=database` можно задать явно, `memory` — только для

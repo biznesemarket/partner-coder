@@ -6,6 +6,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { writeVendorAudit, type VendorAuditEvent } from "@partner-coder/db";
 
 import { EmailRateLimiter, type EmailRateLimitStore } from "../auth/email-rate-limit.js";
+import { requestClientIp } from "../client-ip.js";
 import { ApiError } from "../errors.js";
 import { VENDOR_AUDIT_ACTIONS } from "../vendor-auth/audit-actions.js";
 import { normalizeBaseUrl, stripTrailingSlashes } from "../vendor-auth/base-url.js";
@@ -204,7 +205,7 @@ async function auditResponse(
         emailHash: sha256(email),
         reason: status === 403 ? "inactive" : "invalid_credentials",
       },
-      ip: request.ip || null,
+      ip: requestClientIp(request),
     });
     return;
   }
@@ -215,7 +216,7 @@ async function auditResponse(
       action: VENDOR_AUDIT_ACTIONS.mfaFailed,
       entity: "vendor_auth",
       after: { path, reason: status === 429 ? "locked" : "invalid_totp" },
-      ip: request.ip || null,
+      ip: requestClientIp(request),
     });
     return;
   }
@@ -230,7 +231,7 @@ async function auditResponse(
       action: VENDOR_AUDIT_ACTIONS.mfaEnabled,
       entity: "vendor_user",
       after: { userId: identity.userId, sessionId: identity.sessionId },
-      ip: request.ip || null,
+      ip: requestClientIp(request),
     });
     return;
   }
@@ -249,7 +250,7 @@ async function auditResponse(
       action: passkeyEvent,
       entity: "vendor_passkey",
       after: { userId: identity.userId, sessionId: identity.sessionId },
-      ip: request.ip || null,
+      ip: requestClientIp(request),
     });
     return;
   }
@@ -270,7 +271,7 @@ async function auditResponse(
     action: sessionEvent,
     entity: "vendor_session",
     after: { userId: identity.userId, sessionId: identity.sessionId, path },
-    ip: request.ip || null,
+    ip: requestClientIp(request),
   });
 }
 
