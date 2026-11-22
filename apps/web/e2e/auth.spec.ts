@@ -35,6 +35,11 @@ test.describe("вендорская аутентификация", () => {
     await expect(page.getByRole("heading", { name: "Профиль", level: 1 })).toBeVisible();
     await expect(page).toHaveURL(/\/me$/);
   });
+  test("подсказывает восстановление при потере passkey", async ({ page }) => {
+    await page.goto("/login");
+
+    await expect(page.getByText(/Потеряли ключ доступа\?/)).toBeVisible();
+  });
   test("выставляет CSP nonce и применяет его к скриптам", async ({ page }) => {
     const response = await page.goto("/login");
     const csp = response?.headers()["content-security-policy"];

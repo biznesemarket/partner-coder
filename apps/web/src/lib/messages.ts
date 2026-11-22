@@ -135,6 +135,8 @@ export const security = {
   passkeysTitle: "Ключи доступа",
   passkeysDescription:
     "Ключи доступа заменяют пароль при входе. Сервер хранит только открытый ключ.",
+  passkeysRecoveryHint:
+    "Если устройство потеряно, войдите по паролю и TOTP, затем удалите старый ключ здесь. Если потерян и TOTP, сброс MFA выполняет суперадминистратор.",
   passkeysLoading: "Загружаем ключи доступа…",
   passkeysLoadFailed: "Не удалось загрузить ключи доступа.",
   passkeysEmptyTitle: "Ключей доступа нет",
@@ -190,6 +192,8 @@ export const auth = {
   passkey: "Войти с ключом доступа",
   passkeyPending: "Ожидаем ключ доступа…",
   passkeyUnavailable: "Ключи доступа не поддерживаются этим браузером.",
+  passkeyRecoveryHint:
+    "Потеряли ключ доступа? Войдите по паролю и коду TOTP, затем удалите старый ключ в разделе «Безопасность».",
   forgotPassword: "Забыли пароль?",
   forgotPasswordTitle: "Восстановление пароля",
   forgotPasswordDescription: "Укажите email — мы отправим ссылку для сброса пароля.",

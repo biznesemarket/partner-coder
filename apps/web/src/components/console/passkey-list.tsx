@@ -303,6 +303,7 @@ export function PasskeyList() {
             {messages.security.passkeysTitle}
           </h3>
           <p className="text-sm text-muted-foreground">{messages.security.passkeysDescription}</p>
+          <p className="text-xs text-muted-foreground">{messages.security.passkeysRecoveryHint}</p>
           {mounted && !passkeyAvailable ? (
             <p id={UNSUPPORTED_ID} className="text-xs text-muted-foreground">
               {messages.security.passkeyUnsupported}

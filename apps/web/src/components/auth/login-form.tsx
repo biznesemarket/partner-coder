@@ -301,15 +301,20 @@ export function LoginForm({ returnTo, reason, outage }: LoginFormProps) {
                 {pending === "password" ? messages.auth.signingIn : messages.auth.signIn}
               </Button>
               {passkeyAvailable ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void handlePasskeySignIn()}
-                  disabled={pending !== null}
-                >
-                  {pending === "passkey" ? <Spinner className="h-4 w-4" /> : null}
-                  {pending === "passkey" ? messages.auth.passkeyPending : messages.auth.passkey}
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void handlePasskeySignIn()}
+                    disabled={pending !== null}
+                  >
+                    {pending === "passkey" ? <Spinner className="h-4 w-4" /> : null}
+                    {pending === "passkey" ? messages.auth.passkeyPending : messages.auth.passkey}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    {messages.auth.passkeyRecoveryHint}
+                  </p>
+                </>
               ) : mounted ? (
                 <p className="text-sm text-muted-foreground">{messages.auth.passkeyUnavailable}</p>
               ) : null}
